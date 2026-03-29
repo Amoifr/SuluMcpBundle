@@ -100,7 +100,7 @@ Deferred to future release. Tracked but not in current roadmap.
 
 ### Extended Content Operations
 
-- **EXTD-01**: Snippet CRUD (create, update, delete — not just read)
+- **EXTD-01**: Snippet CRUD (create, update, delete -- not just read)
 - **EXTD-02**: Media upload from URL
 - **EXTD-03**: Navigation management (write operations)
 - **EXTD-04**: Locale-aware translation suggestions (what locales are missing)
@@ -114,12 +114,12 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Feature | Reason |
 |---------|--------|
-| REST API layer | Bundle uses Sulu services directly — no API indirection |
+| REST API layer | Bundle uses Sulu services directly -- no API indirection |
 | Stdio transport | HTTP/SSE only for remote/cloud deployments |
-| Direct AI auto-publishing | Safety concern — AI creates drafts, humans review and publish deliberately |
+| Direct AI auto-publishing | Safety concern -- AI creates drafts, humans review and publish deliberately |
 | Full REST API proxy | Violates MCP best practice of outcome-oriented tools; creates tool sprawl |
 | Real-time collaborative editing | Requires OT/CRDT, massive complexity; no CMS MCP server does this |
-| Custom block type creation | Block types define site architecture — remains a developer task |
+| Custom block type creation | Block types define site architecture -- remains a developer task |
 | AI-generated media | Separate concern from CMS content management; requires external services |
 | Bulk operations across all content | Dangerous with AI agents; one bad prompt updates hundreds of pages |
 | Content workflow states beyond draft/published | Sulu's core is draft/published; custom workflows are a future concern |
@@ -129,56 +129,56 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TRNS-01 | Phase ? | Pending |
-| TRNS-02 | Phase ? | Pending |
-| TRNS-03 | Phase ? | Pending |
-| AUTH-01 | Phase ? | Pending |
-| AUTH-02 | Phase ? | Pending |
-| AUTH-03 | Phase ? | Pending |
-| PAGE-01 | Phase ? | Pending |
-| PAGE-02 | Phase ? | Pending |
-| PAGE-03 | Phase ? | Pending |
-| PAGE-04 | Phase ? | Pending |
-| PAGE-05 | Phase ? | Pending |
-| ARTC-01 | Phase ? | Pending |
-| ARTC-02 | Phase ? | Pending |
-| ARTC-03 | Phase ? | Pending |
-| ARTC-04 | Phase ? | Pending |
-| ARTC-05 | Phase ? | Pending |
-| BLCK-01 | Phase ? | Pending |
-| BLCK-02 | Phase ? | Pending |
-| BLCK-03 | Phase ? | Pending |
-| BLCK-04 | Phase ? | Pending |
-| PUBL-01 | Phase ? | Pending |
-| PUBL-02 | Phase ? | Pending |
-| TAXO-01 | Phase ? | Pending |
-| TAXO-02 | Phase ? | Pending |
-| TAXO-03 | Phase ? | Pending |
-| TAXO-04 | Phase ? | Pending |
-| TAXO-05 | Phase ? | Pending |
-| TAXO-06 | Phase ? | Pending |
-| MDIA-01 | Phase ? | Pending |
-| MDIA-02 | Phase ? | Pending |
-| MDIA-03 | Phase ? | Pending |
-| READ-01 | Phase ? | Pending |
-| READ-02 | Phase ? | Pending |
-| READ-03 | Phase ? | Pending |
-| RSRC-01 | Phase ? | Pending |
-| RSRC-02 | Phase ? | Pending |
-| RSRC-03 | Phase ? | Pending |
-| RSRC-04 | Phase ? | Pending |
-| GUID-01 | Phase ? | Pending |
-| GUID-02 | Phase ? | Pending |
-| GUID-03 | Phase ? | Pending |
-| GUID-04 | Phase ? | Pending |
-| LOCL-01 | Phase ? | Pending |
-| LOCL-02 | Phase ? | Pending |
+| TRNS-01 | Phase 1 | Pending |
+| TRNS-02 | Phase 1 | Pending |
+| TRNS-03 | Phase 1 | Pending |
+| AUTH-01 | Phase 1 | Pending |
+| AUTH-02 | Phase 1 | Pending |
+| AUTH-03 | Phase 1 | Pending |
+| LOCL-01 | Phase 1 | Pending |
+| LOCL-02 | Phase 1 | Pending |
+| RSRC-01 | Phase 2 | Pending |
+| RSRC-02 | Phase 2 | Pending |
+| RSRC-03 | Phase 2 | Pending |
+| RSRC-04 | Phase 2 | Pending |
+| GUID-01 | Phase 2 | Pending |
+| GUID-02 | Phase 2 | Pending |
+| GUID-03 | Phase 2 | Pending |
+| GUID-04 | Phase 2 | Pending |
+| PAGE-01 | Phase 3 | Pending |
+| PAGE-02 | Phase 3 | Pending |
+| PAGE-03 | Phase 3 | Pending |
+| PAGE-04 | Phase 3 | Pending |
+| PAGE-05 | Phase 3 | Pending |
+| BLCK-01 | Phase 3 | Pending |
+| BLCK-02 | Phase 3 | Pending |
+| BLCK-03 | Phase 3 | Pending |
+| BLCK-04 | Phase 3 | Pending |
+| PUBL-01 | Phase 3 | Pending |
+| PUBL-02 | Phase 3 | Pending |
+| ARTC-01 | Phase 4 | Pending |
+| ARTC-02 | Phase 4 | Pending |
+| ARTC-03 | Phase 4 | Pending |
+| ARTC-04 | Phase 4 | Pending |
+| ARTC-05 | Phase 4 | Pending |
+| TAXO-01 | Phase 4 | Pending |
+| TAXO-02 | Phase 4 | Pending |
+| TAXO-03 | Phase 4 | Pending |
+| TAXO-04 | Phase 4 | Pending |
+| TAXO-05 | Phase 4 | Pending |
+| TAXO-06 | Phase 4 | Pending |
+| MDIA-01 | Phase 4 | Pending |
+| MDIA-02 | Phase 4 | Pending |
+| MDIA-03 | Phase 4 | Pending |
+| READ-01 | Phase 4 | Pending |
+| READ-02 | Phase 4 | Pending |
+| READ-03 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 43 total
-- Mapped to phases: 0
-- Unmapped: 43
+- Mapped to phases: 43
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-29*
-*Last updated: 2026-03-29 after initial definition*
+*Last updated: 2026-03-29 after roadmap creation*
