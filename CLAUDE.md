@@ -159,6 +159,42 @@ Conventions not yet established. Will populate as patterns emerge during develop
 Architecture not yet mapped. Follow existing patterns found in the codebase.
 <!-- GSD:architecture-end -->
 
+<!-- GSD:agents-start source:AGENTS.md -->
+## Agent Discipline
+
+Follow AGENTS.md strictly.
+
+### Output discipline
+
+When proposing changes:
+
+- Show minimal diffs only.
+- List modified files explicitly.
+- Do not refactor beyond the requested scope.
+- Do not rewrite entire files unless necessary.
+
+### Verification (mandatory in response)
+
+After code changes, state explicitly which of these were run:
+
+- composer fix
+- composer lint
+- composer phpstan
+- composer test
+
+### Architecture discipline
+
+- Tool classes must not access Doctrine or persistence directly — delegate to Sulu services.
+- Follow rules/* without exception.
+
+### Clarification rule
+
+If a request would violate architecture, strict-mode, or other rules:
+Ask one precise clarification question before implementing.
+
+Do not guess.
+<!-- GSD:agents-end -->
+
 <!-- GSD:workflow-start source:GSD defaults -->
 ## GSD Workflow Enforcement
 
