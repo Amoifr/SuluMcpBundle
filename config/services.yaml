@@ -5,7 +5,15 @@ services:
 
     Sulu\McpServerBundle\Tool\PingTool: ~
 
-    # OAuth well-known controller
+    # MCP Resources: discovery layer for AI clients
+    Sulu\McpServerBundle\Resource\TemplatesResource:
+        arguments:
+            $formMetadataProvider: '@sulu_admin.form_metadata_provider'
+    Sulu\McpServerBundle\Resource\BlocksResource:
+        arguments:
+            $formMetadataProvider: '@sulu_admin.form_metadata_provider'
+    Sulu\McpServerBundle\Resource\WebspacesResource: ~
+# OAuth well-known controller
     Sulu\McpServerBundle\Security\OAuth\WellKnownController:
         arguments:
             $serverUrl: '%sulu_mcp_server.server_url%'
@@ -32,7 +40,27 @@ services:
         arguments:
             $mcpPath: '%sulu_mcp_server.mcp_path%'
 
+    # Content guidelines and company context resources
+    Sulu\McpServerBundle\Resource\GuidelinesResource: ~
+    Sulu\McpServerBundle\Resource\CompanyContextResource: ~
+
+    # Content guidelines and company context write tools
+    Sulu\McpServerBundle\Tool\UpdateGuidelinesTool: ~
+    Sulu\McpServerBundle\Tool\UpdateCompanyContextTool: ~
+    Sulu\McpServerBundle\Tool\GetContextTool: ~
+
+    # Repositories for guidelines and company context
+    Sulu\McpServerBundle\Repository\ContentGuidelinesRepository: ~
+    Sulu\McpServerBundle\Repository\CompanyContextRepository: ~
+    Sulu\McpServerBundle\Repository\ContentGuidelinesRepositoryInterface:
+        alias: Sulu\McpServerBundle\Repository\ContentGuidelinesRepository
+    Sulu\McpServerBundle\Repository\CompanyContextRepositoryInterface:
+        alias: Sulu\McpServerBundle\Repository\CompanyContextRepository
+
     # Commands
     Sulu\McpServerBundle\Command\CreateMcpClientCommand:
         arguments:
             $serverUrl: '%sulu_mcp_server.server_url%'
+
+    Sulu\Page\Domain\Repository\NavigationRepositoryInterface:
+        alias: sulu_page.navigation_repository

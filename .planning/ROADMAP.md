@@ -44,11 +44,11 @@ Plans:
   3. An AI client can read webspace configuration (locales, URLs, names) and the content tree/sitemap
   4. Content guidelines (tone, audience, style, brand rules) are retrievable as an MCP resource, with per-webspace overrides merging with global defaults
   5. Company/business context is retrievable as an MCP resource
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: MCP resource providers for templates, block types, webspace config, and sitemap
-- [ ] 02-02: Content guidelines system with Doctrine entity, override resolution, and MCP resources
+- [x] 02-01-PLAN.md -- MCP resource providers for templates, block types, webspace config, and sitemap (RSRC-01, RSRC-02, RSRC-03, RSRC-04)
+- [ ] 02-02-PLAN.md -- Content guidelines system with Doctrine entities, override resolution, MCP resources, and write tools (GUID-01, GUID-02, GUID-03, GUID-04)
 
 ### Phase 3: Page Content Management
 **Goal**: AI clients can create, read, update, delete, and publish pages with full block management -- the complete page content workflow
@@ -90,6 +90,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Bundle Foundation & Transport | 0/2 | Not started | - |
-| 2. Context Discovery & Guidelines | 0/2 | Not started | - |
+| 2. Context Discovery & Guidelines | 1/2 | In Progress|  |
 | 3. Page Content Management | 0/2 | Not started | - |
 | 4. Extended Content Tools | 0/2 | Not started | - |

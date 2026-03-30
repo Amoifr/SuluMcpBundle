@@ -1,0 +1,91 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Sulu\McpServerBundle\Resource;
+
+use Mcp\Capability\Attribute\McpResource;
+use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FieldMetadata;
+use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormMetadata;
+use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\TypedFormMetadata;
+use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
+
+class BlocksResource
+{
+    public function __construct(
+        private readonly MetadataProviderInterface $formMetadataProvider,
+    ) {
+    }
+
+    /** @return list<array<string, mixed>> */
+    #[McpResource(
+        uri: 'sulu://blocks',
+        name: 'sulu_blocks',
+        description: 'Available block types with their field definitions across all webspaces (per D-02: static URI cannot filter by webspace). Shows which templates each block type can be used in.',
+        mimeType: 'application/json',
+    )]
+    public function getBlocks(): array
+    {
+        $typedMetadata = $this->formMetadataProvider->getMetadata('page', 'en', []);
+        if (!$typedMetadata instanceof TypedFormMetadata) {
+            return [];
+        }
+
+        return $this->extractBlockTypes($typedMetadata);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function extractBlockTypes(TypedFormMetadata $typedMetadata): array
+    {
+        $blockTypes = [];
+        foreach ($typedMetadata->getForms() as $templateKey => $formMetadata) {
+            foreach ($formMetadata->getItems() as $item) {
+                if (!$item instanceof FieldMetadata || 'block' !== $item->getType()) {
+                    continue;
+                }
+                foreach ($item->getTypes() as $blockTypeName => $blockForm) {
+                    if (!isset($blockTypes[$blockTypeName])) {
+                        $blockTypes[$blockTypeName] = [
+                            'key' => $blockTypeName,
+                            'label' => $blockForm->getTitle('en'),
+                            'fields' => $this->normalizeBlockFields($blockForm),
+                            'available_in_templates' => [],
+                        ];
+                    }
+                    $blockTypes[$blockTypeName]['available_in_templates'][] = $templateKey;
+                }
+            }
+        }
+
+        return \array_values($blockTypes);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function normalizeBlockFields(FormMetadata $blockForm): array
+    {
+        $fields = [];
+        foreach ($blockForm->getItems() as $item) {
+            $field = [
+                'name' => $item->getName(),
+                'type' => $item->getType(),
+                'label' => $item->getLabel('en') ?? $item->getName(),
+            ];
+
+            if ($item instanceof FieldMetadata && 'block' === $item->getType()) {
+                $types = [];
+                foreach ($item->getTypes() as $typeName => $nestedBlockForm) {
+                    $types[$typeName] = [
+                        'key' => $typeName,
+                        'label' => $nestedBlockForm->getTitle('en'),
+                        'fields' => $this->normalizeBlockFields($nestedBlockForm),
+                    ];
+                }
+                $field['types'] = $types;
+            }
+
+            $fields[] = $field;
+        }
+
+        return $fields;
+    }
+}
