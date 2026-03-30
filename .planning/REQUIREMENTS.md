@@ -70,10 +70,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### MCP Resources (Context Discovery)
 
-- [ ] **RSRC-01**: Expose available page templates with field schemas per webspace
-- [ ] **RSRC-02**: Expose available block types with field definitions per webspace
-- [ ] **RSRC-03**: Expose webspace configuration (locales, URLs, names)
-- [ ] **RSRC-04**: Expose sitemap/content tree per webspace and locale
+- [x] **RSRC-01**: Expose available page templates with field schemas per webspace
+- [x] **RSRC-02**: Expose available block types with field definitions per webspace
+- [x] **RSRC-03**: Expose webspace configuration (locales, URLs, names)
+- [x] **RSRC-04**: Expose sitemap/content tree per webspace and locale
 
 ### Content Guidelines
 
@@ -139,10 +139,10 @@ Deferred to future release. Tracked but not in current roadmap.
 | AUTH-03 | Phase 1 | Pending |
 | LOCL-01 | Phase 1 | Complete |
 | LOCL-02 | Phase 1 | Complete |
-| RSRC-01 | Phase 2 | Pending |
-| RSRC-02 | Phase 2 | Pending |
-| RSRC-03 | Phase 2 | Pending |
-| RSRC-04 | Phase 2 | Pending |
+| RSRC-01 | Phase 2 | Complete |
+| RSRC-02 | Phase 2 | Complete |
+| RSRC-03 | Phase 2 | Complete |
+| RSRC-04 | Phase 2 | Complete |
 | GUID-01 | Phase 2 | Pending |
 | GUID-02 | Phase 2 | Pending |
 | GUID-03 | Phase 2 | Pending |

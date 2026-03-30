@@ -24,6 +24,30 @@ class SuluMcpServerExtension extends Extension implements PrependExtensionInterf
                 ],
             ]);
         }
+
+        if ($container->hasExtension('twig')) {
+            $container->prependExtensionConfig('twig', [
+                'paths' => [
+                    \dirname(__DIR__, 2).'/templates' => 'SuluMcpServerBundle',
+                ],
+            ]);
+        }
+
+        if ($container->hasExtension('doctrine')) {
+            $container->prependExtensionConfig('doctrine', [
+                'orm' => [
+                    'mappings' => [
+                        'SuluMcpServerBundle' => [
+                            'is_bundle' => true,
+                            'type' => 'attribute',
+                            'dir' => 'src/Entity',
+                            'prefix' => 'Sulu\\McpServerBundle\\Entity',
+                            'alias' => 'SuluMcpServerBundle',
+                        ],
+                    ],
+                ],
+            ]);
+        }
     }
 
     public function load(array $configs, ContainerBuilder $container): void
@@ -36,7 +60,6 @@ class SuluMcpServerExtension extends Extension implements PrependExtensionInterf
         $container->setParameter('sulu_mcp_server.oauth.access_token_ttl', $config['oauth']['access_token_ttl']);
         $container->setParameter('sulu_mcp_server.oauth.refresh_token_ttl', $config['oauth']['refresh_token_ttl']);
         $container->setParameter('sulu_mcp_server.oauth.scopes', $config['oauth']['scopes']);
-
         $loader = new YamlFileLoader(
             $container,
             new FileLocator(\dirname(__DIR__, 2).'/config')
