@@ -1,0 +1,38 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    Sulu\McpServerBundle\Tool\PingTool: ~
+
+    # OAuth well-known controller
+    Sulu\McpServerBundle\Security\OAuth\WellKnownController:
+        arguments:
+            $serverUrl: '%sulu_mcp_server.server_url%'
+        tags: ['controller.service_arguments']
+
+    Sulu\McpServerBundle\Security\OAuth\SuluUserResolver: ~
+
+    # OAuth authorization
+    Sulu\McpServerBundle\EventListener\OAuthAuthorizationListener: ~
+
+    # Decorate Sulu's entry point for friendly OAuth login page
+    Sulu\McpServerBundle\Security\McpAuthenticationEntryPoint:
+        decorates: sulu_security.authentication_entry_point
+        arguments:
+            $inner: '@.inner'
+
+    # MCP event listeners
+    Sulu\McpServerBundle\EventListener\McpAuthenticationListener:
+        arguments:
+            $serverUrl: '%sulu_mcp_server.server_url%'
+            $mcpPath: '%sulu_mcp_server.mcp_path%'
+
+    Sulu\McpServerBundle\EventListener\McpExceptionListener:
+        arguments:
+            $mcpPath: '%sulu_mcp_server.mcp_path%'
+
+    # Commands
+    Sulu\McpServerBundle\Command\CreateMcpClientCommand:
+        arguments:
+            $serverUrl: '%sulu_mcp_server.server_url%'

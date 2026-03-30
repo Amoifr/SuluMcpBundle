@@ -1,0 +1,10 @@
+mcp:
+    login:
+        title: "Sulu MCP - Login Required"
+        heading: "Sulu MCP Server"
+        description: "An AI assistant is requesting access to your Sulu CMS. Please log in first to authorize the connection."
+        step1: "Log into the Sulu admin panel"
+        step2: "Return to this page to complete authorization"
+        button: "Open Sulu Admin"
+        hint: "After logging in,"
+        retry: "click here to retry authorization"

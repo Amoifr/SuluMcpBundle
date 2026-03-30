@@ -1,0 +1,7 @@
+# Bundle route configuration for consuming projects.
+# Import in your project's config/routes.yaml:
+#   sulu_mcp_server:
+#       resource: '@SuluMcpServerBundle/config/routes.yaml'
+sulu_mcp_server_oauth:
+    resource: ../src/Security/OAuth/
+    type: attribute
