@@ -1,0 +1,63 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Sulu\McpServerBundle\Security\OAuth;
+
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\Routing\Attribute\Route;
+
+/**
+ * RFC 9728 Protected Resource Metadata (PRM) and RFC 8414 Authorization Server Metadata.
+ *
+ * These well-known endpoints enable MCP clients (e.g., Claude.ai) to discover
+ * the OAuth authorization server and its capabilities for authenticating with
+ * the MCP resource server.
+ */
+class WellKnownController
+{
+    public function __construct(
+        private readonly string $serverUrl,
+    ) {
+    }
+
+    /**
+     * RFC 9728 - OAuth 2.0 Protected Resource Metadata.
+     *
+     * Returns metadata about the MCP resource server, including which
+     * authorization servers protect it and what scopes are supported.
+     */
+    #[Route('/.well-known/oauth-protected-resource', name: 'sulu_mcp_prm', methods: ['GET'])]
+    public function protectedResourceMetadata(): JsonResponse
+    {
+        return new JsonResponse([
+            'resource' => rtrim($this->serverUrl, '/').'/_mcp',
+            'authorization_servers' => [rtrim($this->serverUrl, '/')],
+            'scopes_supported' => ['mcp:tools', 'mcp:resources'],
+            'bearer_methods_supported' => ['header'],
+        ]);
+    }
+
+    /**
+     * RFC 8414 - OAuth 2.0 Authorization Server Metadata.
+     *
+     * Returns metadata about the OAuth authorization server, including
+     * authorization and token endpoints, supported grant types, and PKCE support.
+     */
+    #[Route('/.well-known/oauth-authorization-server', name: 'sulu_mcp_as_metadata', methods: ['GET'])]
+    public function authorizationServerMetadata(): JsonResponse
+    {
+        $base = rtrim($this->serverUrl, '/');
+
+        return new JsonResponse([
+            'issuer' => $base,
+            'authorization_endpoint' => $base.'/admin/mcp/authorize',
+            'token_endpoint' => $base.'/mcp/token',
+            'response_types_supported' => ['code'],
+            'grant_types_supported' => ['authorization_code', 'refresh_token'],
+            'code_challenge_methods_supported' => ['S256'],
+            'token_endpoint_auth_methods_supported' => ['client_secret_post', 'client_secret_basic'],
+            'scopes_supported' => ['mcp:tools', 'mcp:resources'],
+        ]);
+    }
+}

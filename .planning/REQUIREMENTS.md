@@ -9,9 +9,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Transport & Infrastructure
 
-- [ ] **TRNS-01**: MCP server communicates via Streamable HTTP transport (single endpoint, JSON-RPC 2.0)
-- [ ] **TRNS-02**: Bundle registers as a Symfony bundle with full DI container access
-- [ ] **TRNS-03**: MCP tools, resources, and prompts are auto-discovered via PHP 8 attributes
+- [x] **TRNS-01**: MCP server communicates via Streamable HTTP transport (single endpoint, JSON-RPC 2.0)
+- [x] **TRNS-02**: Bundle registers as a Symfony bundle with full DI container access
+- [x] **TRNS-03**: MCP tools, resources, and prompts are auto-discovered via PHP 8 attributes
 
 ### Authentication & Authorization
 
@@ -84,8 +84,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Localization
 
-- [ ] **LOCL-01**: All content tools accept webspace and locale as parameters
-- [ ] **LOCL-02**: Resource endpoints return locale-appropriate data
+- [x] **LOCL-01**: All content tools accept webspace and locale as parameters
+- [x] **LOCL-02**: Resource endpoints return locale-appropriate data
 
 ## v2 Requirements
 
@@ -109,6 +109,8 @@ Deferred to future release. Tracked but not in current roadmap.
 
 - **INTG-01**: MCP gateway compatibility documentation and testing for ChatGPT
 - **INTG-02**: Sulu admin UI for managing content guidelines
+- **INTG-03**: `sulu:mcp:create-client` supports multiple AI providers (claude, chatgpt, custom) via `--provider` option with provider-specific callback URIs and setup instructions
+- **INTG-04**: Installation and getting-started guide (README) covering bundle setup, OAuth config, route imports, and first connection
 
 ## Out of Scope
 
@@ -129,14 +131,14 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TRNS-01 | Phase 1 | Pending |
-| TRNS-02 | Phase 1 | Pending |
-| TRNS-03 | Phase 1 | Pending |
+| TRNS-01 | Phase 1 | Complete |
+| TRNS-02 | Phase 1 | Complete |
+| TRNS-03 | Phase 1 | Complete |
 | AUTH-01 | Phase 1 | Pending |
 | AUTH-02 | Phase 1 | Pending |
 | AUTH-03 | Phase 1 | Pending |
-| LOCL-01 | Phase 1 | Pending |
-| LOCL-02 | Phase 1 | Pending |
+| LOCL-01 | Phase 1 | Complete |
+| LOCL-02 | Phase 1 | Complete |
 | RSRC-01 | Phase 2 | Pending |
 | RSRC-02 | Phase 2 | Pending |
 | RSRC-03 | Phase 2 | Pending |

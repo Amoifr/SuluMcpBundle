@@ -28,11 +28,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. A valid Sulu user credential produces an authenticated session; an invalid credential is rejected
   3. Tool calls made by an authenticated user with insufficient permissions return a structured permission-denied error (not a generic 500)
   4. All MCP tool and resource endpoints accept webspace and locale as parameters
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: Symfony bundle skeleton with MCP endpoint and Streamable HTTP transport
-- [ ] 01-02: Sulu user authentication and permission guard infrastructure
+- [x] 01-01-PLAN.md -- Bundle skeleton, MCP transport, ping tool, test app, dev tooling (TRNS-01, TRNS-02, TRNS-03, LOCL-01, LOCL-02)
+- [x] 01-02-PLAN.md -- OAuth 2.0 authorization server, permission guard, structured errors (AUTH-01, AUTH-02, AUTH-03)
 
 ### Phase 2: Context Discovery & Guidelines
 **Goal**: AI clients can discover the CMS structure (templates, block types, webspace config, sitemap) and receive content guidelines that shape on-brand content generation

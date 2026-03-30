@@ -1,0 +1,69 @@
+{
+    "name": "sulu/mcp-server-bundle",
+    "description": "Sulu CMS MCP Server - Exposes content management as MCP tools for AI assistants",
+    "type": "symfony-bundle",
+    "license": "MIT",
+    "require": {
+        "php": "^8.2",
+        "symfony/framework-bundle": "^7.3",
+        "symfony/mcp-bundle": "^0.6",
+        "sulu/sulu": "^3.0",
+        "league/oauth2-server-bundle": "^1.1",
+        "nyholm/psr7": "^1.4",
+        "symfony/psr-http-message-bridge": "^7.3"
+    },
+    "require-dev": {
+        "php-cs-fixer/shim": "^3.15",
+        "phpstan/extension-installer": "^1.2",
+        "phpstan/phpstan": "^2.1",
+        "phpstan/phpstan-phpunit": "^2.0",
+        "phpunit/phpunit": "^10.3",
+        "rector/rector": "^2.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Sulu\\McpServerBundle\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Sulu\\McpServerBundle\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-main": "1.0-dev"
+        }
+    },
+    "scripts": {
+        "test": [
+            "Composer\\Config::disableProcessTimeout",
+            "vendor/bin/phpunit"
+        ],
+        "test-with-coverage": "@test --coverage-php var/reports/coverage.cov --coverage-cobertura=var/cobertura-coverage.xml --coverage-html var/reports/html --log-junit var/reports/junit.xml",
+        "phpstan": "@php vendor/bin/phpstan analyze",
+        "lint-rector": "@php vendor/bin/rector process --dry-run",
+        "lint-php-cs": "@php vendor/bin/php-cs-fixer fix --verbose --diff --dry-run",
+        "lint": [
+            "@phpstan",
+            "@lint-php-cs",
+            "@lint-rector",
+            "@lint-composer"
+        ],
+        "lint-composer": "@composer validate",
+        "rector": "@php vendor/bin/rector process",
+        "php-cs-fix": "@php vendor/bin/php-cs-fixer fix",
+        "fix": [
+            "@rector",
+            "@php-cs-fix"
+        ]
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "config": {
+        "allow-plugins": {
+            "php-http/discovery": true,
+            "phpstan/extension-installer": true
+        }
+    }
+}

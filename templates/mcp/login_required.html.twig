@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ 'mcp.login.title'|trans({}, 'sulu_mcp_server') }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #e0e0e0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+        .card { background: #16213e; border-radius: 12px; padding: 48px; max-width: 480px; width: 90%; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+        h1 { font-size: 24px; margin-bottom: 16px; color: #fff; }
+        p { font-size: 16px; line-height: 1.6; margin-bottom: 24px; color: #a0a0b0; }
+        .steps { text-align: left; margin-bottom: 32px; }
+        .step { display: flex; align-items: flex-start; margin-bottom: 16px; }
+        .step-num { background: #0f3460; color: #e94560; font-weight: bold; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 12px; font-size: 14px; }
+        .step-text { font-size: 15px; padding-top: 3px; }
+        a.btn { display: inline-block; background: #e94560; color: #fff; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-size: 16px; font-weight: 500; transition: background 0.2s; }
+        a.btn:hover { background: #c73650; }
+        .hint { font-size: 13px; color: #666; margin-top: 24px; }
+        .hint a { color: #e94560; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>{{ 'mcp.login.heading'|trans({}, 'sulu_mcp_server') }}</h1>
+        <p>{{ 'mcp.login.description'|trans({}, 'sulu_mcp_server') }}</p>
+        <div class="steps">
+            <div class="step">
+                <span class="step-num">1</span>
+                <span class="step-text">{{ 'mcp.login.step1'|trans({}, 'sulu_mcp_server') }}</span>
+            </div>
+            <div class="step">
+                <span class="step-num">2</span>
+                <span class="step-text">{{ 'mcp.login.step2'|trans({}, 'sulu_mcp_server') }}</span>
+            </div>
+        </div>
+        <a class="btn" href="{{ admin_url }}" target="_blank">{{ 'mcp.login.button'|trans({}, 'sulu_mcp_server') }}</a>
+        <p class="hint">
+            {{ 'mcp.login.hint'|trans({}, 'sulu_mcp_server') }}
+            <a href="{{ authorize_url }}">{{ 'mcp.login.retry'|trans({}, 'sulu_mcp_server') }}</a>.
+        </p>
+    </div>
+</body>
+</html>
