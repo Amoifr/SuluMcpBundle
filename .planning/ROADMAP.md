@@ -60,11 +60,13 @@ Plans:
   3. An AI client can add a block by type, remove a block, and reorder blocks on a page
   4. An AI client can discover all available block types with their field schemas at runtime (before adding blocks)
   5. An AI client can publish and unpublish a page
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 03-01: Page CRUD tools (get, list, create, update, delete)
-- [ ] 03-02: Block management tools and publishing workflow
+- [x] 03-01-PLAN.md -- Page read tools: get, list, tree (PAGE-01, PAGE-02, BLCK-04)
+- [x] 03-02-PLAN.md -- Page write tools: create, update, delete (PAGE-03, PAGE-04, PAGE-05)
+- [x] 03-03-PLAN.md -- Block management tools: add, remove, reorder (BLCK-01, BLCK-02, BLCK-03)
+- [ ] 03-04-PLAN.md -- Publishing tools and guideline generator prompt (PUBL-01, PUBL-02)
 
 ### Phase 4: Extended Content Tools
 **Goal**: AI clients can manage articles, tags, categories, media, and read-only entities -- completing the full content management surface
@@ -91,5 +93,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Bundle Foundation & Transport | 0/2 | Not started | - |
 | 2. Context Discovery & Guidelines | 1/2 | In Progress|  |
-| 3. Page Content Management | 0/2 | Not started | - |
+| 3. Page Content Management | 0/4 | Not started | - |
 | 4. Extended Content Tools | 0/2 | Not started | - |
