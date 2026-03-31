@@ -62,5 +62,27 @@ services:
         arguments:
             $serverUrl: '%sulu_mcp_server.server_url%'
 
+    # Page read tools
+    Sulu\McpServerBundle\Tool\PageGetTool: ~
+    Sulu\McpServerBundle\Tool\PageListTool: ~
+    Sulu\McpServerBundle\Tool\PageTreeTool: ~
+
+    # Page write tools
+    Sulu\McpServerBundle\Tool\PageCreateTool: ~
+    Sulu\McpServerBundle\Tool\PageUpdateTool: ~
+    Sulu\McpServerBundle\Tool\PageDeleteTool: ~
+
+    # Block management tools
+    Sulu\McpServerBundle\Tool\BlockAddTool: ~
+    Sulu\McpServerBundle\Tool\BlockRemoveTool: ~
+    Sulu\McpServerBundle\Tool\BlockReorderTool: ~
+
     Sulu\Page\Domain\Repository\NavigationRepositoryInterface:
         alias: sulu_page.navigation_repository
+
+    # Publishing tools
+    Sulu\McpServerBundle\Tool\PagePublishTool: ~
+    Sulu\McpServerBundle\Tool\PageUnpublishTool: ~
+
+    # MCP Prompts
+    Sulu\McpServerBundle\Prompt\GuidelineGeneratorPrompt: ~

@@ -12,14 +12,13 @@ AI assistants can create, edit, and publish content in Sulu CMS with full awaren
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Pages: Get, create, edit, delete pages via Sulu services — Validated in Phase 3: page-content-management
+- [x] Blocks: Add, remove, reorder blocks on pages/articles with dynamic discovery of all available block types — Validated in Phase 3: page-content-management
+- [x] Publishing: Publish and unpublish pages and articles — Validated in Phase 3: page-content-management
 
 ### Active
 
-- [ ] Pages: Get, create, edit, delete pages via Sulu services
 - [ ] Articles: Get, create, edit, delete articles via Sulu services
-- [ ] Blocks: Add, remove, reorder blocks on pages/articles with dynamic discovery of all available block types
-- [ ] Publishing: Publish and unpublish pages and articles
 - [ ] Tags: Create, get, delete tags
 - [ ] Categories: Create, get, delete categories
 - [ ] Media/Assets: Upload, list, manage media files
@@ -88,4 +87,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-30 — Phase 02 complete (context-discovery-guidelines: MCP Resources for templates/blocks/webspaces/sitemap + content guidelines entities and write tools)*
+*Last updated: 2026-03-30 — Phase 03 complete (page-content-management: full page CRUD, block management, publish/unpublish, guideline generator prompt)*

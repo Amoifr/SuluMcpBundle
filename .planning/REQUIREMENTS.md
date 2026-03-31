@@ -21,11 +21,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Pages
 
-- [ ] **PAGE-01**: Get a single page by ID with all content and blocks
-- [ ] **PAGE-02**: List/search pages with filtering by webspace, locale, template
-- [ ] **PAGE-03**: Create a page with template, title, URL, and content
-- [ ] **PAGE-04**: Update page properties and content
-- [ ] **PAGE-05**: Delete a page
+- [x] **PAGE-01**: Get a single page by ID with all content and blocks
+- [x] **PAGE-02**: List/search pages with filtering by webspace, locale, template
+- [x] **PAGE-03**: Create a page with template, title, URL, and content
+- [x] **PAGE-04**: Update page properties and content
+- [x] **PAGE-05**: Delete a page
 
 ### Articles
 
@@ -37,15 +37,15 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Blocks
 
-- [ ] **BLCK-01**: Add a block to a page or article by block type
-- [ ] **BLCK-02**: Remove a block from a page or article
-- [ ] **BLCK-03**: Reorder blocks on a page or article
-- [ ] **BLCK-04**: Dynamic discovery of all available block types with field schemas at runtime
+- [x] **BLCK-01**: Add a block to a page or article by block type
+- [x] **BLCK-02**: Remove a block from a page or article
+- [x] **BLCK-03**: Reorder blocks on a page or article
+- [x] **BLCK-04**: Dynamic discovery of all available block types with field schemas at runtime
 
 ### Publishing
 
-- [ ] **PUBL-01**: Publish a page or article
-- [ ] **PUBL-02**: Unpublish a page or article
+- [x] **PUBL-01**: Publish a page or article
+- [x] **PUBL-02**: Unpublish a page or article
 
 ### Taxonomy
 
@@ -147,17 +147,17 @@ Deferred to future release. Tracked but not in current roadmap.
 | GUID-02 | Phase 2 | Pending |
 | GUID-03 | Phase 2 | Pending |
 | GUID-04 | Phase 2 | Pending |
-| PAGE-01 | Phase 3 | Pending |
-| PAGE-02 | Phase 3 | Pending |
-| PAGE-03 | Phase 3 | Pending |
-| PAGE-04 | Phase 3 | Pending |
-| PAGE-05 | Phase 3 | Pending |
-| BLCK-01 | Phase 3 | Pending |
-| BLCK-02 | Phase 3 | Pending |
-| BLCK-03 | Phase 3 | Pending |
-| BLCK-04 | Phase 3 | Pending |
-| PUBL-01 | Phase 3 | Pending |
-| PUBL-02 | Phase 3 | Pending |
+| PAGE-01 | Phase 3 | Complete |
+| PAGE-02 | Phase 3 | Complete |
+| PAGE-03 | Phase 3 | Complete |
+| PAGE-04 | Phase 3 | Complete |
+| PAGE-05 | Phase 3 | Complete |
+| BLCK-01 | Phase 3 | Complete |
+| BLCK-02 | Phase 3 | Complete |
+| BLCK-03 | Phase 3 | Complete |
+| BLCK-04 | Phase 3 | Complete |
+| PUBL-01 | Phase 3 | Complete |
+| PUBL-02 | Phase 3 | Complete |
 | ARTC-01 | Phase 4 | Pending |
 | ARTC-02 | Phase 4 | Pending |
 | ARTC-03 | Phase 4 | Pending |
