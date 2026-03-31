@@ -42,5 +42,20 @@
                 <title lang="de">Artikel</title>
             </meta>
         </property>
+
+        <block name="blocks" default-type="text" minOccurs="0">
+            <meta>
+                <title lang="en">Content Blocks</title>
+                <title lang="de">Inhaltsblöcke</title>
+            </meta>
+            <types>
+                <type ref="heading"/>
+                <type ref="text"/>
+                <type ref="image"/>
+                <type ref="quote"/>
+                <type ref="text_with_image"/>
+                <type ref="article_list"/>
+            </types>
+        </block>
     </properties>
 </template>

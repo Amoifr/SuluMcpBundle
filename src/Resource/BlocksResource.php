@@ -12,6 +12,9 @@ use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
 
 class BlocksResource
 {
+    /** @var array<string, FormMetadata>|null */
+    private ?array $globalBlockForms = null;
+
     public function __construct(
         private readonly MetadataProviderInterface $formMetadataProvider,
     ) {
@@ -45,10 +48,11 @@ class BlocksResource
                 }
                 foreach ($item->getTypes() as $blockTypeName => $blockForm) {
                     if (!isset($blockTypes[$blockTypeName])) {
+                        $resolvedForm = $this->resolveBlockForm($blockTypeName, $blockForm);
                         $blockTypes[$blockTypeName] = [
                             'key' => $blockTypeName,
-                            'label' => $blockForm->getTitle('en'),
-                            'fields' => $this->normalizeBlockFields($blockForm),
+                            'label' => $resolvedForm->getTitle('en'),
+                            'fields' => $this->normalizeBlockFields($resolvedForm),
                             'available_in_templates' => [],
                         ];
                     }
@@ -58,6 +62,35 @@ class BlocksResource
         }
 
         return \array_values($blockTypes);
+    }
+
+    private function resolveBlockForm(string $blockTypeName, FormMetadata $blockForm): FormMetadata
+    {
+        if ([] !== $blockForm->getItems()) {
+            return $blockForm;
+        }
+
+        $globalBlock = $this->getGlobalBlockForms()[$blockTypeName] ?? null;
+        if (null !== $globalBlock) {
+            return $globalBlock;
+        }
+
+        return $blockForm;
+    }
+
+    /**
+     * @return array<string, FormMetadata>
+     */
+    private function getGlobalBlockForms(): array
+    {
+        if (null === $this->globalBlockForms) {
+            $blockMetadata = $this->formMetadataProvider->getMetadata('block', 'en', ['ignore_global_blocks' => true]);
+            $this->globalBlockForms = $blockMetadata instanceof TypedFormMetadata
+                ? $blockMetadata->getForms()
+                : [];
+        }
+
+        return $this->globalBlockForms;
     }
 
     /** @return list<array<string, mixed>> */
@@ -74,10 +107,11 @@ class BlocksResource
             if ($item instanceof FieldMetadata && 'block' === $item->getType()) {
                 $types = [];
                 foreach ($item->getTypes() as $typeName => $nestedBlockForm) {
+                    $resolvedNested = $this->resolveBlockForm($typeName, $nestedBlockForm);
                     $types[$typeName] = [
                         'key' => $typeName,
-                        'label' => $nestedBlockForm->getTitle('en'),
-                        'fields' => $this->normalizeBlockFields($nestedBlockForm),
+                        'label' => $resolvedNested->getTitle('en'),
+                        'fields' => $this->normalizeBlockFields($resolvedNested),
                     ];
                 }
                 $field['types'] = $types;

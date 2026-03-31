@@ -1,7 +1,19 @@
 {% extends 'base.html.twig' %}
 
 {% block content %}
-    <h1>{{ content.title }}</h1>
+    <article class="max-w-4xl mx-auto px-4 py-8">
+        <h1 class="text-4xl font-bold mb-8">{{ content.title }}</h1>
 
-    {{ content.article|raw }}
+        {% if content.article %}
+            <div class="prose prose-lg mb-12">
+                {{ content.article|raw }}
+            </div>
+        {% endif %}
+
+        {% if content.blocks is defined %}
+            {% for block in content.blocks %}
+                {% include 'blocks/' ~ block.type ~ '.html.twig' with { block: block } %}
+            {% endfor %}
+        {% endif %}
+    </article>
 {% endblock %}

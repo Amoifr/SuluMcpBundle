@@ -13,6 +13,9 @@ use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
 
 class TemplatesResource
 {
+    /** @var array<string, FormMetadata>|null */
+    private ?array $globalBlockForms = null;
+
     public function __construct(
         private readonly MetadataProviderInterface $formMetadataProvider,
     ) {
@@ -68,13 +71,14 @@ class TemplatesResource
         if ($item instanceof FieldMetadata && 'block' === $item->getType()) {
             $types = [];
             foreach ($item->getTypes() as $typeName => $blockForm) {
+                $resolvedForm = $this->resolveBlockForm($typeName, $blockForm);
                 $blockFields = [];
-                foreach ($blockForm->getItems() as $blockItem) {
+                foreach ($resolvedForm->getItems() as $blockItem) {
                     $blockFields[] = $this->normalizeItem($blockItem);
                 }
                 $types[$typeName] = [
                     'key' => $typeName,
-                    'label' => $blockForm->getTitle('en'),
+                    'label' => $resolvedForm->getTitle('en'),
                     'fields' => $blockFields,
                 ];
             }
@@ -82,5 +86,34 @@ class TemplatesResource
         }
 
         return $field;
+    }
+
+    private function resolveBlockForm(string $blockTypeName, FormMetadata $blockForm): FormMetadata
+    {
+        if ([] !== $blockForm->getItems()) {
+            return $blockForm;
+        }
+
+        $globalBlock = $this->getGlobalBlockForms()[$blockTypeName] ?? null;
+        if (null !== $globalBlock) {
+            return $globalBlock;
+        }
+
+        return $blockForm;
+    }
+
+    /**
+     * @return array<string, FormMetadata>
+     */
+    private function getGlobalBlockForms(): array
+    {
+        if (null === $this->globalBlockForms) {
+            $blockMetadata = $this->formMetadataProvider->getMetadata('block', 'en', ['ignore_global_blocks' => true]);
+            $this->globalBlockForms = $blockMetadata instanceof TypedFormMetadata
+                ? $blockMetadata->getForms()
+                : [];
+        }
+
+        return $this->globalBlockForms;
     }
 }
