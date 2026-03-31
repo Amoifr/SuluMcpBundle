@@ -105,4 +105,17 @@ final class PagePublishToolTest extends TestCase
         $instance = $attributes[0]->newInstance();
         $this->assertSame('sulu_page_publish', $instance->name);
     }
+
+    public function testPublishPageDescriptionRequiresUserConfirmation(): void
+    {
+        $reflection = new \ReflectionMethod(PagePublishTool::class, 'publishPage');
+        $attributes = $reflection->getAttributes(McpTool::class);
+        $instance = $attributes[0]->newInstance();
+
+        $this->assertStringContainsString(
+            'Always ask the user for confirmation before calling this tool',
+            $instance->description,
+            'Publish tool description must instruct the AI to ask for user confirmation',
+        );
+    }
 }

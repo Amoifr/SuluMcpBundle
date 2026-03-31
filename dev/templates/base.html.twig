@@ -14,45 +14,43 @@
         }) }}
     {% endblock %}
 
-    {% block style %}{% endblock %}
+    {% block style %}
+        <link rel="stylesheet" href="/build/website/app.css">
+    {% endblock %}
 </head>
-<body>
-    <header>
+<body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col">
+    <header class="bg-white border-b border-gray-200 shadow-sm">
         {% block header %}
-            <nav>
-                <ul>
-                    <li>
-                        <a href="{{ sulu_content_root_path() }}">Homepage</a>
-                    </li>
-
-                    {% for item in sulu_page_navigation_root_tree('main', 1, {
-                        title: 'title',
-                        url: 'url',
-                    }) %}
-                        <li>
-                            <a href="{{ sulu_content_path(item.url) }}"
-                               title="{{ item.title }}">{{ item.title }}</a>
-                        </li>
-                    {% endfor %}
-                </ul>
+            <nav class="max-w-6xl mx-auto px-4 py-4">
+                <div class="flex items-center justify-between">
+                    <a href="{{ sulu_content_root_path() }}" class="text-xl font-bold text-blue-600 hover:text-blue-700">
+                        Sulu MCP
+                    </a>
+                    <ul class="flex items-center gap-6">
+                        {% for item in sulu_page_navigation_root_flat('main') %}
+                            <li>
+                                <a href="{{ sulu_content_path(item.url) }}"
+                                   title="{{ item.title }}"
+                                   class="text-gray-600 hover:text-blue-600 transition-colors font-medium">
+                                    {{ item.title }}
+                                </a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
             </nav>
         {% endblock %}
     </header>
 
-    {#
-    <form action="{{ path('sulu_search.website_search') }}" method="GET">
-        <input name="q" type="text" placeholder="Search"/>
-        <input type="submit" value="Go"/>
-    </form>
-    #}
-
-    <main>
+    <main class="flex-1">
         {% block content %}{% endblock %}
     </main>
 
-    <footer>
+    <footer class="bg-gray-800 text-gray-400 mt-auto">
         {% block footer %}
-            <p>Copyright {{ 'now'|date('Y') }} SULU</p>
+            <div class="max-w-6xl mx-auto px-4 py-8 text-center text-sm">
+                <p>&copy; {{ 'now'|date('Y') }} Sulu MCP &mdash; Powered by Sulu CMS</p>
+            </div>
         {% endblock %}
     </footer>
 

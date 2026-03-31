@@ -26,7 +26,7 @@ class PagePublishTool
      */
     #[McpTool(
         name: 'sulu_page_publish',
-        description: 'Publish a page to make it visible on the website. Takes the current draft content and makes it the live version. Pages are always created/updated as drafts first — call this after sulu_page_create or sulu_page_update to go live. Can be called multiple times to re-publish after edits.',
+        description: 'Publish a page to make it visible on the website. Takes the current draft content and makes it the live version. Pages are always created/updated as drafts first — call this after sulu_page_create or sulu_page_update to go live. Can be called multiple times to re-publish after edits. IMPORTANT: Always ask the user for confirmation before calling this tool — never publish without explicit user approval.',
     )]
     public function publishPage(string $uuid, string $locale): array
     {

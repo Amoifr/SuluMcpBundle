@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed Wave 2 (03-03 and 03-04)
-last_updated: "2026-03-30T20:56:51.133Z"
+stopped_at: Completed 260331-aut quick task
+last_updated: "2026-03-31T05:58:21.277Z"
 last_activity: 2026-03-30
 progress:
   total_phases: 4
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-29)
 Phase: 4
 Plan: Not started
 Status: Ready to execute
-Last activity: 2026-03-30
+Last activity: 2026-03-31 - Completed quick task 260331-aut: Add multiple blocks to default/homepage templates, implement twig+tailwind template, add page fixtures
 
 Progress: [██░░░░░░░░] 25%
 
@@ -83,8 +83,15 @@ None yet.
 - [Research]: symfony/mcp-bundle (v0.6) and mcp/sdk (v0.4) are pre-1.0. Pin versions and wrap behind internal interfaces.
 - [Research]: MCP SDK resource templates (#[McpResourceTemplate]) may not be functional yet (issue #9). Fallback to regular #[McpResource] if needed.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260331-aut | Add multiple blocks to default/homepage templates, implement twig+tailwind template, add page fixtures | 2026-03-31 | 7fb0610 | [260331-aut-add-multiple-blocks-to-default-homepage-](./quick/260331-aut-add-multiple-blocks-to-default-homepage-/) |
+| 260331-cz6 | Add tests for BlocksResource/TemplatesResource global block resolution and PagePublishTool confirmation | 2026-03-31 | e28b556 | - |
+
 ## Session Continuity
 
-Last session: 2026-03-30T20:51:27.434Z
-Stopped at: Completed Wave 2 (03-03 and 03-04)
+Last session: 2026-03-31T05:58:21.274Z
+Stopped at: Completed 260331-aut quick task
 Resume file: None
