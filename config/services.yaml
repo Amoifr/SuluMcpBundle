@@ -40,6 +40,14 @@ services:
         arguments:
             $mcpPath: '%sulu_mcp_server.mcp_path%'
 
+    # Sets Sulu system context for MCP requests so the UserProvider can authenticate OAuth users
+    Sulu\McpServerBundle\EventListener\OAuthSystemStoreListener:
+        arguments:
+            $mcpPath: '%sulu_mcp_server.mcp_path%'
+            $defaultSystem: 'Sulu'
+        tags:
+            - { name: kernel.event_listener, event: kernel.request, method: onKernelRequest, priority: 64 }
+
     # Content guidelines and company context resources
     Sulu\McpServerBundle\Resource\GuidelinesResource: ~
     Sulu\McpServerBundle\Resource\CompanyContextResource: ~
@@ -73,6 +81,7 @@ services:
     Sulu\McpServerBundle\Tool\PageDeleteTool: ~
 
     # Block management tools
+    Sulu\McpServerBundle\Tool\BlockListTool: ~
     Sulu\McpServerBundle\Tool\BlockAddTool: ~
     Sulu\McpServerBundle\Tool\BlockRemoveTool: ~
     Sulu\McpServerBundle\Tool\BlockReorderTool: ~
@@ -86,3 +95,40 @@ services:
 
     # MCP Prompts
     Sulu\McpServerBundle\Prompt\GuidelineGeneratorPrompt: ~
+
+    # Phase 04: Article tools
+    Sulu\McpServerBundle\Tool\ArticleGetTool: ~
+    Sulu\McpServerBundle\Tool\ArticleListTool: ~
+    Sulu\McpServerBundle\Tool\ArticleCreateTool: ~
+    Sulu\McpServerBundle\Tool\ArticleUpdateTool: ~
+    Sulu\McpServerBundle\Tool\ArticleDeleteTool: ~
+    Sulu\McpServerBundle\Tool\ArticlePublishTool: ~
+    Sulu\McpServerBundle\Tool\ArticleUnpublishTool: ~
+
+    # Phase 04: Article block tools
+    Sulu\McpServerBundle\Tool\ArticleBlockAddTool: ~
+    Sulu\McpServerBundle\Tool\ArticleBlockRemoveTool: ~
+    Sulu\McpServerBundle\Tool\ArticleBlockReorderTool: ~
+
+    # Phase 04: Taxonomy tools
+    Sulu\McpServerBundle\Tool\TagCreateTool: ~
+    Sulu\McpServerBundle\Tool\TagListTool: ~
+    Sulu\McpServerBundle\Tool\TagDeleteTool: ~
+    Sulu\McpServerBundle\Tool\CategoryCreateTool: ~
+    Sulu\McpServerBundle\Tool\CategoryListTool: ~
+    Sulu\McpServerBundle\Tool\CategoryDeleteTool: ~
+
+    # Phase 04: Media tools
+    Sulu\McpServerBundle\Tool\MediaListTool: ~
+    Sulu\McpServerBundle\Tool\MediaGetTool: ~
+    Sulu\McpServerBundle\Tool\MediaUpdateTool: ~
+
+    # Phase 04: Snippet tools
+    Sulu\McpServerBundle\Tool\SnippetGetTool: ~
+    Sulu\McpServerBundle\Tool\SnippetListTool: ~
+
+    # Phase 04: Contact tools
+    Sulu\McpServerBundle\Tool\ContactListTool: ~
+
+    # Phase 04: Navigation tools
+    Sulu\McpServerBundle\Tool\NavigationGetTool: ~

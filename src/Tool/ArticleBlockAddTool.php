@@ -5,24 +5,24 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Tool;
 
 use Mcp\Capability\Attribute\McpTool;
+use Sulu\Article\Application\Message\ModifyArticleMessage;
+use Sulu\Article\Domain\Model\ArticleInterface;
+use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
-use Sulu\Page\Application\Message\ModifyPageMessage;
-use Sulu\Page\Domain\Model\PageInterface;
-use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\HandleTrait;
 use Symfony\Component\Messenger\MessageBusInterface;
 
-class BlockAddTool
+class ArticleBlockAddTool
 {
     use HandleTrait;
     use BlockDataNormalizerTrait;
 
     public function __construct(
         MessageBusInterface $messageBus,
-        private readonly PageRepositoryInterface $pageRepository,
+        private readonly ArticleRepositoryInterface $articleRepository,
         private readonly ContentManagerInterface $contentManager,
     ) {
         $this->messageBus = $messageBus;
@@ -34,11 +34,11 @@ class BlockAddTool
      * @return array<string, mixed>
      */
     #[McpTool(
-        name: 'sulu_block_add',
-        description: 'Add a content block to a page. Blocks are typed components (e.g. "text", "image", "quote") defined by the project. Workflow: 1) Call sulu_get_context to see available block types and their fields. 2) Find the block property name in the template (e.g. "blocks" or "content" — check the template fields from sulu_get_context). 3) Pass blockType (the block type key), blockProperty (the template property name), and blockData with the block field values as key-value pairs. The block is appended at the end or inserted at "position" (0-based). The page must be re-published after adding blocks.',
+        name: 'sulu_article_block_add',
+        description: 'Add a content block to an article. Blocks are typed components (e.g. "text", "image", "quote") defined by the project. Workflow: 1) Call sulu_get_context to see available block types and their fields. 2) Find the block property name in the template (e.g. "blocks" or "content"). 3) Pass blockType, blockProperty, and blockData with field values. The block is appended at the end or inserted at "position" (0-based). The article must be re-published after adding blocks.',
     )]
     public function addBlock(
-        string $pageUuid,
+        string $articleUuid,
         string $locale,
         string $blockType,
         string $blockProperty,
@@ -46,18 +46,18 @@ class BlockAddTool
         ?int $position = null,
     ): array {
         try {
-            $page = $this->pageRepository->getOneBy(
+            $article = $this->articleRepository->getOneBy(
                 [
-                    'uuid' => $pageUuid,
+                    'uuid' => $articleUuid,
                     'locale' => $locale,
                     'stage' => DimensionContentInterface::STAGE_DRAFT,
                 ],
                 [
-                    PageRepositoryInterface::GROUP_SELECT_PAGE_ADMIN => true,
+                    ArticleRepositoryInterface::GROUP_SELECT_ARTICLE_ADMIN => true,
                 ],
             );
 
-            $dimensionContent = $this->contentManager->resolve($page, [
+            $dimensionContent = $this->contentManager->resolve($article, [
                 'locale' => $locale,
                 'stage' => DimensionContentInterface::STAGE_DRAFT,
             ]);
@@ -90,21 +90,21 @@ class BlockAddTool
             // Ensure all array keys are strings (Sulu's MetadataResolver requires string keys)
             $data = $this->stringifyKeys($data);
 
-            $message = new ModifyPageMessage(['uuid' => $pageUuid], $data);
+            $message = new ModifyArticleMessage(['uuid' => $articleUuid], $data);
 
-            /** @var PageInterface $updatedPage */
-            $updatedPage = $this->handle(new Envelope($message, [new EnableFlushStamp()]));
+            /** @var ArticleInterface $updatedArticle */
+            $updatedArticle = $this->handle(new Envelope($message, [new EnableFlushStamp()]));
 
             return [
                 'success' => true,
-                'uuid' => $updatedPage->getUuid(),
+                'uuid' => $updatedArticle->getUuid(),
                 'blockCount' => \count($blocks),
                 'addedAt' => $addedAt,
             ];
         } catch (\Throwable $e) {
             return [
-                'error' => \sprintf('Failed to add %s block to page %s: %s', $blockType, $pageUuid, $e->getMessage()),
-                'hint' => 'Verify the page UUID exists (use sulu_page_get), the blockProperty matches a block field in the template, and blockType is a valid block type (use sulu_get_context to see available types).',
+                'error' => \sprintf('Failed to add %s block to article %s: %s', $blockType, $articleUuid, $e->getMessage()),
+                'hint' => 'Verify the article UUID exists (use sulu_article_get), the blockProperty matches a block field in the template, and blockType is a valid block type (use sulu_get_context to see available types).',
             ];
         }
     }

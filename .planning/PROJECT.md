@@ -15,15 +15,15 @@ AI assistants can create, edit, and publish content in Sulu CMS with full awaren
 - [x] Pages: Get, create, edit, delete pages via Sulu services — Validated in Phase 3: page-content-management
 - [x] Blocks: Add, remove, reorder blocks on pages/articles with dynamic discovery of all available block types — Validated in Phase 3: page-content-management
 - [x] Publishing: Publish and unpublish pages and articles — Validated in Phase 3: page-content-management
+- [x] Articles: Get, create, edit, delete articles via Sulu services — Validated in Phase 4: extended-content-tools
+- [x] Tags: Create, get, delete tags — Validated in Phase 4: extended-content-tools
+- [x] Categories: Create, get, delete categories — Validated in Phase 4: extended-content-tools
+- [x] Media/Assets: List, get details, update metadata — Validated in Phase 4: extended-content-tools
+- [x] Snippets: Read reusable content snippets — Validated in Phase 4: extended-content-tools
+- [x] Navigation: Read navigation structures — Validated in Phase 4: extended-content-tools
 
 ### Active
 
-- [ ] Articles: Get, create, edit, delete articles via Sulu services
-- [ ] Tags: Create, get, delete tags
-- [ ] Categories: Create, get, delete categories
-- [ ] Media/Assets: Upload, list, manage media files
-- [ ] Snippets: Manage reusable content snippets
-- [ ] Navigation: Read and manage navigation structures
 - [ ] HTTP/SSE transport for MCP communication
 - [ ] Sulu user authentication — inherit user permissions for all operations
 - [ ] Webspace and locale passed as parameters per tool call
@@ -87,4 +87,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-30 — Phase 03 complete (page-content-management: full page CRUD, block management, publish/unpublish, guideline generator prompt)*
+*Last updated: 2026-03-31 — Phase 04 complete (extended-content-tools: articles, taxonomy, media, snippets, contacts, navigation)*

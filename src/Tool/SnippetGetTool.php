@@ -7,15 +7,15 @@ namespace Sulu\McpServerBundle\Tool;
 use Mcp\Capability\Attribute\McpTool;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
-use Sulu\Page\Domain\Exception\PageNotFoundException;
-use Sulu\Page\Domain\Repository\PageRepositoryInterface;
+use Sulu\Snippet\Domain\Exception\SnippetNotFoundException;
+use Sulu\Snippet\Domain\Repository\SnippetRepositoryInterface;
 
-class PageGetTool
+class SnippetGetTool
 {
     use ContentNormalizerTrait;
 
     public function __construct(
-        private readonly PageRepositoryInterface $pageRepository,
+        private readonly SnippetRepositoryInterface $snippetRepository,
         private readonly ContentManagerInterface $contentManager,
     ) {
     }
@@ -24,24 +24,24 @@ class PageGetTool
      * @return array<string, mixed>
      */
     #[McpTool(
-        name: 'sulu_page_get',
-        description: 'Get a single page by its UUID. Returns draft metadata, template fields, and block summaries (index, _id, type, title, blockCount). Use sulu_block_list with type="page" to fetch full block content. Always call this before sulu_page_update.',
+        name: 'sulu_snippet_get',
+        description: 'Get a snippet by UUID. Snippets are reusable content blocks (e.g., contact info, footer content) shared across pages. Returns full content data. Snippets are global — not scoped to a webspace.',
     )]
-    public function getPage(string $webspace, string $locale, string $uuid): array
+    public function getSnippet(string $locale, string $uuid): array
     {
         try {
-            $page = $this->pageRepository->getOneBy(
+            $snippet = $this->snippetRepository->getOneBy(
                 [
                     'uuid' => $uuid,
                     'locale' => $locale,
                     'stage' => DimensionContentInterface::STAGE_DRAFT,
                 ],
                 [
-                    PageRepositoryInterface::GROUP_SELECT_PAGE_ADMIN => true,
+                    SnippetRepositoryInterface::GROUP_SELECT_SNIPPET_ADMIN => true,
                 ],
             );
 
-            $dimensionContent = $this->contentManager->resolve($page, [
+            $dimensionContent = $this->contentManager->resolve($snippet, [
                 'locale' => $locale,
                 'stage' => DimensionContentInterface::STAGE_DRAFT,
             ]);
@@ -49,14 +49,13 @@ class PageGetTool
             $normalized = $this->contentManager->normalize($dimensionContent);
 
             return [
-                'uuid' => $page->getUuid(),
-                'webspace' => $webspace,
+                'uuid' => $snippet->getUuid(),
                 'locale' => $locale,
                 'data' => $this->compactContent($normalized, $this->detectBlockProperties($normalized)),
             ];
-        } catch (PageNotFoundException) {
+        } catch (SnippetNotFoundException) {
             return [
-                'error' => 'Page not found: '.$uuid,
+                'error' => 'Snippet not found: '.$uuid,
             ];
         }
     }

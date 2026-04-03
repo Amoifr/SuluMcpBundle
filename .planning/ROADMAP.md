@@ -78,11 +78,13 @@ Plans:
   3. An AI client can create, list (tree structure), and delete categories
   4. An AI client can list/search media, get media details (metadata, URLs, dimensions), and update media metadata
   5. An AI client can read contacts/accounts, snippets with content, and navigation structures
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 04-01: Article CRUD and publishing tools
-- [ ] 04-02: Taxonomy, media, and read-only entity tools
+- [x] 04-01-PLAN.md -- Article CRUD tools: get, list, create, update, delete (ARTC-01, ARTC-02, ARTC-03, ARTC-04, ARTC-05)
+- [x] 04-02-PLAN.md -- Article block tools and publish/unpublish (ARTC-04)
+- [x] 04-03-PLAN.md -- Taxonomy tools: tags and categories (TAXO-01, TAXO-02, TAXO-03, TAXO-04, TAXO-05, TAXO-06)
+- [x] 04-04-PLAN.md -- Media and read-only entity tools (MDIA-01, MDIA-02, MDIA-03, READ-01, READ-02, READ-03)
 
 ## Progress
 
@@ -94,4 +96,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Bundle Foundation & Transport | 0/2 | Not started | - |
 | 2. Context Discovery & Guidelines | 1/2 | In Progress|  |
 | 3. Page Content Management | 0/4 | Not started | - |
-| 4. Extended Content Tools | 0/2 | Not started | - |
+| 4. Extended Content Tools | 0/4 | Not started | - |

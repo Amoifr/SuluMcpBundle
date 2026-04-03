@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Tool;
 
 use Mcp\Capability\Attribute\McpTool;
+use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
-use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 
-class PageListTool
+class ArticleListTool
 {
     private const SUMMARY_FIELDS = [
         'title', 'template', 'url', 'locale', 'stage',
@@ -17,11 +17,11 @@ class PageListTool
         'authored', 'author', 'created', 'changed',
         'availableLocales', 'contentLocales', 'ghostLocale',
         'shadowOn', 'shadowLocale',
-        'navigationContexts',
+        'mainWebspace',
     ];
 
     public function __construct(
-        private readonly PageRepositoryInterface $pageRepository,
+        private readonly ArticleRepositoryInterface $articleRepository,
         private readonly ContentManagerInterface $contentManager,
     ) {
     }
@@ -30,14 +30,12 @@ class PageListTool
      * @return array<string, mixed>
      */
     #[McpTool(
-        name: 'sulu_page_list',
-        description: 'List pages in a webspace with optional filters. Returns lightweight summaries (title, template, URL, workflow state, dates) — no blocks or HTML content. Use sulu_page_get with a UUID to fetch the full content of a specific page. Use "template" to filter by template key (e.g. "default", "homepage"). Use "parentId" with a page UUID to list only direct children. Results are paginated — use "page" and "limit" to control.',
+        name: 'sulu_article_list',
+        description: 'List articles with optional filters. Returns lightweight summaries (title, template, URL, workflow state, dates) — no blocks or HTML content. Use sulu_article_get with a UUID to fetch the full content of a specific article. Use "template" to filter by template key (e.g. "blog", "default"). Results are paginated — use "page" and "limit" to control.',
     )]
-    public function listPages(
-        string $webspace,
+    public function listArticles(
         string $locale,
         ?string $template = null,
-        ?string $parentId = null,
         int $page = 1,
         int $limit = 20,
     ): array {
@@ -52,21 +50,17 @@ class PageListTool
             $filters['templateKeys'] = [$template];
         }
 
-        if (null !== $parentId) {
-            $filters['parentId'] = $parentId;
-        }
-
-        $pages = $this->pageRepository->findBy(
+        $articles = $this->articleRepository->findBy(
             $filters,
             ['title' => 'asc'],
-            [PageRepositoryInterface::GROUP_SELECT_PAGE_ADMIN => true],
+            [ArticleRepositoryInterface::GROUP_SELECT_ARTICLE_ADMIN => true],
         );
 
-        $total = $this->pageRepository->countBy($filters);
+        $total = $this->articleRepository->countBy($filters);
 
         $results = [];
-        foreach ($pages as $pageEntity) {
-            $dimensionContent = $this->contentManager->resolve($pageEntity, [
+        foreach ($articles as $articleEntity) {
+            $dimensionContent = $this->contentManager->resolve($articleEntity, [
                 'locale' => $locale,
                 'stage' => DimensionContentInterface::STAGE_DRAFT,
             ]);
@@ -81,13 +75,13 @@ class PageListTool
             }
 
             $results[] = [
-                'uuid' => $pageEntity->getUuid(),
+                'uuid' => $articleEntity->getUuid(),
                 'data' => $summary,
             ];
         }
 
         return [
-            'pages' => $results,
+            'articles' => $results,
             'total' => $total,
             'page' => $page,
             'limit' => $limit,

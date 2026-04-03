@@ -19,6 +19,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 class PageUpdateTool
 {
     use HandleTrait;
+    use BlockDataNormalizerTrait;
 
     public function __construct(
         MessageBusInterface $messageBus,
@@ -83,6 +84,9 @@ class PageUpdateTool
             if (null !== $content) {
                 $data = \array_merge($data, self::normalizeContent($content));
             }
+
+            // Ensure all array keys are strings (Sulu's MetadataResolver requires string keys)
+            $data = $this->stringifyKeys($data);
 
             $message = new ModifyPageMessage(['uuid' => $uuid], $data);
 
