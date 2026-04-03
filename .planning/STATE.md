@@ -89,9 +89,10 @@ None yet.
 |---|-------------|------|--------|-----------|
 | 260331-aut | Add multiple blocks to default/homepage templates, implement twig+tailwind template, add page fixtures | 2026-03-31 | 7fb0610 | [260331-aut-add-multiple-blocks-to-default-homepage-](./quick/260331-aut-add-multiple-blocks-to-default-homepage-/) |
 | 260331-cz6 | Add tests for BlocksResource/TemplatesResource global block resolution and PagePublishTool confirmation | 2026-03-31 | e28b556 | - |
+| 260403-r6h | Add MCP tools to generate and revoke public preview links for draft pages/articles | 2026-04-03 | dcdf62f | [260403-r6h-add-mcp-tool-to-generate-public-preview-](./quick/260403-r6h-add-mcp-tool-to-generate-public-preview-/) |
 
 ## Session Continuity
 
-Last session: 2026-03-31T07:37:30.254Z
-Stopped at: Phase 4 context gathered (assumptions mode)
+Last session: 2026-04-03T08:41:07Z
+Stopped at: Completed quick task 260403-r6h
 Resume file: .planning/phases/04-extended-content-tools/04-CONTEXT.md

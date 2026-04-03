@@ -133,3 +133,7 @@ services:
 
     # Phase 04: Navigation tools
     Sulu\McpServerBundle\Tool\NavigationGetTool: ~
+
+    # Preview link tools
+    Sulu\McpServerBundle\Tool\PreviewLinkGenerateTool: ~
+    Sulu\McpServerBundle\Tool\PreviewLinkRevokeTool: ~
