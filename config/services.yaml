@@ -83,6 +83,7 @@ services:
     # Block management tools
     Sulu\McpServerBundle\Tool\BlockListTool: ~
     Sulu\McpServerBundle\Tool\BlockAddTool: ~
+    Sulu\McpServerBundle\Tool\BlockUpdateTool: ~
     Sulu\McpServerBundle\Tool\BlockRemoveTool: ~
     Sulu\McpServerBundle\Tool\BlockReorderTool: ~
 
