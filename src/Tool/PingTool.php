@@ -31,7 +31,7 @@ class PingTool
         $result = [
             'status' => 'ok',
             'server' => 'sulu-mcp-server',
-            'version' => '1.0.0',
+            'version' => '0.1.0',
             'user' => $username,
             'webspaces' => [],
         ];

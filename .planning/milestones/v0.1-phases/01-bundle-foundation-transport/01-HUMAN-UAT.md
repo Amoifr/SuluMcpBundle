@@ -10,7 +10,7 @@ updated: 2026-03-30
 
 ### 1. MCP Handshake E2E
 expected: POST to `/_mcp` with JSON-RPC initialize returns server capabilities (tools list including sulu_ping)
-result: PASSED — Claude.ai called `sulu_ping` successfully, returned `sulu-mcp-server v1.0.0`, status ok
+result: PASSED — Claude.ai called `sulu_ping` successfully, returned `sulu-mcp-server v0.1.0`, status ok
 
 ### 2. OAuth Flow E2E
 expected: Full OAuth authorization code flow with PKCE produces a bearer token mapped to Sulu user

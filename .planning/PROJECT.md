@@ -8,7 +8,7 @@ A Symfony bundle for Sulu CMS 3.x that exposes content management operations as 
 
 AI assistants can create, edit, and publish content in Sulu CMS with full awareness of the project's content guidelines, templates, and brand context — writing on-brand content, not just executing CRUD.
 
-## Current State (v1.0 shipped 2026-04-03)
+## Current State (v0.1 shipped 2026-04-03)
 
 - **44 MCP tools** covering pages, articles, blocks, taxonomy, media, snippets, contacts, navigation, publishing, guidelines
 - **4,891 LOC** PHP source + **6,110 LOC** tests (245 tests, 748 assertions)
@@ -20,28 +20,28 @@ AI assistants can create, edit, and publish content in Sulu CMS with full awaren
 
 ### Validated
 
-- ✓ MCP Streamable HTTP transport — v1.0
-- ✓ Symfony bundle with DI container access — v1.0
-- ✓ PHP 8 attribute auto-discovery (#[McpTool]) — v1.0
-- ✓ Sulu user OAuth authentication — v1.0
-- ✓ Structured permission-denied errors — v1.0
-- ✓ Webspace/locale parameters on all tools — v1.0
-- ✓ Locale-appropriate data — v1.0
-- ✓ Template, block type, webspace MCP resources — v1.0
-- ✓ Content guidelines (global + per-webspace overrides) — v1.0
-- ✓ Company context MCP resource — v1.0
-- ✓ Page CRUD (get, list, tree, create, update, delete) — v1.0
-- ✓ Article CRUD (get, list, create, update, delete) — v1.0
-- ✓ Block operations (add, remove, reorder, update, list with pagination) — v1.0
-- ✓ Publishing/unpublishing (pages + articles) — v1.0
-- ✓ Tag CRUD — v1.0
-- ✓ Category CRUD (tree structure) — v1.0
-- ✓ Media list, get, update metadata — v1.0
-- ✓ Snippet read — v1.0
-- ✓ Contact/account read — v1.0
-- ✓ Navigation read — v1.0
-- ✓ Guideline generator MCP prompt — v1.0
-- ✓ Preview link generation/revocation — v1.0
+- ✓ MCP Streamable HTTP transport — v0.1
+- ✓ Symfony bundle with DI container access — v0.1
+- ✓ PHP 8 attribute auto-discovery (#[McpTool]) — v0.1
+- ✓ Sulu user OAuth authentication — v0.1
+- ✓ Structured permission-denied errors — v0.1
+- ✓ Webspace/locale parameters on all tools — v0.1
+- ✓ Locale-appropriate data — v0.1
+- ✓ Template, block type, webspace MCP resources — v0.1
+- ✓ Content guidelines (global + per-webspace overrides) — v0.1
+- ✓ Company context MCP resource — v0.1
+- ✓ Page CRUD (get, list, tree, create, update, delete) — v0.1
+- ✓ Article CRUD (get, list, create, update, delete) — v0.1
+- ✓ Block operations (add, remove, reorder, update, list with pagination) — v0.1
+- ✓ Publishing/unpublishing (pages + articles) — v0.1
+- ✓ Tag CRUD — v0.1
+- ✓ Category CRUD (tree structure) — v0.1
+- ✓ Media list, get, update metadata — v0.1
+- ✓ Snippet read — v0.1
+- ✓ Contact/account read — v0.1
+- ✓ Navigation read — v0.1
+- ✓ Guideline generator MCP prompt — v0.1
+- ✓ Preview link generation/revocation — v0.1
 
 ### Active
 
@@ -96,4 +96,4 @@ AI assistants can create, edit, and publish content in Sulu CMS with full awaren
 | Block _id for updates | Use Sulu's internal block _id instead of index+property | ✓ Good — simpler API |
 
 ---
-*Last updated: 2026-04-03 after v1.0 milestone*
+*Last updated: 2026-04-03 after v0.1 milestone*

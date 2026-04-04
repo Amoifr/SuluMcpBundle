@@ -1,9 +1,9 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
+milestone: v0.1
 milestone_name: MVP
 status: completed
-stopped_at: v1.0 milestone complete
+stopped_at: v0.1 milestone complete
 last_updated: "2026-04-03T18:00:00Z"
 last_activity: 2026-04-03
 progress:
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-03)
 
 **Core value:** AI assistants can create, edit, and publish content in Sulu CMS with full awareness of content guidelines, templates, and brand context.
-**Current focus:** v1.0 shipped — planning next milestone
+**Current focus:** v0.1 shipped — planning next milestone
 
 ## Current Position
 
-Milestone: v1.0 MVP — SHIPPED 2026-04-03
+Milestone: v0.1 MVP — SHIPPED 2026-04-03
 Status: Complete (4 phases, 12 plans, 44 tools)
-Last activity: 2026-04-03 - v1.0 milestone complete
+Last activity: 2026-04-03 - v0.1 milestone complete
 
 Progress: [██████████] 100%
 

@@ -29,7 +29,7 @@ The stack is fully determined by the intersection of Sulu 3.0 and the official M
 
 ### Expected Features
 
-**Must have (table stakes) -- ship in v1.0:**
+**Must have (table stakes) -- ship in v0.1:**
 - Page CRUD with template selection, webspace/locale context, cursor-based pagination
 - Article CRUD following the same patterns
 - Block management (add, remove, reorder) with dynamic block type discovery

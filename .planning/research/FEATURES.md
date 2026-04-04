@@ -169,7 +169,7 @@ Features that seem appealing but create more problems than they solve.
 
 ## MVP Definition
 
-### Launch With (v1.0)
+### Launch With (v0.1)
 
 Minimum viable product: AI can create and manage Sulu content with full context awareness.
 
