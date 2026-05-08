@@ -3,17 +3,17 @@ services:
         autowire: true
         autoconfigure: true
 
-    Sulu\McpServerBundle\Tool\PingTool: ~
-    Sulu\McpServerBundle\Tool\GetContextTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\PingTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\GetContextTool: ~
 
     # MCP Resources: discovery layer for AI clients
-    Sulu\McpServerBundle\Resource\TemplatesResource:
+    Sulu\McpServerBundle\Capabilities\Resource\TemplatesResource:
         arguments:
             $formMetadataProvider: '@sulu_admin.form_metadata_provider'
-    Sulu\McpServerBundle\Resource\BlocksResource:
+    Sulu\McpServerBundle\Capabilities\Resource\BlocksResource:
         arguments:
             $formMetadataProvider: '@sulu_admin.form_metadata_provider'
-    Sulu\McpServerBundle\Resource\WebspacesResource: ~
+    Sulu\McpServerBundle\Capabilities\Resource\WebspacesResource: ~
 # OAuth well-known controller
     Sulu\McpServerBundle\Security\OAuth\WellKnownController:
         arguments:
@@ -55,66 +55,66 @@ services:
             $serverUrl: '%sulu_mcp_server.server_url%'
 
     # Page read tools
-    Sulu\McpServerBundle\Tool\PageGetTool: ~
-    Sulu\McpServerBundle\Tool\PageListTool: ~
-    Sulu\McpServerBundle\Tool\PageTreeTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Page\PageGetTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Page\PageListTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Page\PageTreeTool: ~
 
     # Page write tools
-    Sulu\McpServerBundle\Tool\PageCreateTool: ~
-    Sulu\McpServerBundle\Tool\PageUpdateTool: ~
-    Sulu\McpServerBundle\Tool\PageDeleteTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Page\PageCreateTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Page\PageUpdateTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Page\PageDeleteTool: ~
 
     # Block management tools
-    Sulu\McpServerBundle\Tool\BlockListTool: ~
-    Sulu\McpServerBundle\Tool\BlockAddTool: ~
-    Sulu\McpServerBundle\Tool\BlockUpdateTool: ~
-    Sulu\McpServerBundle\Tool\BlockRemoveTool: ~
-    Sulu\McpServerBundle\Tool\BlockReorderTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Page\BlockListTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Page\BlockAddTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Page\BlockUpdateTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Page\BlockRemoveTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Page\BlockReorderTool: ~
 
     Sulu\Page\Domain\Repository\NavigationRepositoryInterface:
         alias: sulu_page.navigation_repository
 
     # Publishing tools
-    Sulu\McpServerBundle\Tool\PagePublishTool: ~
-    Sulu\McpServerBundle\Tool\PageUnpublishTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Page\PagePublishTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Page\PageUnpublishTool: ~
 
     # Phase 04: Article tools
-    Sulu\McpServerBundle\Tool\ArticleGetTool: ~
-    Sulu\McpServerBundle\Tool\ArticleListTool: ~
-    Sulu\McpServerBundle\Tool\ArticleCreateTool: ~
-    Sulu\McpServerBundle\Tool\ArticleUpdateTool: ~
-    Sulu\McpServerBundle\Tool\ArticleDeleteTool: ~
-    Sulu\McpServerBundle\Tool\ArticlePublishTool: ~
-    Sulu\McpServerBundle\Tool\ArticleUnpublishTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleGetTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleListTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleCreateTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleUpdateTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleDeleteTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticlePublishTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleUnpublishTool: ~
 
     # Phase 04: Article block tools
-    Sulu\McpServerBundle\Tool\ArticleBlockAddTool: ~
-    Sulu\McpServerBundle\Tool\ArticleBlockRemoveTool: ~
-    Sulu\McpServerBundle\Tool\ArticleBlockReorderTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleBlockAddTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleBlockRemoveTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleBlockReorderTool: ~
 
     # Phase 04: Taxonomy tools
-    Sulu\McpServerBundle\Tool\TagCreateTool: ~
-    Sulu\McpServerBundle\Tool\TagListTool: ~
-    Sulu\McpServerBundle\Tool\TagDeleteTool: ~
-    Sulu\McpServerBundle\Tool\CategoryCreateTool: ~
-    Sulu\McpServerBundle\Tool\CategoryListTool: ~
-    Sulu\McpServerBundle\Tool\CategoryDeleteTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\TagCreateTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\TagListTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\TagDeleteTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\CategoryCreateTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\CategoryListTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\CategoryDeleteTool: ~
 
     # Phase 04: Media tools
-    Sulu\McpServerBundle\Tool\MediaListTool: ~
-    Sulu\McpServerBundle\Tool\MediaGetTool: ~
-    Sulu\McpServerBundle\Tool\MediaUpdateTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Media\MediaListTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Media\MediaGetTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Media\MediaUpdateTool: ~
 
     # Phase 04: Snippet tools
-    Sulu\McpServerBundle\Tool\SnippetGetTool: ~
-    Sulu\McpServerBundle\Tool\SnippetListTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Snippet\SnippetGetTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Snippet\SnippetListTool: ~
 
     # Phase 04: Contact tools
-    Sulu\McpServerBundle\Tool\ContactListTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Contact\ContactListTool: ~
 
     # Phase 04: Navigation tools
-    Sulu\McpServerBundle\Tool\NavigationGetTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Navigation\NavigationGetTool: ~
 
     # Preview link tools
-    Sulu\McpServerBundle\Tool\PreviewLinkGenerateTool: ~
-    Sulu\McpServerBundle\Tool\PreviewLinkRevokeTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Preview\PreviewLinkGenerateTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Preview\PreviewLinkRevokeTool: ~
