@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\EventListener;
+namespace Sulu\McpServerBundle\Tests\Unit\Security\EventListener;
 
 use PHPUnit\Framework\TestCase;
 use Sulu\Component\Security\Authorization\PermissionTypes;
-use Sulu\McpServerBundle\EventListener\McpAuthenticationListener;
-use Sulu\McpServerBundle\EventListener\McpExceptionListener;
+use Sulu\McpServerBundle\Security\EventListener\McpAuthenticationListener;
+use Sulu\McpServerBundle\Security\EventListener\McpExceptionListener;
 use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;

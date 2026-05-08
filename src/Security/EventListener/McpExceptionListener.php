@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\EventListener;
+namespace Sulu\McpServerBundle\Security\EventListener;
 
 use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;

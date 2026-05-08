@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\EventListener;
+namespace Sulu\McpServerBundle\Security\EventListener;
 
 use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
