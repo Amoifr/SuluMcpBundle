@@ -48,23 +48,6 @@ services:
         tags:
             - { name: kernel.event_listener, event: kernel.request, method: onKernelRequest, priority: 64 }
 
-    # Content guidelines and company context resources
-    Sulu\McpServerBundle\Resource\GuidelinesResource: ~
-    Sulu\McpServerBundle\Resource\CompanyContextResource: ~
-
-    # Content guidelines and company context write tools
-    Sulu\McpServerBundle\Tool\UpdateGuidelinesTool: ~
-    Sulu\McpServerBundle\Tool\UpdateCompanyContextTool: ~
-    Sulu\McpServerBundle\Tool\GetContextTool: ~
-
-    # Repositories for guidelines and company context
-    Sulu\McpServerBundle\Repository\ContentGuidelinesRepository: ~
-    Sulu\McpServerBundle\Repository\CompanyContextRepository: ~
-    Sulu\McpServerBundle\Repository\ContentGuidelinesRepositoryInterface:
-        alias: Sulu\McpServerBundle\Repository\ContentGuidelinesRepository
-    Sulu\McpServerBundle\Repository\CompanyContextRepositoryInterface:
-        alias: Sulu\McpServerBundle\Repository\CompanyContextRepository
-
     # Commands
     Sulu\McpServerBundle\Command\CreateMcpClientCommand:
         arguments:
@@ -93,9 +76,6 @@ services:
     # Publishing tools
     Sulu\McpServerBundle\Tool\PagePublishTool: ~
     Sulu\McpServerBundle\Tool\PageUnpublishTool: ~
-
-    # MCP Prompts
-    Sulu\McpServerBundle\Prompt\GuidelineGeneratorPrompt: ~
 
     # Phase 04: Article tools
     Sulu\McpServerBundle\Tool\ArticleGetTool: ~
