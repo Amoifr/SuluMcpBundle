@@ -44,6 +44,9 @@ class SuluMcpServerExtension extends Extension implements PrependExtensionInterf
         $container->setParameter('sulu_mcp_server.oauth.access_token_ttl', $config['oauth']['access_token_ttl']);
         $container->setParameter('sulu_mcp_server.oauth.refresh_token_ttl', $config['oauth']['refresh_token_ttl']);
         $container->setParameter('sulu_mcp_server.oauth.scopes', $config['oauth']['scopes']);
+        $container->setParameter('sulu_mcp_server.dangerous_tools.delete', $config['dangerous_tools']['delete']);
+        $container->setParameter('sulu_mcp_server.dangerous_tools.publish', $config['dangerous_tools']['publish']);
+        $container->setParameter('sulu_mcp_server.dangerous_tools.block_remove', $config['dangerous_tools']['block_remove']);
         $loader = new YamlFileLoader(
             $container,
             new FileLocator(\dirname(__DIR__, 2).'/config')

@@ -3,3 +3,7 @@ sulu_mcp_server:
     oauth:
         access_token_ttl: 3600
         refresh_token_ttl: 2592000
+    dangerous_tools:
+        delete: true
+        publish: true
+        block_remove: true

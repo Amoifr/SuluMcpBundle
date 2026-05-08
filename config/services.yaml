@@ -70,13 +70,13 @@ services:
     # Page write tools
     Sulu\McpServerBundle\Capabilities\Tool\Page\PageCreateTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\Page\PageUpdateTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Page\PageDeleteTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Page\PageDeleteTool: ~  # gated by dangerous_tools.delete
 
     # Block management tools
     Sulu\McpServerBundle\Capabilities\Tool\Page\BlockListTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\Page\BlockAddTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\Page\BlockUpdateTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Page\BlockRemoveTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Page\BlockRemoveTool: ~  # gated by dangerous_tools.block_remove
     Sulu\McpServerBundle\Capabilities\Tool\Page\BlockReorderTool: ~
 
     Sulu\Page\Domain\Repository\NavigationRepositoryInterface:
@@ -86,8 +86,8 @@ services:
         alias: sulu_preview.preview_link_manager
 
     # Publishing tools
-    Sulu\McpServerBundle\Capabilities\Tool\Page\PagePublishTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Page\PageUnpublishTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Page\PagePublishTool: ~  # gated by dangerous_tools.publish
+    Sulu\McpServerBundle\Capabilities\Tool\Page\PageUnpublishTool: ~  # gated by dangerous_tools.publish
 
     # Page SEO and excerpt tools
     Sulu\McpServerBundle\Capabilities\Tool\Page\PageSeoGetTool: ~
@@ -100,9 +100,9 @@ services:
     Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleListTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleCreateTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleUpdateTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleDeleteTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticlePublishTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleUnpublishTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleDeleteTool: ~  # gated by dangerous_tools.delete
+    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticlePublishTool: ~  # gated by dangerous_tools.publish
+    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleUnpublishTool: ~  # gated by dangerous_tools.publish
 
     # Article SEO and excerpt tools
     Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleSeoGetTool: ~
@@ -112,16 +112,16 @@ services:
 
     # Phase 04: Article block tools
     Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleBlockAddTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleBlockRemoveTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleBlockRemoveTool: ~  # gated by dangerous_tools.block_remove
     Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleBlockReorderTool: ~
 
     # Phase 04: Taxonomy tools
     Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\TagCreateTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\TagListTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\TagDeleteTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\TagDeleteTool: ~  # gated by dangerous_tools.delete
     Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\CategoryCreateTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\CategoryListTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\CategoryDeleteTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\CategoryDeleteTool: ~  # gated by dangerous_tools.delete
 
     # Phase 04: Media tools
     Sulu\McpServerBundle\Capabilities\Tool\Media\MediaListTool: ~
@@ -140,4 +140,4 @@ services:
 
     # Preview link tools
     Sulu\McpServerBundle\Capabilities\Tool\Preview\PreviewLinkGenerateTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Preview\PreviewLinkRevokeTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Preview\PreviewLinkRevokeTool: ~  # gated by dangerous_tools.publish
