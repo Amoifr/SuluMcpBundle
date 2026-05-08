@@ -23,6 +23,11 @@ services:
             $serverUrl: '%sulu_mcp_server.server_url%'
         tags: ['controller.service_arguments']
 
+    Sulu\McpServerBundle\Security\OAuth\DynamicClientRegistrationController:
+        arguments:
+            $serverUrl: '%sulu_mcp_server.server_url%'
+        tags: ['controller.service_arguments']
+
     Sulu\McpServerBundle\Security\OAuth\SuluUserResolver: ~
 
     # OAuth authorization
@@ -77,9 +82,18 @@ services:
     Sulu\Page\Domain\Repository\NavigationRepositoryInterface:
         alias: sulu_page.navigation_repository
 
+    Sulu\Bundle\PreviewBundle\Application\Manager\PreviewLinkManagerInterface:
+        alias: sulu_preview.preview_link_manager
+
     # Publishing tools
     Sulu\McpServerBundle\Capabilities\Tool\Page\PagePublishTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\Page\PageUnpublishTool: ~
+
+    # Page SEO and excerpt tools
+    Sulu\McpServerBundle\Capabilities\Tool\Page\PageSeoGetTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Page\PageSeoUpdateTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Page\PageExcerptGetTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Page\PageExcerptUpdateTool: ~
 
     # Phase 04: Article tools
     Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleGetTool: ~
@@ -89,6 +103,12 @@ services:
     Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleDeleteTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\Article\ArticlePublishTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleUnpublishTool: ~
+
+    # Article SEO and excerpt tools
+    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleSeoGetTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleSeoUpdateTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleExcerptGetTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleExcerptUpdateTool: ~
 
     # Phase 04: Article block tools
     Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleBlockAddTool: ~

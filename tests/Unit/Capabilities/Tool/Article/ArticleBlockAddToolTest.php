@@ -10,6 +10,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
+use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleBlockAddTool;
@@ -23,6 +24,7 @@ final class ArticleBlockAddToolTest extends TestCase
     private MessageBusInterface&MockObject $messageBus;
     private ArticleRepositoryInterface&MockObject $articleRepository;
     private ContentManagerInterface&MockObject $contentManager;
+    private BlockIdGeneratorInterface&MockObject $blockIdGenerator;
     private ArticleBlockAddTool $tool;
 
     protected function setUp(): void
@@ -30,7 +32,14 @@ final class ArticleBlockAddToolTest extends TestCase
         $this->messageBus = $this->createMock(MessageBusInterface::class);
         $this->articleRepository = $this->createMock(ArticleRepositoryInterface::class);
         $this->contentManager = $this->createMock(ContentManagerInterface::class);
-        $this->tool = new ArticleBlockAddTool($this->messageBus, $this->articleRepository, $this->contentManager);
+        $this->blockIdGenerator = $this->createMock(BlockIdGeneratorInterface::class);
+        $this->blockIdGenerator->method('generateId')->willReturn('generated-id');
+        $this->tool = new ArticleBlockAddTool(
+            $this->messageBus,
+            $this->articleRepository,
+            $this->contentManager,
+            $this->blockIdGenerator,
+        );
     }
 
     public function testAddBlockAppendsBlockAndReturnsSuccess(): void

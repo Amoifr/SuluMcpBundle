@@ -11,7 +11,7 @@ use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentNormalizerTrait;
 
-class ArticleGetTool
+class ArticleSeoGetTool
 {
     use ContentNormalizerTrait;
 
@@ -25,10 +25,10 @@ class ArticleGetTool
      * @return array<string, mixed>
      */
     #[McpTool(
-        name: 'sulu_article_get',
-        description: 'Get a single article by its UUID. Returns draft metadata, template fields, and block summaries (index, _id, type, title, blockCount). Use sulu_block_list with type="article" to fetch full block content. SEO and excerpt data are NOT included — use sulu_article_seo_get and sulu_article_excerpt_get for those. Always call this before sulu_article_update.',
+        name: 'sulu_article_seo_get',
+        description: 'Read the SEO metadata for an article (seo: {title, description, keywords, canonicalUrl} plus seoNoIndex/seoNoFollow/seoHideInSitemap flags). Returns the draft state. Use sulu_article_seo_update to write.',
     )]
-    public function getArticle(string $locale, string $uuid): array
+    public function getArticleSeo(string $uuid, string $locale): array
     {
         try {
             $article = $this->articleRepository->getOneBy(
@@ -49,14 +49,13 @@ class ArticleGetTool
 
             $normalized = $this->contentManager->normalize($dimensionContent);
 
-            $compacted = $this->compactContent($normalized, $this->detectBlockProperties($normalized));
-            $compacted = $this->stripSeoExcerpt($compacted);
-
-            return [
-                'uuid' => $article->getUuid(),
-                'locale' => $locale,
-                'data' => $compacted,
-            ];
+            return \array_merge(
+                [
+                    'uuid' => $article->getUuid(),
+                    'locale' => $locale,
+                ],
+                $this->extractSeo($normalized),
+            );
         } catch (ArticleNotFoundException) {
             return [
                 'error' => 'Article not found: '.$uuid,

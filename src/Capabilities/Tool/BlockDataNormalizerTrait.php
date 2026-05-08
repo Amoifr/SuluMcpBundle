@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Sulu\McpServerBundle\Capabilities\Tool;
 
+use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
+
 /**
  * Normalizes block data from AI clients and ensures string keys for Sulu compatibility.
  *
@@ -12,6 +14,35 @@ namespace Sulu\McpServerBundle\Capabilities\Tool;
  */
 trait BlockDataNormalizerTrait
 {
+    /**
+     * Recursively assign a generated _id to every block-shaped sub-array (any array with a string `type`).
+     *
+     * Walks into all list-typed values so inline-nested children (e.g. a section's `blocks` array)
+     * also receive ids — without this, parentBlockId / block_update can't find them later.
+     *
+     * @param array<string, mixed> $block
+     *
+     * @return array<string, mixed>
+     */
+    private function assignBlockIds(array $block, BlockIdGeneratorInterface $generator): array
+    {
+        if (isset($block['type']) && \is_string($block['type']) && !isset($block['_id'])) {
+            $block['_id'] = $generator->generateId();
+        }
+
+        foreach ($block as $key => $value) {
+            if (!\is_array($value) || !\array_is_list($value) || [] === $value) {
+                continue;
+            }
+            $block[$key] = \array_map(
+                fn (mixed $item) => \is_array($item) ? $this->assignBlockIds($item, $generator) : $item,
+                $value,
+            );
+        }
+
+        return $block;
+    }
+
     /**
      * Normalize blockData from AI clients that may send it as a list.
      *

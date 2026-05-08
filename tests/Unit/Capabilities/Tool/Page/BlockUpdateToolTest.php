@@ -11,6 +11,7 @@ use PHPUnit\Framework\TestCase;
 use Sulu\Article\Application\Message\ModifyArticleMessage;
 use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
+use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\Page\BlockUpdateTool;
@@ -28,6 +29,7 @@ final class BlockUpdateToolTest extends TestCase
     private ArticleRepositoryInterface&MockObject $articleRepository;
     private ContentManagerInterface&MockObject $contentManager;
     private MessageBusInterface&MockObject $messageBus;
+    private BlockIdGeneratorInterface&MockObject $blockIdGenerator;
     private BlockUpdateTool $tool;
 
     protected function setUp(): void
@@ -36,11 +38,14 @@ final class BlockUpdateToolTest extends TestCase
         $this->articleRepository = $this->createMock(ArticleRepositoryInterface::class);
         $this->contentManager = $this->createMock(ContentManagerInterface::class);
         $this->messageBus = $this->createMock(MessageBusInterface::class);
+        $this->blockIdGenerator = $this->createMock(BlockIdGeneratorInterface::class);
+        $this->blockIdGenerator->method('generateId')->willReturn('generated-id');
         $this->tool = new BlockUpdateTool(
             $this->messageBus,
             $this->pageRepository,
             $this->articleRepository,
             $this->contentManager,
+            $this->blockIdGenerator,
         );
     }
 
@@ -82,7 +87,7 @@ final class BlockUpdateToolTest extends TestCase
         $this->assertSame('page-uuid', $result['uuid']);
         $this->assertSame('block-1', $result['blockId']);
         $this->assertSame('blocks', $result['blockProperty']);
-        $this->assertSame(0, $result['blockIndex']);
+        $this->assertSame([0], $result['blockPath']);
     }
 
     public function testUpdateArticleBlockById(): void

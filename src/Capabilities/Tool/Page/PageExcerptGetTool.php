@@ -11,7 +11,7 @@ use Sulu\McpServerBundle\Capabilities\Tool\ContentNormalizerTrait;
 use Sulu\Page\Domain\Exception\PageNotFoundException;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 
-class PageGetTool
+class PageExcerptGetTool
 {
     use ContentNormalizerTrait;
 
@@ -25,10 +25,10 @@ class PageGetTool
      * @return array<string, mixed>
      */
     #[McpTool(
-        name: 'sulu_page_get',
-        description: 'Get a single page by its UUID. Returns draft metadata, template fields, and block summaries (index, _id, type, title, blockCount). Use sulu_block_list with type="page" to fetch full block content. SEO and excerpt data are NOT included — use sulu_page_seo_get and sulu_page_excerpt_get for those. Always call this before sulu_page_update.',
+        name: 'sulu_page_excerpt_get',
+        description: 'Read the excerpt (teaser) data for a page (title, description, more text, image, icon). Returns the draft state. Use sulu_page_excerpt_update to write.',
     )]
-    public function getPage(string $webspace, string $locale, string $uuid): array
+    public function getPageExcerpt(string $uuid, string $locale): array
     {
         try {
             $page = $this->pageRepository->getOneBy(
@@ -49,15 +49,13 @@ class PageGetTool
 
             $normalized = $this->contentManager->normalize($dimensionContent);
 
-            $compacted = $this->compactContent($normalized, $this->detectBlockProperties($normalized));
-            $compacted = $this->stripSeoExcerpt($compacted);
-
-            return [
-                'uuid' => $page->getUuid(),
-                'webspace' => $webspace,
-                'locale' => $locale,
-                'data' => $compacted,
-            ];
+            return \array_merge(
+                [
+                    'uuid' => $page->getUuid(),
+                    'locale' => $locale,
+                ],
+                $this->extractExcerpt($normalized),
+            );
         } catch (PageNotFoundException) {
             return [
                 'error' => 'Page not found: '.$uuid,

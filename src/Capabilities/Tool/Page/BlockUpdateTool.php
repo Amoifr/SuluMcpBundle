@@ -7,6 +7,7 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Page;
 use Mcp\Capability\Attribute\McpTool;
 use Sulu\Article\Application\Message\ModifyArticleMessage;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
+use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\BlockDataNormalizerTrait;
@@ -29,6 +30,7 @@ class BlockUpdateTool
         private readonly PageRepositoryInterface $pageRepository,
         private readonly ArticleRepositoryInterface $articleRepository,
         private readonly ContentManagerInterface $contentManager,
+        private readonly BlockIdGeneratorInterface $blockIdGenerator,
     ) {
         $this->messageBus = $messageBus;
     }
@@ -63,34 +65,26 @@ class BlockUpdateTool
 
             $currentData = $this->contentManager->normalize($dimensionContent);
 
-            // Find the block by _id across all block properties
-            $blockProperties = $this->detectBlockProperties($currentData);
-            $foundProperty = null;
-            $foundIndex = null;
+            // Find the block by _id anywhere in the block tree (including nested blocks)
+            $found = $this->findBlockPath($currentData, $blockId);
 
-            foreach ($blockProperties as $property) {
-                foreach ($currentData[$property] as $index => $block) {
-                    if (isset($block['_id']) && $block['_id'] === $blockId) {
-                        $foundProperty = $property;
-                        $foundIndex = $index;
-                        break 2;
-                    }
-                }
-            }
-
-            if (null === $foundProperty || null === $foundIndex) {
+            if (null === $found) {
                 return [
                     'error' => \sprintf('Block with _id "%s" not found in %s %s.', $blockId, $type, $uuid),
                     'hint' => 'Use sulu_page_get or sulu_article_get to see block summaries with _id values.',
                 ];
             }
 
+            $foundProperty = $found['property'];
+            $foundIndices = $found['indices'];
+
             // Merge new data over existing block (partial update)
             $blockData = $this->normalizeBlockData($blockData);
-            $currentData[$foundProperty][$foundIndex] = \array_merge(
-                $currentData[$foundProperty][$foundIndex],
-                $blockData,
-            );
+            $blockData = $this->assignBlockIds($blockData, $this->blockIdGenerator);
+
+            /** @var list<array<string, mixed>> $topLevelBlocks */
+            $topLevelBlocks = $currentData[$foundProperty];
+            $currentData[$foundProperty] = $this->setBlockAtPath($topLevelBlocks, $foundIndices, $blockData);
 
             $data = [
                 'locale' => $locale,
@@ -113,7 +107,7 @@ class BlockUpdateTool
                 'uuid' => $uuid,
                 'blockId' => $blockId,
                 'blockProperty' => $foundProperty,
-                'blockIndex' => $foundIndex,
+                'blockPath' => $foundIndices,
             ];
         } catch (\Throwable $e) {
             return [

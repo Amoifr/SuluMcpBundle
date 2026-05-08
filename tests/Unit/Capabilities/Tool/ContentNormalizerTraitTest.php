@@ -105,19 +105,23 @@ final class ContentNormalizerTraitTest extends TestCase
 
         $this->assertCount(2, $result['blocks']);
 
-        // First block: section with sub-blocks
+        // First block: section with nested block summaries (recursive)
         $this->assertSame(0, $result['blocks'][0]['index']);
         $this->assertSame('abc', $result['blocks'][0]['_id']);
         $this->assertSame('section', $result['blocks'][0]['type']);
         $this->assertSame('My Section', $result['blocks'][0]['title']);
-        $this->assertSame(2, $result['blocks'][0]['blockCount']);
+        $this->assertCount(2, $result['blocks'][0]['blocks']);
+        $this->assertSame('x', $result['blocks'][0]['blocks'][0]['_id']);
+        $this->assertSame('text', $result['blocks'][0]['blocks'][0]['type']);
+        $this->assertSame('y', $result['blocks'][0]['blocks'][1]['_id']);
+        $this->assertSame('image', $result['blocks'][0]['blocks'][1]['type']);
         $this->assertArrayNotHasKey('description', $result['blocks'][0]);
         $this->assertArrayNotHasKey('settings', $result['blocks'][0]);
 
-        // Second block: no sub-blocks
+        // Second block: no nested blocks
         $this->assertSame(1, $result['blocks'][1]['index']);
         $this->assertSame('def', $result['blocks'][1]['_id']);
-        $this->assertArrayNotHasKey('blockCount', $result['blocks'][1]);
+        $this->assertArrayNotHasKey('blocks', $result['blocks'][1]);
     }
 
     public function testDetectBlockProperties(): void

@@ -53,6 +53,7 @@
                 <type ref="quote"/>
                 <type ref="text_with_image"/>
                 <type ref="article_list"/>
+                <type ref="section"/>
             </types>
         </block>
     </properties>
