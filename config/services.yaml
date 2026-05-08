@@ -22,7 +22,7 @@ services:
     Sulu\McpServerBundle\Security\OAuth\SuluUserResolver: ~
 
     # OAuth authorization
-    Sulu\McpServerBundle\EventListener\OAuthAuthorizationListener: ~
+    Sulu\McpServerBundle\Security\EventListener\OAuthAuthorizationListener: ~
 
     # Decorate Sulu's entry point for friendly OAuth login page
     Sulu\McpServerBundle\Security\McpAuthenticationEntryPoint:
@@ -31,17 +31,17 @@ services:
             $inner: '@.inner'
 
     # MCP event listeners
-    Sulu\McpServerBundle\EventListener\McpAuthenticationListener:
+    Sulu\McpServerBundle\Security\EventListener\McpAuthenticationListener:
         arguments:
             $serverUrl: '%sulu_mcp_server.server_url%'
             $mcpPath: '%sulu_mcp_server.mcp_path%'
 
-    Sulu\McpServerBundle\EventListener\McpExceptionListener:
+    Sulu\McpServerBundle\Security\EventListener\McpExceptionListener:
         arguments:
             $mcpPath: '%sulu_mcp_server.mcp_path%'
 
     # Sets Sulu system context for MCP requests so the UserProvider can authenticate OAuth users
-    Sulu\McpServerBundle\EventListener\OAuthSystemStoreListener:
+    Sulu\McpServerBundle\Security\EventListener\OAuthSystemStoreListener:
         arguments:
             $mcpPath: '%sulu_mcp_server.mcp_path%'
             $defaultSystem: 'Sulu'
