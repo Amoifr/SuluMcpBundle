@@ -5,6 +5,9 @@ services:
 
     Sulu\McpServerBundle\Capabilities\Tool\PingTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\GetContextTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\ContentSearchTool:
+        arguments:
+            $engine: '@cmsig_seal.engine.default'
 
     # MCP Resources: discovery layer for AI clients
     Sulu\McpServerBundle\Capabilities\Resource\TemplatesResource:
