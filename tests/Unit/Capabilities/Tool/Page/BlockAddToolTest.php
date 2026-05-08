@@ -8,6 +8,7 @@ use Mcp\Capability\Attribute\McpTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\Page\BlockAddTool;
@@ -24,6 +25,7 @@ final class BlockAddToolTest extends TestCase
     private MessageBusInterface&MockObject $messageBus;
     private PageRepositoryInterface&MockObject $pageRepository;
     private ContentManagerInterface&MockObject $contentManager;
+    private BlockIdGeneratorInterface&MockObject $blockIdGenerator;
     private BlockAddTool $tool;
 
     protected function setUp(): void
@@ -31,7 +33,14 @@ final class BlockAddToolTest extends TestCase
         $this->messageBus = $this->createMock(MessageBusInterface::class);
         $this->pageRepository = $this->createMock(PageRepositoryInterface::class);
         $this->contentManager = $this->createMock(ContentManagerInterface::class);
-        $this->tool = new BlockAddTool($this->messageBus, $this->pageRepository, $this->contentManager);
+        $this->blockIdGenerator = $this->createMock(BlockIdGeneratorInterface::class);
+        $this->blockIdGenerator->method('generateId')->willReturn('generated-id');
+        $this->tool = new BlockAddTool(
+            $this->messageBus,
+            $this->pageRepository,
+            $this->contentManager,
+            $this->blockIdGenerator,
+        );
     }
 
     public function testAddBlockAppendsToEnd(): void

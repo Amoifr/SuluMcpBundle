@@ -58,6 +58,7 @@ class WellKnownController
             'code_challenge_methods_supported' => ['S256'],
             'token_endpoint_auth_methods_supported' => ['client_secret_post', 'client_secret_basic'],
             'scopes_supported' => ['mcp:tools', 'mcp:resources'],
+            'registration_endpoint' => $base.'/mcp/register',
         ]);
     }
 }

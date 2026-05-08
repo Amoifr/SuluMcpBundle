@@ -22,7 +22,7 @@ security:
             pattern: ^/_mcp
             provider: sulu
             stateless: true
-            entry_point: Sulu\McpServerBundle\EventListener\McpAuthenticationListener
+            entry_point: Sulu\McpServerBundle\Security\EventListener\McpAuthenticationListener
             oauth2: true
         admin:
             pattern: ^/admin(\/|$)
@@ -71,8 +71,9 @@ security:
 
     # Note: Only the *first* matching rule is applied
     access_control:
-        # OAuth discovery and token endpoints are public
+        # OAuth discovery, registration, and token endpoints are public
         - { path: ^/\.well-known/, roles: PUBLIC_ACCESS }
+        - { path: ^/mcp/register, roles: PUBLIC_ACCESS }
         - { path: ^/mcp/token, roles: PUBLIC_ACCESS }
         # MCP endpoint requires a valid OAuth bearer token
         - { path: ^/_mcp, roles: IS_AUTHENTICATED_FULLY }

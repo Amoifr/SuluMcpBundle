@@ -32,22 +32,6 @@ class SuluMcpServerExtension extends Extension implements PrependExtensionInterf
                 ],
             ]);
         }
-
-        if ($container->hasExtension('doctrine')) {
-            $container->prependExtensionConfig('doctrine', [
-                'orm' => [
-                    'mappings' => [
-                        'SuluMcpServerBundle' => [
-                            'is_bundle' => true,
-                            'type' => 'attribute',
-                            'dir' => 'src/Entity',
-                            'prefix' => 'Sulu\\McpServerBundle\\Entity',
-                            'alias' => 'SuluMcpServerBundle',
-                        ],
-                    ],
-                ],
-            ]);
-        }
     }
 
     public function load(array $configs, ContainerBuilder $container): void
