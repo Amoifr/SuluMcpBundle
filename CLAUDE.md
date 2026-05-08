@@ -1,4 +1,3 @@
-<!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
 **Sulu MCP Server**
@@ -13,9 +12,7 @@ A Symfony bundle for Sulu CMS 3.x that exposes content management operations as 
 - **Auth**: Must use Sulu's native user authentication — no separate auth system
 - **Transport**: HTTP/SSE only — designed for network-accessible deployments
 - **Permissions**: All operations must respect the authenticated Sulu user's permissions — no privilege escalation
-<!-- GSD:project-end -->
 
-<!-- GSD:stack-start source:research/STACK.md -->
 ## Technology Stack
 
 ## Recommended Stack
@@ -145,21 +142,15 @@ A Symfony bundle for Sulu CMS 3.x that exposes content management operations as 
 - [SuluContentBundle Service Naming RFC](https://github.com/sulu/SuluContentBundle/issues/52) -- ContentManager chosen as facade name
 - [php-mcp/server](https://github.com/php-mcp/server) -- alternative SDK, not recommended for Symfony projects
 - [logiscape/mcp-sdk-php](https://github.com/logiscape/mcp-sdk-php) -- alternative SDK for vanilla PHP, not recommended
-<!-- GSD:stack-end -->
 
-<!-- GSD:conventions-start source:CONVENTIONS.md -->
 ## Conventions
 
 Conventions not yet established. Will populate as patterns emerge during development.
-<!-- GSD:conventions-end -->
 
-<!-- GSD:architecture-start source:ARCHITECTURE.md -->
 ## Architecture
 
 Architecture not yet mapped. Follow existing patterns found in the codebase.
-<!-- GSD:architecture-end -->
 
-<!-- GSD:agents-start source:AGENTS.md -->
 ## Agent Discipline
 
 Follow AGENTS.md strictly.
@@ -193,26 +184,3 @@ If a request would violate architecture, strict-mode, or other rules:
 Ask one precise clarification question before implementing.
 
 Do not guess.
-<!-- GSD:agents-end -->
-
-<!-- GSD:workflow-start source:GSD defaults -->
-## GSD Workflow Enforcement
-
-Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.
-
-Use these entry points:
-- `/gsd:quick` for small fixes, doc updates, and ad-hoc tasks
-- `/gsd:debug` for investigation and bug fixing
-- `/gsd:execute-phase` for planned phase work
-
-Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
-<!-- GSD:workflow-end -->
-
-
-
-<!-- GSD:profile-start -->
-## Developer Profile
-
-> Profile not yet configured. Run `/gsd:profile-user` to generate your developer profile.
-> This section is managed by `generate-claude-profile` -- do not edit manually.
-<!-- GSD:profile-end -->
