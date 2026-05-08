@@ -49,6 +49,7 @@ Do NOT rely on assumptions about available templates or block types — the CMS 
 |------|-------------|
 | `sulu_get_context` | **Start here.** Returns templates, block types, and webspaces for a given webspace. |
 | `sulu_ping` | Verify connection, see authenticated user and available webspaces. |
+| `sulu_content_search` | Search published content by keyword. Returns UUIDs and resource types to use with get tools. |
 
 ### Pages
 
@@ -207,9 +208,23 @@ sulu_block_list(type="article", uuid)    → check block content if many blocks
 sulu_article_publish(uuid, locale)       → only after user confirms
 ```
 
+### Finding Articles by Keyword
+
+When you don't have a UUID, use search before browsing:
+
+```
+sulu_content_search(query="keyword", locale="en", type="articles")
+→ returns resourceId (UUID) for each match
+sulu_article_get(uuid, locale)
+→ load the full article
+```
+
+`sulu_content_search` searches published content only (title + full body text). Use `sulu_article_list` if you need to browse drafts or filter by template.
+
 ### Editing Existing Articles
 
-1. **Read the article:** `sulu_article_get(uuid, locale)` — always read before editing
+1. **Find the article:** `sulu_content_search(query, locale, type="articles")` if you don't have the UUID
+2. **Read the article:** `sulu_article_get(uuid, locale)` — always read before editing
 2. **Read block details:** `sulu_block_list(type="article", uuid, locale, blockProperty)` for full content
 3. **Update metadata:** `sulu_article_update(uuid, locale, title="New Title")` — only pass changed fields
 4. **Update a block:** `sulu_block_update(type="article", uuid, locale, blockId, blockData)` — only pass changed fields
@@ -240,7 +255,8 @@ Pages form the site structure — homepage, about, services, contact, etc. They 
 
 ### Editing Existing Pages
 
-1. **Read first:** `sulu_page_get(uuid, locale)`
+1. **Find the page:** `sulu_content_search(query, locale, type="pages")` if you don't have the UUID
+2. **Read first:** `sulu_page_get(uuid, locale)`
 2. **Read blocks:** `sulu_block_list(type="page", uuid, locale, blockProperty)` for full block content
 3. **Update fields:** `sulu_page_update(uuid, locale, title="New Title")` — only changed fields
 4. **Update a single block:** `sulu_block_update(type="page", uuid, locale, blockId, blockData)`
@@ -279,6 +295,30 @@ Pages form the site structure — homepage, about, services, contact, etc. They 
 - Reference media by ID in block fields
 - Use `sulu_media_get` to retrieve URLs and available image formats
 - Update media metadata (alt text, copyright) with `sulu_media_update` for accessibility and legal compliance
+
+---
+
+## Searching Content
+
+Use `sulu_content_search` whenever you need to find content by topic or keyword rather than browsing lists.
+
+```
+sulu_content_search(
+    query="keyword",      # searches title + body text
+    locale="en",          # required
+    webspace="sulu_io",   # optional — scope to one site
+    type="articles",      # optional — "articles" or "pages"
+    page=1,
+    limit=20
+)
+```
+
+Each result includes `resourceKey` (`articles` or `pages`), `resourceId` (UUID), `title`, `url`, and `metadata`. Use the UUID with the appropriate get tool to load full content.
+
+**Limitations:**
+- Only **published** content is indexed — drafts are not searchable
+- Snippets are not in the website index (use `sulu_snippet_list` instead)
+- Only template fields tagged for search are indexed — not every text field
 
 ---
 
