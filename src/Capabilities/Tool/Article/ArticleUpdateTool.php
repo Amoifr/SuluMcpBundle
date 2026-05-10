@@ -38,14 +38,14 @@ class ArticleUpdateTool
      */
     #[McpTool(
         name: 'sulu_article_update',
-        description: 'Update an existing article. Reads the current article state, merges your changes, and writes back -- so you only need to pass the fields you want to change. Pass template-specific field values in "content" as a flat object: content={"article": "<p>Updated HTML</p>"}. You can update title and template as separate parameters. The article stays in draft state after updating -- call sulu_article_publish to make changes live.',
+        description: 'Update an existing article. Reads the current article state, merges your changes, and writes back -- so you only need to pass the fields you want to change. Pass template-specific field values in "content" as a flat object: content={"article": "<p>Updated HTML</p>"}. To change routing, pass either content={"url": "/path"} (simple route templates) or content={"page": {"path": "/blog", "uuid": "<parent-uuid>", "suffix": "slug"}} (page_tree_route templates) -- the wrong form is rejected here instead of failing inside Sulu. You can update title and template as separate parameters. The article stays in draft state after updating -- call sulu_article_publish to make changes live.',
     )]
     public function updateArticle(
         string $uuid,
         string $locale,
         ?string $title = null,
         ?string $template = null,
-        #[Schema(type: 'object', description: 'Template field values as key-value pairs, e.g. {"article": "<p>HTML content</p>"}', additionalProperties: true)]
+        #[Schema(type: 'object', description: 'Template field values as key-value pairs, e.g. {"article": "<p>HTML content</p>"}. To change the URL, pass {"url": "/path"} or {"page": {"path", "uuid", "suffix"}} matching the template\'s route property type.', additionalProperties: true)]
         ?array $content = null,
     ): array {
         try {
@@ -80,7 +80,11 @@ class ArticleUpdateTool
                 $data['template'] = $template;
             }
             if (null !== $content) {
-                $data = \array_merge($data, PageUpdateTool::normalizeContent($content));
+                $normalizedContent = PageUpdateTool::normalizeContent($content);
+                if ($validationError = ArticleRouteValidator::validate($normalizedContent, required: false)) {
+                    return $validationError;
+                }
+                $data = \array_merge($data, $normalizedContent);
             }
 
             // Ensure all array keys are strings (Sulu's MetadataResolver requires string keys)

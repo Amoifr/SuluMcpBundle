@@ -6,6 +6,7 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Preview;
 
 use Mcp\Capability\Attribute\McpTool;
 use Sulu\Bundle\PreviewBundle\Application\Manager\PreviewLinkManagerInterface;
+use Symfony\Component\Routing\Exception\RouteNotFoundException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Routing\RouterInterface;
 
@@ -22,7 +23,7 @@ class PreviewLinkGenerateTool
      */
     #[McpTool(
         name: 'sulu_preview_link_generate',
-        description: 'Generate a shareable public preview URL for a draft page or article. The URL can be viewed without CMS login, useful for sharing drafts with reviewers. For pages, the webspace parameter is required. For articles, webspace is not needed.',
+        description: 'Generate a shareable public preview URL for a draft page or article. Returns a token-protected URL under /admin/p/<token> that reviewers can open without a CMS login. Requires Sulu\'s public preview route to be registered; this bundle imports it automatically when its config/routes.yaml is loaded. For pages, the webspace parameter is required. For articles, webspace is optional.',
     )]
     public function generatePreviewLink(string $resourceKey, string $uuid, string $locale, ?string $webspace = null): array
     {
@@ -47,6 +48,11 @@ class PreviewLinkGenerateTool
                 'resourceKey' => $previewLink->getResourceKey(),
                 'resourceId' => $previewLink->getResourceId(),
                 'locale' => $previewLink->getLocale(),
+            ];
+        } catch (RouteNotFoundException) {
+            return [
+                'error' => 'Public preview route `sulu_preview.public_preview` is not registered. Import this bundle\'s config/routes.yaml in the host project\'s routing (it pulls in @SuluPreviewBundle/Resources/config/routing_public.yaml under /admin/p).',
+                'hint' => 'Without the public preview route, only admin-only preview is available -- which cannot be shared via MCP.',
             ];
         } catch (\Throwable $e) {
             return [

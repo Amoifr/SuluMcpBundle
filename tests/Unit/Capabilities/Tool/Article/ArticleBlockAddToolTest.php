@@ -11,9 +11,15 @@ use PHPUnit\Framework\TestCase;
 use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
+use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FieldMetadata;
+use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormMetadata;
+use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\TypedFormMetadata;
+use Sulu\Bundle\AdminBundle\Metadata\MetadataInterface;
+use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleBlockAddTool;
+use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
@@ -25,6 +31,7 @@ final class ArticleBlockAddToolTest extends TestCase
     private ArticleRepositoryInterface&MockObject $articleRepository;
     private ContentManagerInterface&MockObject $contentManager;
     private BlockIdGeneratorInterface&MockObject $blockIdGenerator;
+    private MetadataProviderInterface&MockObject $formMetadataProvider;
     private ArticleBlockAddTool $tool;
 
     protected function setUp(): void
@@ -34,11 +41,14 @@ final class ArticleBlockAddToolTest extends TestCase
         $this->contentManager = $this->createMock(ContentManagerInterface::class);
         $this->blockIdGenerator = $this->createMock(BlockIdGeneratorInterface::class);
         $this->blockIdGenerator->method('generateId')->willReturn('generated-id');
+        $this->formMetadataProvider = $this->createMock(MetadataProviderInterface::class);
+        $this->formMetadataProvider->method('getMetadata')->willReturn($this->createMock(MetadataInterface::class));
         $this->tool = new ArticleBlockAddTool(
             $this->messageBus,
             $this->articleRepository,
             $this->contentManager,
             $this->blockIdGenerator,
+            new BlockDataValidator($this->formMetadataProvider),
         );
     }
 
@@ -104,5 +114,78 @@ final class ArticleBlockAddToolTest extends TestCase
 
         $this->assertCount(1, $attributes);
         $this->assertSame('sulu_article_block_add', $attributes[0]->newInstance()->name);
+    }
+
+    public function testAddBlockRejectsNameValuePattern(): void
+    {
+        $article = $this->createMock(ArticleInterface::class);
+        $this->articleRepository->method('getOneBy')->willReturn($article);
+
+        $dimensionContent = $this->createMock(DimensionContentInterface::class);
+        $this->contentManager->method('resolve')->willReturn($dimensionContent);
+        $this->contentManager->method('normalize')->willReturn([
+            'template' => 'blog',
+            'title' => 'Test',
+            'blocks' => [],
+        ]);
+
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $result = $this->tool->addBlock('uuid', 'en', 'text', 'blocks', ['name' => 'description', 'value' => '<p>X</p>']);
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('storage shape', $result['error']);
+    }
+
+    public function testAddBlockRejectsUnknownKeysFromTemplate(): void
+    {
+        $titleField = new FieldMetadata('title');
+        $titleField->setType('text_line');
+        $descField = new FieldMetadata('description');
+        $descField->setType('text_editor');
+        $textBlock = new FormMetadata();
+        $textBlock->setKey('text');
+        $textBlock->addItem($titleField);
+        $textBlock->addItem($descField);
+
+        $blocksField = new FieldMetadata('blocks');
+        $blocksField->setType('block');
+        $blocksField->addType($textBlock);
+
+        $template = new FormMetadata();
+        $template->setKey('blog');
+        $template->addItem($blocksField);
+
+        $typed = new TypedFormMetadata();
+        $typed->addForm('blog', $template);
+
+        $this->formMetadataProvider = $this->createMock(MetadataProviderInterface::class);
+        $this->formMetadataProvider->method('getMetadata')
+            ->willReturnCallback(fn (string $key) => 'article' === $key ? $typed : null);
+        $this->tool = new ArticleBlockAddTool(
+            $this->messageBus,
+            $this->articleRepository,
+            $this->contentManager,
+            $this->blockIdGenerator,
+            new BlockDataValidator($this->formMetadataProvider),
+        );
+
+        $article = $this->createMock(ArticleInterface::class);
+        $this->articleRepository->method('getOneBy')->willReturn($article);
+        $dimensionContent = $this->createMock(DimensionContentInterface::class);
+        $this->contentManager->method('resolve')->willReturn($dimensionContent);
+        $this->contentManager->method('normalize')->willReturn([
+            'template' => 'blog',
+            'title' => 'Test',
+            'blocks' => [],
+        ]);
+
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $result = $this->tool->addBlock('uuid', 'en', 'text', 'blocks', ['headline' => 'X']);
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('Unknown keys', $result['error']);
+        $this->assertStringContainsString('headline', $result['error']);
     }
 }

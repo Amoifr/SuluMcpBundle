@@ -10,6 +10,7 @@ use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\BlockDataNormalizerTrait;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentNormalizerTrait;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
@@ -31,6 +32,7 @@ class BlockUpdateTool
         private readonly ArticleRepositoryInterface $articleRepository,
         private readonly ContentManagerInterface $contentManager,
         private readonly BlockIdGeneratorInterface $blockIdGenerator,
+        private readonly BlockDataValidator $blockDataValidator,
     ) {
         $this->messageBus = $messageBus;
     }
@@ -42,7 +44,7 @@ class BlockUpdateTool
      */
     #[McpTool(
         name: 'sulu_block_update',
-        description: 'Update a single block by its _id. Only pass the fields you want to change — existing fields are preserved. Use sulu_page_get or sulu_article_get to find block _id values (returned in block summaries), and sulu_block_list to read the full block content before updating. The entity must be re-published after updating blocks.',
+        description: 'Update a single block by its _id. Pass blockData as a flat object mapping the block-type\'s template field names to new values, e.g. blockData={"title": "New heading"}. Only the keys you pass are changed; other fields are preserved. Unknown keys are rejected against the block type\'s schema; the internal {name, value} storage shape is rejected too. Use sulu_page_get or sulu_article_get to find block _id values (returned in block summaries), and sulu_block_list to read full content before updating. The entity must be re-published after updating blocks.',
     )]
     public function updateBlock(
         string $type,
@@ -80,6 +82,18 @@ class BlockUpdateTool
 
             // Merge new data over existing block (partial update)
             $blockData = $this->normalizeBlockData($blockData);
+
+            $existingBlock = $this->getBlockAtPath($currentData[$foundProperty], $foundIndices);
+            $blockType = isset($existingBlock['type']) && \is_string($existingBlock['type'])
+                ? $existingBlock['type']
+                : null;
+            $templateKey = isset($currentData['template']) && \is_string($currentData['template'])
+                ? $currentData['template']
+                : null;
+            if (null !== $blockType && $validationError = $this->blockDataValidator->validate($type, $templateKey, $blockType, $blockData)) {
+                return $validationError;
+            }
+
             $blockData = $this->assignBlockIds($blockData, $this->blockIdGenerator);
 
             /** @var list<array<string, mixed>> $topLevelBlocks */

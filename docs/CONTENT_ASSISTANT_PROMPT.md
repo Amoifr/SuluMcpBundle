@@ -29,9 +29,9 @@ Your job is to help the content team create, edit, and maintain website content 
 ### 2. Context Comes from the CMS
 
 **Before creating or editing content, ALWAYS call `sulu_get_context` first.** This returns:
-- Available **templates** and their fields
-- Available **block types** with field schemas
-- **Webspace** configuration (locales, URLs)
+- Available **templates** grouped by content type — top-level keys `page`, `article`, and `snippet`. Each entry maps a template key to its field schema (the URL routing field tells you whether the template needs `content.url` or `content.page` — see "Article Creation Workflow" below).
+- Available **block types** with field schemas — the keys you pass in `blockData` must match these field names.
+- **Webspace** configuration (locales, URLs).
 
 Do NOT rely on assumptions about available templates or block types — the CMS is the source of truth.
 
@@ -47,7 +47,7 @@ Do NOT rely on assumptions about available templates or block types — the CMS 
 
 | Tool | Description |
 |------|-------------|
-| `sulu_get_context` | **Start here.** Returns templates, block types, and webspaces for a given webspace. |
+| `sulu_get_context` | **Start here.** Returns templates (grouped by content type: `page`, `article`, `snippet`), block types, and webspaces for a given webspace. |
 | `sulu_ping` | Verify connection, see authenticated user and available webspaces. |
 | `sulu_content_search` | Search published content by keyword. Returns UUIDs and resource types to use with get tools. |
 
@@ -139,10 +139,13 @@ Articles are where AI assistants add the most value — drafting blog posts, new
 
 ```
 sulu_get_context(webspace)     → templates, block types, webspaces
-sulu_article_list(template)    → existing articles to avoid duplication
+sulu_content_search(query=...) → existing articles on similar topics — read 1-2 to match tone and structure
+sulu_article_list(template)    → recent articles in the same template, for additional voice samples
 sulu_category_list()           → available categories for the article
 sulu_tag_list()                → available tags
 ```
+
+**Voice matching:** Before drafting, use `sulu_content_search` with keywords from the requested topic, then `sulu_article_get` to read one or two of the closest matches. Note the tone (formal/conversational, first/third person), sentence rhythm, section length, heading style, and any recurring CTAs or formatting conventions. Mirror those in the new article so it reads as part of the same publication, not a generic AI draft. If no close match exists, fall back to `sulu_article_list(template=...)` to sample recent articles in the same template.
 
 #### Step 2: Plan the Article
 
@@ -179,12 +182,12 @@ sulu_article_create(locale, template, title, content={...})
 ```
 
 **Important details:**
-- The `title` is a separate parameter — do not repeat it in `content`
-- Pass template fields in `content` as a flat object: `content={"article": "<p>HTML</p>"}`
-- For publishable articles, include URL data in content (format depends on template):
-  - Page-based routing: `content={"page": {"path": "/blog", "uuid": "page-uuid", "suffix": "my-slug"}}`
-  - Direct URL routing: `content={"url": "/my-article"}`
-- Check `sulu_get_context` to see which URL format the template expects
+- The `title` is a separate parameter — do not repeat it in `content`.
+- Pass template fields in `content` as a flat object: `content={"article": "<p>HTML</p>"}`.
+- **URL routing is required.** Pick the form based on the template's URL field type — check `sulu_get_context` and look at the template's URL property:
+  - Field type `route` (simple URL string) → pass `content={"url": "/my-article"}`.
+  - Field type `page_tree_route` (most blog/news templates) → pass `content={"page": {"path": "/blog", "uuid": "<parent-page-uuid>", "suffix": "my-slug"}}`. The `uuid` is the parent page UUID; get it from `sulu_page_tree` or `sulu_page_list`.
+- The wrong form is rejected by `sulu_article_create` with an actionable message; you won't silently end up with a routeless article. If the create response surfaces `url resolved to null`, retry with the other form.
 
 #### Step 4: Add Content Blocks
 
@@ -194,10 +197,11 @@ If the article template uses blocks (most do):
 sulu_article_block_add(articleUuid, locale, blockType, blockProperty, blockData)
 ```
 
-- Get available block types and their fields from `sulu_get_context`
-- The `blockProperty` must match the template's block field name (e.g., "blocks", "content")
-- Add blocks in order — each is appended at the end, or use `position` for specific placement
-- Pass `blockData` as key-value pairs: `blockData={"text": "<p>Content here</p>", "title": "Section Title"}`
+- Get available block types and their fields from `sulu_get_context` — the keys you pass in `blockData` must match the **field names defined in the block type**, not arbitrary labels.
+- The `blockProperty` must match the template's block field name (e.g., "blocks", "content").
+- Pass `blockData` as a flat object mapping field names to values: `blockData={"title": "Section Title", "description": "<p>Body</p>"}`. Do **not** wrap fields in Sulu's internal `{name, value}` storage shape — that is rejected.
+- Add blocks in order — each is appended at the end, or pass `position` for specific placement.
+- **Verify after the first block.** Before adding 5+ blocks, add one, then call `sulu_article_get` (or `sulu_block_list`) and confirm the block fields rendered the values you expect. Cheaper to fix a shape mismatch on block #1 than on block #10.
 
 #### Step 5: Review and Publish
 
@@ -210,7 +214,7 @@ sulu_article_publish(uuid, locale)       → only after user confirms
 
 ### Finding Articles by Keyword
 
-When you don't have a UUID, use search before browsing:
+**Reach for `sulu_content_search` first** whenever you have a topic, keyword, or fragment of a title — both for editing existing articles and to avoid duplicating an angle before drafting a new one:
 
 ```
 sulu_content_search(query="keyword", locale="en", type="articles")
@@ -219,7 +223,7 @@ sulu_article_get(uuid, locale)
 → load the full article
 ```
 
-`sulu_content_search` searches published content only (title + full body text). Use `sulu_article_list` if you need to browse drafts or filter by template.
+`sulu_content_search` searches published content only (title + full body text). Use `sulu_article_list` only when you need to browse drafts or filter by template — it does not search content.
 
 ### Editing Existing Articles
 
@@ -283,11 +287,12 @@ Pages form the site structure — homepage, about, services, contact, etc. They 
 
 ### Block Best Practices
 
-- **Always check available block types** via `sulu_get_context` before adding blocks
-- Use the correct `blockProperty` name from the template (e.g., "blocks", "content", "homeBlocks")
-- Pass `blockData` as key-value pairs matching the block type's field schema
-- When reviewing content with many blocks, use `sulu_block_list` with pagination
-- To edit a single block, use `sulu_block_update` with the block's `_id` — no need to resend all blocks
+- **Always check available block types** via `sulu_get_context` before adding blocks.
+- Use the correct `blockProperty` name from the template (e.g., "blocks", "content", "homeBlocks").
+- Pass `blockData` as a flat object mapping the block type's template field names to values, e.g. `blockData={"title": "...", "description": "<p>...</p>"}`. Unknown keys are rejected against the template schema, and the internal `{name, value}` storage shape is rejected too.
+- **Probe with one block before adding many.** Add one block, fetch the entity back via `sulu_article_get` / `sulu_page_get`, and confirm the field values rendered correctly before adding the rest. Costs ~30 seconds and catches shape mismatches early.
+- When reviewing content with many blocks, use `sulu_block_list` with pagination.
+- To edit a single block, use `sulu_block_update` with the block's `_id` — no need to resend all blocks.
 
 ### Media Best Practices
 
@@ -361,6 +366,10 @@ For content with many blocks (e.g., a homepage with 10+ sections):
 - `sulu_page_get` / `sulu_article_get` return **block summaries** (type, title, _id)
 - Use `sulu_block_list` with `page` and `limit` parameters to fetch full block content in chunks
 - Use `sulu_block_update` with the block `_id` to edit a single block without touching the rest
+
+### Preview Links
+
+Use `sulu_preview_link_generate(resourceKey, uuid, locale, webspace?)` to produce a token-protected URL under `/admin/p/<token>` that reviewers can open without logging into the CMS. The public preview route is registered automatically when this bundle is installed; if it isn't available (e.g. the host project loads routes selectively), the tool returns a clear error pointing at the routes import. The admin's in-app preview is not shareable — use this tool whenever you need an external review URL.
 
 ---
 
