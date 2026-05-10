@@ -65,8 +65,9 @@ final class TemplatesResourceGlobalBlockTest extends TestCase
 
         $result = $this->resource->getTemplates();
 
-        $this->assertArrayHasKey('default', $result);
-        $fields = $result['default']['fields'];
+        $this->assertArrayHasKey('page', $result);
+        $this->assertArrayHasKey('default', $result['page']);
+        $fields = $result['page']['default']['fields'];
 
         // Find the blocks field
         $blocksField = null;
@@ -117,7 +118,7 @@ final class TemplatesResourceGlobalBlockTest extends TestCase
         $result = $this->resource->getTemplates();
 
         $blocksField = null;
-        foreach ($result['default']['fields'] as $f) {
+        foreach ($result['page']['default']['fields'] as $f) {
             if ('blocks' === $f['name']) {
                 $blocksField = $f;
             }
@@ -182,7 +183,7 @@ final class TemplatesResourceGlobalBlockTest extends TestCase
         $result = $this->resource->getTemplates();
 
         $blocksField = null;
-        foreach ($result['homepage']['fields'] as $f) {
+        foreach ($result['page']['homepage']['fields'] as $f) {
             if ('blocks' === $f['name']) {
                 $blocksField = $f;
             }

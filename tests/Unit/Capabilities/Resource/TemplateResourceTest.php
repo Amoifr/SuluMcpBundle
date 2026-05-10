@@ -25,7 +25,7 @@ class TemplateResourceTest extends TestCase
         $this->resource = new TemplatesResource($this->formMetadataProvider);
     }
 
-    public function testGetTemplatesReturnsArrayIndexedByTemplateKey(): void
+    public function testGetTemplatesReturnsTemplatesGroupedByContentType(): void
     {
         $field = new FieldMetadata('title');
         $field->setType('text_line');
@@ -39,13 +39,14 @@ class TemplateResourceTest extends TestCase
 
         $this->formMetadataProvider
             ->method('getMetadata')
-            ->willReturn($typedMetadata);
+            ->willReturnCallback(fn (string $key) => 'page' === $key ? $typedMetadata : null);
 
         $result = $this->resource->getTemplates();
 
-        $this->assertArrayHasKey('default', $result);
-        $this->assertArrayHasKey('fields', $result['default']);
-        $this->assertIsArray($result['default']['fields']);
+        $this->assertArrayHasKey('page', $result);
+        $this->assertArrayHasKey('default', $result['page']);
+        $this->assertArrayHasKey('fields', $result['page']['default']);
+        $this->assertIsArray($result['page']['default']['fields']);
     }
 
     public function testGetTemplatesFieldIncludesNameTypeLabel(): void
@@ -63,11 +64,11 @@ class TemplateResourceTest extends TestCase
 
         $this->formMetadataProvider
             ->method('getMetadata')
-            ->willReturn($typedMetadata);
+            ->willReturnCallback(fn (string $key) => 'page' === $key ? $typedMetadata : null);
 
         $result = $this->resource->getTemplates();
 
-        $fields = $result['default']['fields'];
+        $fields = $result['page']['default']['fields'];
         $this->assertCount(1, $fields);
         $this->assertArrayHasKey('name', $fields[0]);
         $this->assertArrayHasKey('type', $fields[0]);
@@ -75,6 +76,65 @@ class TemplateResourceTest extends TestCase
         $this->assertArrayHasKey('required', $fields[0]);
         $this->assertSame('title', $fields[0]['name']);
         $this->assertSame('text_line', $fields[0]['type']);
+    }
+
+    public function testGetTemplatesGroupsPageArticleAndSnippet(): void
+    {
+        $buildTyped = function (string $templateKey, string $fieldName): TypedFormMetadata {
+            $field = new FieldMetadata($fieldName);
+            $field->setType('text_line');
+            $form = new FormMetadata();
+            $form->setKey($templateKey);
+            $form->addItem($field);
+            $typed = new TypedFormMetadata();
+            $typed->addForm($templateKey, $form);
+
+            return $typed;
+        };
+
+        $pageMetadata = $buildTyped('default', 'title');
+        $articleMetadata = $buildTyped('blog', 'headline');
+        $snippetMetadata = $buildTyped('teaser', 'label');
+
+        $this->formMetadataProvider
+            ->method('getMetadata')
+            ->willReturnCallback(fn (string $key) => match ($key) {
+                'page' => $pageMetadata,
+                'article' => $articleMetadata,
+                'snippet' => $snippetMetadata,
+                default => null,
+            });
+
+        $result = $this->resource->getTemplates();
+
+        $this->assertSame(['page', 'article', 'snippet'], array_keys($result));
+        $this->assertArrayHasKey('default', $result['page']);
+        $this->assertArrayHasKey('blog', $result['article']);
+        $this->assertArrayHasKey('teaser', $result['snippet']);
+        $this->assertSame('headline', $result['article']['blog']['fields'][0]['name']);
+    }
+
+    public function testGetTemplatesOmitsContentTypesWithoutMetadata(): void
+    {
+        $field = new FieldMetadata('title');
+        $field->setType('text_line');
+        $form = new FormMetadata();
+        $form->setKey('default');
+        $form->addItem($field);
+        $pageMetadata = new TypedFormMetadata();
+        $pageMetadata->addForm('default', $form);
+
+        $this->formMetadataProvider
+            ->method('getMetadata')
+            ->willReturnCallback(fn (string $key) => match ($key) {
+                'page' => $pageMetadata,
+                'article' => throw new \RuntimeException('Article metadata not installed'),
+                default => null,
+            });
+
+        $result = $this->resource->getTemplates();
+
+        $this->assertSame(['page'], array_keys($result));
     }
 
     public function testGetTemplatesMethodHasMcpResourceAttribute(): void
@@ -100,5 +160,15 @@ class TemplateResourceTest extends TestCase
         $result = $this->resource->getTemplates();
 
         $this->assertSame([], $result);
+    }
+
+    public function testGetTemplatesResourceDescriptionMentionsGrouping(): void
+    {
+        $reflection = new \ReflectionMethod(TemplatesResource::class, 'getTemplates');
+        $attribute = $reflection->getAttributes(McpResource::class)[0]->newInstance();
+
+        $this->assertStringContainsString('page', $attribute->description);
+        $this->assertStringContainsString('article', $attribute->description);
+        $this->assertStringContainsString('snippet', $attribute->description);
     }
 }

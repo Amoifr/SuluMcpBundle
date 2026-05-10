@@ -106,4 +106,42 @@ final class ArticleUpdateToolTest extends TestCase
         $instance = $attributes[0]->newInstance();
         $this->assertSame('sulu_article_update', $instance->name);
     }
+
+    public function testUpdateArticleAcceptsValidUrlInContent(): void
+    {
+        $currentArticle = $this->createMock(ArticleInterface::class);
+        $updatedArticle = $this->createMock(ArticleInterface::class);
+        $updatedArticle->method('getUuid')->willReturn('uuid-1');
+
+        $this->articleRepository->method('getOneBy')->willReturn($currentArticle);
+
+        $dimensionContent = $this->createMock(DimensionContentInterface::class);
+        $this->contentManager->method('resolve')->willReturn($dimensionContent);
+        $this->contentManager->method('normalize')->willReturn([]);
+
+        $this->messageBus->expects($this->once())
+            ->method('dispatch')
+            ->willReturnCallback(fn (Envelope $envelope) => $envelope->with(new HandledStamp($updatedArticle, 'handler')));
+
+        $result = $this->tool->updateArticle('uuid-1', 'en', null, null, ['url' => '/renamed']);
+
+        $this->assertTrue($result['success']);
+    }
+
+    public function testUpdateArticleRejectsInvalidRoutingInContent(): void
+    {
+        $currentArticle = $this->createMock(ArticleInterface::class);
+        $this->articleRepository->method('getOneBy')->willReturn($currentArticle);
+
+        $dimensionContent = $this->createMock(DimensionContentInterface::class);
+        $this->contentManager->method('resolve')->willReturn($dimensionContent);
+        $this->contentManager->method('normalize')->willReturn([]);
+
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $result = $this->tool->updateArticle('uuid-1', 'en', null, null, ['url' => 'no-leading-slash']);
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('start with', $result['error']);
+    }
 }

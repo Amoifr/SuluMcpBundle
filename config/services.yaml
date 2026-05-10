@@ -73,6 +73,9 @@ services:
     Sulu\McpServerBundle\Capabilities\Tool\Page\PageDeleteTool: ~  # gated by dangerous_tools.delete
 
     # Block management tools
+    Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator:
+        arguments:
+            $formMetadataProvider: '@sulu_admin.form_metadata_provider'
     Sulu\McpServerBundle\Capabilities\Tool\Page\BlockListTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\Page\BlockAddTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\Page\BlockUpdateTool: ~

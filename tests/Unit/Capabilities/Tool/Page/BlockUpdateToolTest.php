@@ -12,8 +12,11 @@ use Sulu\Article\Application\Message\ModifyArticleMessage;
 use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
+use Sulu\Bundle\AdminBundle\Metadata\MetadataInterface;
+use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\Page\BlockUpdateTool;
 use Sulu\Page\Application\Message\ModifyPageMessage;
 use Sulu\Page\Domain\Model\PageInterface;
@@ -30,6 +33,7 @@ final class BlockUpdateToolTest extends TestCase
     private ContentManagerInterface&MockObject $contentManager;
     private MessageBusInterface&MockObject $messageBus;
     private BlockIdGeneratorInterface&MockObject $blockIdGenerator;
+    private MetadataProviderInterface&MockObject $formMetadataProvider;
     private BlockUpdateTool $tool;
 
     protected function setUp(): void
@@ -40,12 +44,15 @@ final class BlockUpdateToolTest extends TestCase
         $this->messageBus = $this->createMock(MessageBusInterface::class);
         $this->blockIdGenerator = $this->createMock(BlockIdGeneratorInterface::class);
         $this->blockIdGenerator->method('generateId')->willReturn('generated-id');
+        $this->formMetadataProvider = $this->createMock(MetadataProviderInterface::class);
+        $this->formMetadataProvider->method('getMetadata')->willReturn($this->createMock(MetadataInterface::class));
         $this->tool = new BlockUpdateTool(
             $this->messageBus,
             $this->pageRepository,
             $this->articleRepository,
             $this->contentManager,
             $this->blockIdGenerator,
+            new BlockDataValidator($this->formMetadataProvider),
         );
     }
 

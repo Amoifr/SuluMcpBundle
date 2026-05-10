@@ -21,16 +21,35 @@ class TemplatesResource
     ) {
     }
 
-    /** @return array<string, mixed> */
+    /** @return array<string, array<string, mixed>> */
     #[McpResource(
         uri: 'sulu://templates',
         name: 'sulu_templates',
-        description: 'Available Sulu page templates with their field schemas across all webspaces (per D-02: static URI cannot filter by webspace). Use the template key when creating or updating pages.',
+        description: 'Available Sulu templates grouped by content type. Top-level keys are `page`, `article`, and `snippet` (any type with no templates installed is omitted). Each entry maps a template key to its field schema. Use the template key when creating or updating content of that type.',
         mimeType: 'application/json',
     )]
     public function getTemplates(): array
     {
-        $typedMetadata = $this->formMetadataProvider->getMetadata('page', 'en', []);
+        $result = [];
+        foreach (['page', 'article', 'snippet'] as $contentType) {
+            $templates = $this->loadTemplatesByType($contentType);
+            if ([] !== $templates) {
+                $result[$contentType] = $templates;
+            }
+        }
+
+        return $result;
+    }
+
+    /** @return array<string, array<string, mixed>> */
+    private function loadTemplatesByType(string $contentType): array
+    {
+        try {
+            $typedMetadata = $this->formMetadataProvider->getMetadata($contentType, 'en', []);
+        } catch (\Throwable) {
+            return [];
+        }
+
         if (!$typedMetadata instanceof TypedFormMetadata) {
             return [];
         }

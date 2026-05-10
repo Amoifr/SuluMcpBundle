@@ -36,18 +36,24 @@ class ArticleCreateTool
      */
     #[McpTool(
         name: 'sulu_article_create',
-        description: 'Create a new article. Workflow: 1) Call sulu_get_context to discover article templates and their fields. 2) Choose a template key (e.g. "blog") and pass its field values in "content" as a flat object: content={"article": "<p>HTML here</p>"}. The "title" is a separate parameter -- do not repeat it in content. IMPORTANT: For articles to be publishable, they need URL data in content (format depends on template): content={"page": {"path": "/blog", "uuid": "page-uuid", "suffix": "my-article"}} OR content={"url": "/my-article"}. The article is created as a draft -- call sulu_article_publish afterward to make it live.',
+        description: 'Create a new article (draft). Workflow: 1) Call sulu_get_context to discover article templates and their fields. 2) Choose a template key (e.g. "blog") and pass its field values in "content" as a flat object: content={"article": "<p>HTML here</p>"}. The "title" is a separate parameter -- do not repeat it in content. IMPORTANT: articles need URL routing data, and the form depends on the template field type. If the template has a property of type "route", pass content={"url": "/my-article"}. If the template has a property of type "page_tree_route" (most blog templates), pass content={"page": {"path": "/blog", "uuid": "<parent-page-uuid>", "suffix": "my-article"}}. The wrong form is rejected here (so you do not get a silent url=null). After create, call sulu_article_publish to make it live.',
     )]
     public function createArticle(
         string $locale,
         string $template,
         string $title,
         ?string $type = null,
-        #[Schema(type: 'object', description: 'Template field values as key-value pairs, e.g. {"article": "<p>HTML content</p>"}. For publishable articles, include URL data per template requirements.', additionalProperties: true)]
+        #[Schema(type: 'object', description: 'Template field values as key-value pairs, e.g. {"article": "<p>HTML content</p>"}. Must include URL routing data: either {"url": "/path"} for simple route templates, or {"page": {"path", "uuid", "suffix"}} for page_tree_route templates.', additionalProperties: true)]
         ?array $content = null,
     ): array {
         try {
-            $data = \array_merge(null !== $content ? PageUpdateTool::normalizeContent($content) : [], [
+            $normalizedContent = null !== $content ? PageUpdateTool::normalizeContent($content) : [];
+
+            if ($validationError = ArticleRouteValidator::validate($normalizedContent, required: true)) {
+                return $validationError;
+            }
+
+            $data = \array_merge($normalizedContent, [
                 'locale' => $locale,
                 'template' => $template,
                 'title' => $title,
@@ -70,6 +76,12 @@ class ArticleCreateTool
                 'stage' => DimensionContentInterface::STAGE_DRAFT,
             ]);
             $normalized = $this->contentManager->normalize($dimensionContent);
+
+            if ($postCheckError = ArticleRouteValidator::assertRoutingResolved($normalized, $normalizedContent)) {
+                $postCheckError['uuid'] = $article->getUuid();
+
+                return $postCheckError;
+            }
 
             return [
                 'success' => true,

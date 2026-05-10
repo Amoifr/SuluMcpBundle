@@ -11,6 +11,7 @@ use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\BlockDataNormalizerTrait;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentNormalizerTrait;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
@@ -29,6 +30,7 @@ class ArticleBlockAddTool
         private readonly ArticleRepositoryInterface $articleRepository,
         private readonly ContentManagerInterface $contentManager,
         private readonly BlockIdGeneratorInterface $blockIdGenerator,
+        private readonly BlockDataValidator $blockDataValidator,
     ) {
         $this->messageBus = $messageBus;
     }
@@ -40,7 +42,7 @@ class ArticleBlockAddTool
      */
     #[McpTool(
         name: 'sulu_article_block_add',
-        description: 'Add a content block to an article. Blocks are typed components (e.g. "text", "image", "quote") defined by the project. Workflow: 1) Call sulu_get_context to see available block types and their fields. 2) Find the block property name in the template (e.g. "blocks" or "content"). 3) Pass blockType, blockProperty, and blockData with field values. The block is appended at the end or inserted at "position" (0-based). To add a block inside a parent block (nested blocks), pass parentBlockId with the _id of the parent block. The article must be re-published after adding blocks.',
+        description: 'Add a content block to an article. Blocks are typed components (e.g. "text", "image", "quote") defined by the project. Workflow: 1) Call sulu_get_context to see available block types and their fields. 2) Find the block property name in the template (e.g. "blocks" or "content"). 3) Pass blockType, blockProperty, and blockData as a flat object mapping the block-type\'s template field names to values, e.g. blockData={"title": "Heading", "description": "<p>Body</p>"}. Unknown keys are rejected against the template schema; the internal {name, value} storage shape is rejected too. The block is appended or inserted at `position` (0-based). To add a block inside another, pass parentBlockId with the parent\'s _id. The article must be re-published after adding blocks.',
     )]
     public function addBlock(
         string $articleUuid,
@@ -75,6 +77,13 @@ class ArticleBlockAddTool
 
             // Normalize blockData: [{"content": "..."}] -> {"content": "..."} or pass through if already flat
             $blockData = $this->normalizeBlockData($blockData);
+
+            $templateKey = isset($currentData['template']) && \is_string($currentData['template'])
+                ? $currentData['template']
+                : null;
+            if ($validationError = $this->blockDataValidator->validate('article', $templateKey, $blockType, $blockData)) {
+                return $validationError;
+            }
 
             $newBlock = $this->assignBlockIds(\array_merge(['type' => $blockType], $blockData), $this->blockIdGenerator);
 

@@ -9,8 +9,14 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
+use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FieldMetadata;
+use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormMetadata;
+use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\TypedFormMetadata;
+use Sulu\Bundle\AdminBundle\Metadata\MetadataInterface;
+use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\Page\BlockAddTool;
 use Sulu\Page\Application\Message\ModifyPageMessage;
 use Sulu\Page\Domain\Model\PageInterface;
@@ -26,6 +32,7 @@ final class BlockAddToolTest extends TestCase
     private PageRepositoryInterface&MockObject $pageRepository;
     private ContentManagerInterface&MockObject $contentManager;
     private BlockIdGeneratorInterface&MockObject $blockIdGenerator;
+    private MetadataProviderInterface&MockObject $formMetadataProvider;
     private BlockAddTool $tool;
 
     protected function setUp(): void
@@ -35,11 +42,15 @@ final class BlockAddToolTest extends TestCase
         $this->contentManager = $this->createMock(ContentManagerInterface::class);
         $this->blockIdGenerator = $this->createMock(BlockIdGeneratorInterface::class);
         $this->blockIdGenerator->method('generateId')->willReturn('generated-id');
+        $this->formMetadataProvider = $this->createMock(MetadataProviderInterface::class);
+        // Default: provider returns a non-typed metadata so the validator skips strict checks.
+        $this->formMetadataProvider->method('getMetadata')->willReturn($this->createMock(MetadataInterface::class));
         $this->tool = new BlockAddTool(
             $this->messageBus,
             $this->pageRepository,
             $this->contentManager,
             $this->blockIdGenerator,
+            new BlockDataValidator($this->formMetadataProvider),
         );
     }
 
@@ -175,6 +186,60 @@ final class BlockAddToolTest extends TestCase
 
         $instance = $attributes[0]->newInstance();
         $this->assertSame('sulu_block_add', $instance->name);
+    }
+
+    public function testAddBlockRejectsUnknownKeysAgainstTemplate(): void
+    {
+        $this->setupPageWithBlocks([]);
+
+        $titleField = new FieldMetadata('title');
+        $titleField->setType('text_line');
+        $textBlock = new FormMetadata();
+        $textBlock->setKey('text');
+        $textBlock->addItem($titleField);
+
+        $blocksField = new FieldMetadata('blocks');
+        $blocksField->setType('block');
+        $blocksField->addType($textBlock);
+
+        $template = new FormMetadata();
+        $template->setKey('default');
+        $template->addItem($blocksField);
+
+        $typed = new TypedFormMetadata();
+        $typed->addForm('default', $template);
+
+        $this->formMetadataProvider = $this->createMock(MetadataProviderInterface::class);
+        $this->formMetadataProvider->method('getMetadata')
+            ->willReturnCallback(fn (string $key) => 'page' === $key ? $typed : null);
+        $this->tool = new BlockAddTool(
+            $this->messageBus,
+            $this->pageRepository,
+            $this->contentManager,
+            $this->blockIdGenerator,
+            new BlockDataValidator($this->formMetadataProvider),
+        );
+
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $result = $this->tool->addBlock('test-uuid', 'en', 'text', 'blocks', ['unknown_key' => 'X']);
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('Unknown keys', $result['error']);
+        $this->assertStringContainsString('unknown_key', $result['error']);
+        $this->assertStringContainsString('title', $result['error']);
+    }
+
+    public function testAddBlockRejectsNameValuePattern(): void
+    {
+        $this->setupPageWithBlocks([]);
+
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $result = $this->tool->addBlock('test-uuid', 'en', 'text', 'blocks', ['name' => 'title', 'value' => 'X']);
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('internal {name, value} storage shape', $result['error']);
     }
 
     /**
