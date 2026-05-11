@@ -3,6 +3,17 @@ services:
         autowire: true
         autoconfigure: true
 
+    # Decorates mcp.registry so attribute-discovered tools that have been
+    # disabled via `dangerous_tools.*` config are dropped before they reach
+    # the registry. Without this, discovery re-adds them after our
+    # DangerousToolsPass removed the service definitions, and tool calls
+    # fall through to `new $class()` with no constructor args.
+    Sulu\McpServerBundle\Capability\FilteredRegistry:
+        decorates: mcp.registry
+        arguments:
+            $inner: '@.inner'
+            $disabledToolNames: '%sulu_mcp_server.disabled_tool_names%'
+
     Sulu\McpServerBundle\Capabilities\Tool\PingTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\GetContextTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\ContentSearchTool:
@@ -21,6 +32,7 @@ services:
     Sulu\McpServerBundle\Security\OAuth\WellKnownController:
         arguments:
             $serverUrl: '%sulu_mcp_server.server_url%'
+            $mcpPath: '%sulu_mcp_server.mcp_path%'
         tags: ['controller.service_arguments']
 
     Sulu\McpServerBundle\Security\OAuth\DynamicClientRegistrationController:
@@ -61,6 +73,7 @@ services:
     Sulu\McpServerBundle\Command\CreateMcpClientCommand:
         arguments:
             $serverUrl: '%sulu_mcp_server.server_url%'
+            $mcpPath: '%sulu_mcp_server.mcp_path%'
 
     # Page read tools
     Sulu\McpServerBundle\Capabilities\Tool\Page\PageGetTool: ~

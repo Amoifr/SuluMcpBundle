@@ -28,6 +28,7 @@ class CreateMcpClientCommand extends Command
     public function __construct(
         private readonly ClientManagerInterface $clientManager,
         private readonly string $serverUrl,
+        private readonly string $mcpPath = '/admin/_mcp',
     ) {
         parent::__construct();
     }
@@ -74,7 +75,7 @@ class CreateMcpClientCommand extends Command
             ],
         );
 
-        $mcpUrl = \rtrim($this->serverUrl, '/').'/_mcp';
+        $mcpUrl = \rtrim($this->serverUrl, '/').$this->mcpPath;
 
         $io->section('Claude.ai Setup');
         $io->listing([

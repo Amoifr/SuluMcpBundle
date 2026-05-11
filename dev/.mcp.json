@@ -2,7 +2,7 @@
   "mcpServers": {
     "sulu": {
       "type": "http",
-      "url": "https://127.0.0.1:8000/_mcp"
+      "url": "https://127.0.0.1:8000/admin/_mcp"
     }
   }
 }
