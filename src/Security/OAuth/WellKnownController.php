@@ -18,6 +18,7 @@ class WellKnownController
 {
     public function __construct(
         private readonly string $serverUrl,
+        private readonly string $mcpPath = '/admin/_mcp',
     ) {
     }
 
@@ -31,7 +32,7 @@ class WellKnownController
     public function protectedResourceMetadata(): JsonResponse
     {
         return new JsonResponse([
-            'resource' => rtrim($this->serverUrl, '/').'/_mcp',
+            'resource' => rtrim($this->serverUrl, '/').$this->mcpPath,
             'authorization_servers' => [rtrim($this->serverUrl, '/')],
             'scopes_supported' => ['mcp:tools', 'mcp:resources'],
             'bearer_methods_supported' => ['header'],

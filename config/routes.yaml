@@ -3,15 +3,10 @@
 #   sulu_mcp_server:
 #       resource: '@SuluMcpServerBundle/config/routes.yaml'
 #
-# This file imports:
-#   - the OAuth controllers required for MCP authentication, AND
-#   - Sulu's public preview route under /admin/p so sulu_preview_link_generate
-#     can produce shareable preview URLs even when the host project's website
-#     kernel hasn't otherwise registered it.
+# This file imports the OAuth controllers required for MCP authentication
+# (the MCP transport endpoint itself is registered by symfony/mcp-bundle at
+# the configured path -- defaults to /admin/_mcp so the request lands in the
+# admin kernel, where Sulu services tagged sulu.context: admin are available).
 sulu_mcp_server_oauth:
     resource: ../src/Security/OAuth/
     type: attribute
-
-sulu_mcp_server_preview_public:
-    resource: '@SuluPreviewBundle/Resources/config/routing_public.yaml'
-    prefix: /admin/p

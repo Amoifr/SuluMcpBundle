@@ -7,7 +7,7 @@ Claude Code reads MCP server config from a `.mcp.json` in the project root (or `
 The simplest option — let Claude Code write the config for you:
 
 ```bash
-claude mcp add --transport http sulu https://your-sulu-host.example.com/_mcp
+claude mcp add --transport http sulu https://your-sulu-host.example.com/admin/_mcp
 ```
 
 Or write `.mcp.json` by hand:
@@ -17,7 +17,7 @@ Or write `.mcp.json` by hand:
   "mcpServers": {
     "sulu": {
       "type": "http",
-      "url": "https://your-sulu-host.example.com/_mcp"
+      "url": "https://your-sulu-host.example.com/admin/_mcp"
     }
   }
 }

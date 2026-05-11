@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sulu\McpServerBundle\DependencyInjection;
 
+use Sulu\McpServerBundle\DependencyInjection\Compiler\DangerousToolsPass;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
@@ -14,10 +15,16 @@ class SuluMcpServerExtension extends Extension implements PrependExtensionInterf
 {
     public function prepend(ContainerBuilder $container): void
     {
+        $configs = $container->getExtensionConfig($this->getAlias());
+        $config = $this->processConfiguration(new Configuration(), $configs);
+
         if ($container->hasExtension('mcp')) {
             $container->prependExtensionConfig('mcp', [
                 'client_transports' => [
                     'http' => true,
+                ],
+                'http' => [
+                    'path' => $config['mcp_path'],
                 ],
                 'discovery' => [
                     'scan_dirs' => ['src', 'vendor/sulu/mcp-server-bundle/src'],
@@ -47,6 +54,10 @@ class SuluMcpServerExtension extends Extension implements PrependExtensionInterf
         $container->setParameter('sulu_mcp_server.dangerous_tools.delete', $config['dangerous_tools']['delete']);
         $container->setParameter('sulu_mcp_server.dangerous_tools.publish', $config['dangerous_tools']['publish']);
         $container->setParameter('sulu_mcp_server.dangerous_tools.block_remove', $config['dangerous_tools']['block_remove']);
+        $container->setParameter(
+            'sulu_mcp_server.disabled_tool_names',
+            DangerousToolsPass::resolveDisabledToolNames($config['dangerous_tools']),
+        );
         $loader = new YamlFileLoader(
             $container,
             new FileLocator(\dirname(__DIR__, 2).'/config')

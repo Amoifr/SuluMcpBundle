@@ -28,7 +28,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
 class McpExceptionListener
 {
     public function __construct(
-        private readonly string $mcpPath = '/_mcp',
+        private readonly string $mcpPath = '/admin/_mcp',
     ) {
     }
 

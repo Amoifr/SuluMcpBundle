@@ -23,15 +23,19 @@ class PreviewLinkGenerateTool
      */
     #[McpTool(
         name: 'sulu_preview_link_generate',
-        description: 'Generate a shareable public preview URL for a draft page or article. Returns a token-protected URL under /admin/p/<token> that reviewers can open without a CMS login. Requires Sulu\'s public preview route to be registered; this bundle imports it automatically when its config/routes.yaml is loaded. For pages, the webspace parameter is required. For articles, webspace is optional.',
+        description: 'Generate a shareable public preview URL for a draft page or article. Returns a token-protected URL under /admin/p/<token> that reviewers can open without a CMS login. The `webspace` parameter is REQUIRED for both pages and articles -- Sulu\'s preview renderer needs to know which webspace context (theme, routes, templates) to render the preview under, and articles that aren\'t scoped to a webspace at generation time produce a token that crashes when opened. Use sulu_ping or sulu_get_context to list the available webspaces.',
     )]
     public function generatePreviewLink(string $resourceKey, string $uuid, string $locale, ?string $webspace = null): array
     {
+        if (null === $webspace || '' === $webspace) {
+            return [
+                'error' => 'Missing required parameter "webspace". Sulu\'s preview renderer needs a webspace key to set up the request context (theme, routes, templates), and the stored preview link will crash when opened without it. Pass the webspace key, e.g. "sulu". Use sulu_ping to list available webspaces.',
+                'hint' => 'For articles that are reachable in multiple webspaces, pick the one whose theme should render the preview.',
+            ];
+        }
+
         try {
-            $options = [];
-            if (null !== $webspace) {
-                $options['webspaceKey'] = $webspace;
-            }
+            $options = ['webspaceKey' => $webspace];
 
             $previewLink = $this->previewLinkManager->generate($resourceKey, $uuid, $locale, $options);
 
@@ -57,7 +61,7 @@ class PreviewLinkGenerateTool
         } catch (\Throwable $e) {
             return [
                 'error' => \sprintf('Failed to generate preview link: %s', $e->getMessage()),
-                'hint' => 'Verify the resource exists and the resourceKey is correct (pages or articles). For pages, webspace parameter is required.',
+                'hint' => 'Verify the resource exists, the resourceKey is correct (pages or articles), and the webspace is valid (use sulu_ping to list webspaces).',
             ];
         }
     }

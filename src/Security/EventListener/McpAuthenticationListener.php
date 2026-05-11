@@ -29,7 +29,7 @@ class McpAuthenticationListener implements AuthenticationEntryPointInterface
 {
     public function __construct(
         private readonly string $serverUrl,
-        private readonly string $mcpPath = '/_mcp',
+        private readonly string $mcpPath = '/admin/_mcp',
     ) {
     }
 

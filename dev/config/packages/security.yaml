@@ -17,9 +17,13 @@ security:
             # Ensure dev tools and static assets are always allowed
             pattern: ^/(_profiler|_wdt|assets|build)/
             security: false
+        # The MCP firewall must be declared BEFORE the admin firewall: the
+        # MCP endpoint lives under /admin/_mcp so both patterns would match,
+        # and Symfony applies the first one in declaration order. Without
+        # this, /admin/_mcp would hit the admin firewall and expect a session
+        # instead of an OAuth bearer token.
         mcp:
-            # MCP endpoint — authenticated via OAuth bearer token
-            pattern: ^/_mcp
+            pattern: ^/admin/_mcp
             provider: sulu
             stateless: true
             entry_point: Sulu\McpServerBundle\Security\EventListener\McpAuthenticationListener
@@ -69,14 +73,15 @@ security:
        #    # https://symfony.com/doc/current/security/impersonating_user.html
        #    # switch_user: true
 
-    # Note: Only the *first* matching rule is applied
+    # Note: Only the *first* matching rule is applied.
     access_control:
-        # OAuth discovery, registration, and token endpoints are public
-        - { path: ^/\.well-known/, roles: PUBLIC_ACCESS }
+        # OAuth discovery, dynamic client registration, and token endpoints
+        # must be reachable without an existing session.
+        - { path: ^/\.well-known/oauth-, roles: PUBLIC_ACCESS }
         - { path: ^/mcp/register, roles: PUBLIC_ACCESS }
         - { path: ^/mcp/token, roles: PUBLIC_ACCESS }
-        # MCP endpoint requires a valid OAuth bearer token
-        - { path: ^/_mcp, roles: IS_AUTHENTICATED_FULLY }
+        # MCP endpoint requires a valid OAuth bearer token.
+        - { path: ^/admin/_mcp, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/admin/reset, roles: PUBLIC_ACCESS }
         - { path: ^/admin/security/reset, roles: PUBLIC_ACCESS }
         - { path: ^/admin/login$, roles: PUBLIC_ACCESS }

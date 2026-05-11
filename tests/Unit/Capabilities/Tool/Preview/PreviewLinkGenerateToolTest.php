@@ -67,7 +67,7 @@ class PreviewLinkGenerateToolTest extends TestCase
         $this->previewLinkManager
             ->expects($this->once())
             ->method('generate')
-            ->with('articles', 'article-uuid-1', 'de', [])
+            ->with('articles', 'article-uuid-1', 'de', ['webspaceKey' => 'sulu'])
             ->willReturn($previewLink);
 
         $this->router
@@ -76,7 +76,7 @@ class PreviewLinkGenerateToolTest extends TestCase
             ->with('sulu_preview.public_preview', ['token' => 'def456'], UrlGeneratorInterface::ABSOLUTE_URL)
             ->willReturn('https://example.com/preview/def456');
 
-        $result = $this->tool->generatePreviewLink('articles', 'article-uuid-1', 'de');
+        $result = $this->tool->generatePreviewLink('articles', 'article-uuid-1', 'de', 'sulu');
 
         $this->assertTrue($result['success']);
         $this->assertSame('https://example.com/preview/def456', $result['preview_url']);
@@ -84,6 +84,17 @@ class PreviewLinkGenerateToolTest extends TestCase
         $this->assertSame('articles', $result['resourceKey']);
         $this->assertSame('article-uuid-1', $result['resourceId']);
         $this->assertSame('de', $result['locale']);
+    }
+
+    public function testGeneratePreviewLinkRejectsMissingWebspace(): void
+    {
+        $this->previewLinkManager->expects($this->never())->method('generate');
+
+        $result = $this->tool->generatePreviewLink('articles', 'article-uuid-1', 'en');
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('webspace', $result['error']);
+        $this->assertArrayNotHasKey('success', $result);
     }
 
     public function testGeneratePreviewLinkPassesWebspaceInOptions(): void

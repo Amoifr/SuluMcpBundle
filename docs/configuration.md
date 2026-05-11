@@ -10,8 +10,8 @@ sulu_mcp_server:
     # metadata and generating absolute callback URLs.
     server_url: '%env(SULU_MCP_SERVER_URL)%'
 
-    # MCP endpoint path. Default: /_mcp
-    mcp_path: '/_mcp'
+    # MCP endpoint path. Default: /admin/_mcp
+    mcp_path: '/admin/_mcp'
 
     oauth:
         # Access token lifetime in seconds. Default: 3600 (1 hour).
@@ -46,7 +46,40 @@ SULU_MCP_SERVER_URL=https://sulu.example.com
 
 ### `mcp_path`
 
-The HTTP path serving MCP requests. Default `/_mcp`. Change it only if you need to avoid a route collision; clients must use the same path.
+The HTTP path serving MCP requests. Default `/admin/_mcp`. The `/admin/...` prefix routes the request into Sulu's admin kernel via the standard front-controller mapping, so admin-context services (article preview provider, etc.) are available to the tools. Change it only if you need to avoid a route collision; keep the `/admin/` prefix unless you've explicitly routed a different path to the admin kernel. Clients must use the same path.
+
+If you change `mcp_path`, also update the `pattern` of the `mcp` firewall in your `security.yaml` (see "Required security setup" below) and the URL registered with each MCP client.
+
+## Required security setup
+
+The MCP endpoint lives under `/admin/_mcp` so its requests reach the admin kernel. Sulu's standard `admin` firewall has the pattern `^/admin(\/|$)`, which also matches the MCP path -- Symfony applies the *first* firewall whose pattern matches, in declaration order. The MCP firewall therefore must be declared **before** the admin firewall in your `config/packages/security.yaml`:
+
+```yaml
+security:
+    firewalls:
+        # ...any "dev" or static-asset firewalls...
+        mcp:
+            pattern: ^/admin/_mcp
+            provider: sulu                 # or whichever provider authenticates Sulu users
+            stateless: true
+            entry_point: Sulu\McpServerBundle\Security\EventListener\McpAuthenticationListener
+            oauth2: true
+        admin:
+            pattern: ^/admin(\/|$)
+            # ...existing admin firewall config...
+
+    access_control:
+        # Allow the OAuth discovery and token/registration endpoints through
+        # without a session.
+        - { path: ^/\.well-known/oauth-, roles: PUBLIC_ACCESS }
+        - { path: ^/mcp/register, roles: PUBLIC_ACCESS }
+        - { path: ^/mcp/token, roles: PUBLIC_ACCESS }
+        # Require a valid OAuth bearer on the MCP endpoint itself.
+        - { path: ^/admin/_mcp, roles: IS_AUTHENTICATED_FULLY }
+        # ...your existing admin rules...
+```
+
+This setup keeps the MCP traffic stateless (no PHP session cookies), isolated from your form-login / two-factor / HTTP-basic flows on `/admin/...`, and works alongside any extra middleware your host project layers onto the admin firewall.
 
 ### `oauth.access_token_ttl` / `oauth.refresh_token_ttl`
 
