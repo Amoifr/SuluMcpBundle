@@ -31,14 +31,6 @@ class SuluMcpServerExtension extends Extension implements PrependExtensionInterf
                 ],
             ]);
         }
-
-        if ($container->hasExtension('twig')) {
-            $container->prependExtensionConfig('twig', [
-                'paths' => [
-                    \dirname(__DIR__, 2).'/templates' => 'SuluMcpServerBundle',
-                ],
-            ]);
-        }
     }
 
     public function load(array $configs, ContainerBuilder $container): void
