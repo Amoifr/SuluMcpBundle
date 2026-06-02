@@ -45,11 +45,14 @@ services:
     # OAuth authorization
     Sulu\McpServerBundle\Security\EventListener\OAuthAuthorizationListener: ~
 
-    # Decorate Sulu's entry point for friendly OAuth login page
+    # Redirect unauthenticated OAuth-authorize hits to the Sulu admin login
     Sulu\McpServerBundle\Security\McpAuthenticationEntryPoint:
         decorates: sulu_security.authentication_entry_point
         arguments:
             $inner: '@.inner'
+
+    # After admin login, resume a pending /admin/mcp/authorize OAuth request.
+    Sulu\McpServerBundle\Security\EventListener\McpLoginSuccessListener: ~
 
     # MCP event listeners
     Sulu\McpServerBundle\Security\EventListener\McpAuthenticationListener:
