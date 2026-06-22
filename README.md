@@ -52,21 +52,22 @@ sulu_mcp_server:
     dangerous_tools:
         delete: false        # sulu_*_delete (page, article, tag, category)
         publish: false       # sulu_*_publish, sulu_*_unpublish, sulu_preview_link_revoke
-        block_remove: false  # sulu_block_remove, sulu_article_block_remove
+        block_remove: false  # sulu_block_remove
 ```
 
 All three `dangerous_tools` flags default to `false`. Enable per category to expose those tools to MCP clients. Full reference: [`docs/configuration.md`](docs/configuration.md).
 
 ## Tools
 
-49 MCP tools, grouped by domain:
+37 MCP tools, grouped by domain:
 
 | Domain | Count | Examples |
 |--------|-------|----------|
-| Pages | 12 | `sulu_page_create`, `sulu_page_get`, `sulu_page_list`, `sulu_page_tree`, `sulu_page_publish` |
-| Page blocks | 5 | `sulu_block_add`, `sulu_block_update`, `sulu_block_reorder`, `sulu_block_list`, `sulu_block_remove` |
-| Articles | 14 | `sulu_article_create`, `sulu_article_update`, `sulu_article_publish`, `sulu_article_block_*` |
-| Snippets | 2 | `sulu_snippet_get`, `sulu_snippet_list` |
+| Pages | 5 | `sulu_page_create`, `sulu_page_get`, `sulu_page_list`, `sulu_page_tree`, `sulu_page_update` |
+| Blocks | 5 | `sulu_block_add`, `sulu_block_update`, `sulu_block_reorder`, `sulu_block_list`, `sulu_block_remove` — generic over page/article/snippet via a `type` param |
+| Articles | 4 | `sulu_article_create`, `sulu_article_update`, `sulu_article_get`, `sulu_article_list` |
+| Snippets | 4 | `sulu_snippet_create`, `sulu_snippet_update`, `sulu_snippet_get`, `sulu_snippet_list` |
+| Unified content | 3 | `sulu_content_delete`, `sulu_content_publish`, `sulu_content_unpublish` — take a `type` param (`page` \| `article` \| `snippet`) |
 | Media | 3 | `sulu_media_list`, `sulu_media_get`, `sulu_media_update` |
 | Taxonomy | 6 | `sulu_tag_*`, `sulu_category_*` |
 | Navigation | 1 | `sulu_navigation_get` |

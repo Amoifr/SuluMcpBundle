@@ -7,6 +7,9 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Taxonomy;
 use Mcp\Capability\Attribute\McpTool;
 use Sulu\Bundle\TagBundle\Tag\TagManagerInterface;
 
+/**
+ * @internal
+ */
 class TagCreateTool
 {
     public function __construct(
@@ -34,6 +37,7 @@ class TagCreateTool
         } catch (\Throwable $e) {
             return [
                 'error' => \sprintf('Failed to create tag "%s": %s', $name, $e->getMessage()),
+                'hint' => 'Tag names must be unique. Use sulu_tag_list to check existing tags before creating.',
             ];
         }
     }

@@ -9,6 +9,9 @@ use Sulu\Bundle\MediaBundle\Media\Manager\MediaManagerInterface;
 use Sulu\Bundle\SecurityBundle\Entity\User;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
+/**
+ * @internal
+ */
 class MediaUpdateTool
 {
     public function __construct(
@@ -37,6 +40,7 @@ class MediaUpdateTool
             if (!$user instanceof User) {
                 return [
                     'error' => 'Not authenticated — a valid Sulu user is required to update media.',
+                    'hint' => 'Authenticate as a Sulu user with permission to edit media before retrying.',
                 ];
             }
 
@@ -67,6 +71,7 @@ class MediaUpdateTool
         } catch (\Throwable $e) {
             return [
                 'error' => \sprintf('Failed to update media %d: %s', $id, $e->getMessage()),
+                'hint' => 'Verify the media id exists (use sulu_media_list) and the locale is valid.',
             ];
         }
     }

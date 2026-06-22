@@ -11,6 +11,9 @@ use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\ItemMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\TypedFormMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
 
+/**
+ * @internal
+ */
 class TemplatesResource
 {
     /** @var array<string, FormMetadata>|null */
@@ -74,11 +77,12 @@ class TemplatesResource
     }
 
     /**
-     * @param ItemMetadata $item
+     * @param ItemMetadata        $item
+     * @param array<string, true> $visiting block type names currently on the resolution path
      *
      * @return array<string, mixed>
      */
-    private function normalizeItem($item): array
+    private function normalizeItem($item, array $visiting = []): array
     {
         $field = [
             'name' => $item->getName(),
@@ -91,9 +95,21 @@ class TemplatesResource
             $types = [];
             foreach ($item->getTypes() as $typeName => $blockForm) {
                 $resolvedForm = $this->resolveBlockForm($typeName, $blockForm);
+
+                if (isset($visiting[$typeName])) {
+                    $types[$typeName] = [
+                        'key' => $typeName,
+                        'label' => $resolvedForm->getTitle('en'),
+                        'fields' => [],
+                        'cyclic' => true,
+                    ];
+
+                    continue;
+                }
+
                 $blockFields = [];
                 foreach ($resolvedForm->getItems() as $blockItem) {
-                    $blockFields[] = $this->normalizeItem($blockItem);
+                    $blockFields[] = $this->normalizeItem($blockItem, $visiting + [$typeName => true]);
                 }
                 $types[$typeName] = [
                     'key' => $typeName,

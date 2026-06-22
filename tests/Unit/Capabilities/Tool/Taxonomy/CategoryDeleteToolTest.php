@@ -45,6 +45,9 @@ final class CategoryDeleteToolTest extends TestCase
 
         $this->assertArrayHasKey('error', $result);
         $this->assertStringContainsString('999', $result['error']);
+        $this->assertTrue(\array_key_exists('hint', $result));
+        $this->assertIsString($result['hint']);
+        $this->assertNotEmpty($result['hint']);
     }
 
     public function testMethodHasMcpToolAttribute(): void

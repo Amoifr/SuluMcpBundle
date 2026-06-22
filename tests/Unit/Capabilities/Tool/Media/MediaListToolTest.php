@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Media;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Capability\Attribute\Schema;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Sulu\Bundle\MediaBundle\Api\Media;
@@ -46,7 +47,7 @@ class MediaListToolTest extends TestCase
         $this->assertCount(2, $result['media']);
         $this->assertSame(10, $result['total']);
         $this->assertSame(20, $result['limit']);
-        $this->assertSame(0, $result['offset']);
+        $this->assertSame(1, $result['page']);
         $this->assertSame(1, $result['media'][0]['id']);
         $this->assertSame('Photo 1', $result['media'][0]['title']);
         $this->assertSame('image/jpeg', $result['media'][0]['mimeType']);
@@ -63,12 +64,12 @@ class MediaListToolTest extends TestCase
                     && 'test' === $filter['search']
                     && ['image'] === $filter['types']),
                 10,
-                5,
+                20,
             )
             ->willReturn([]);
         $this->mediaManager->method('getCount')->willReturn(0);
 
-        $this->tool->listMedia('de', 5, 'test', ['image'], 10, 5);
+        $this->tool->listMedia('de', 5, 'test', ['image'], 3, 10);
     }
 
     public function testListMediaDefaultsToNoFilters(): void
@@ -98,5 +99,19 @@ class MediaListToolTest extends TestCase
         $instance = $attributes[0]->newInstance();
         $this->assertSame('sulu_media_list', $instance->name);
         $this->assertStringContainsString('tag-based filtering is not supported', $instance->description);
+    }
+
+    public function testTypesParameterHasSchemaAttribute(): void
+    {
+        $reflection = new \ReflectionMethod(MediaListTool::class, 'listMedia');
+        $parameter = $reflection->getParameters()[3];
+        $this->assertSame('types', $parameter->getName());
+
+        $attributes = $parameter->getAttributes(Schema::class);
+        $this->assertCount(1, $attributes);
+
+        $schema = $attributes[0]->newInstance();
+        $this->assertSame('array', $schema->type);
+        $this->assertSame(['type' => 'string'], $schema->items);
     }
 }

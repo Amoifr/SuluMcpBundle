@@ -11,6 +11,9 @@ use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentNormalizerTrait;
 
+/**
+ * @internal
+ */
 class ArticleGetTool
 {
     use ContentNormalizerTrait;
@@ -26,7 +29,7 @@ class ArticleGetTool
      */
     #[McpTool(
         name: 'sulu_article_get',
-        description: 'Get a single article by its UUID. Returns draft metadata, template fields, and block summaries (index, _id, type, title, blockCount). Use sulu_block_list with type="article" to fetch full block content. SEO and excerpt data are NOT included — use sulu_article_seo_get and sulu_article_excerpt_get for those. Always call this before sulu_article_update.',
+        description: 'Get a single article by its UUID. Returns draft metadata, template fields, block summaries (index, _id, type, title), and SEO/excerpt data. Use sulu_block_list with type="article" to fetch full block content. Always call this before sulu_article_update.',
     )]
     public function getArticle(string $locale, string $uuid): array
     {
@@ -50,7 +53,6 @@ class ArticleGetTool
             $normalized = $this->contentManager->normalize($dimensionContent);
 
             $compacted = $this->compactContent($normalized, $this->detectBlockProperties($normalized));
-            $compacted = $this->stripSeoExcerpt($compacted);
 
             return [
                 'uuid' => $article->getUuid(),
@@ -60,6 +62,7 @@ class ArticleGetTool
         } catch (ArticleNotFoundException) {
             return [
                 'error' => 'Article not found: '.$uuid,
+                'hint' => 'Verify the UUID and locale. Use sulu_article_list or sulu_content_search to find articles.',
             ];
         }
     }

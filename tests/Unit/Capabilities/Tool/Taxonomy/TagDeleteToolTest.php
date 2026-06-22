@@ -47,6 +47,9 @@ final class TagDeleteToolTest extends TestCase
         $this->assertStringContainsString('999', $result['error']);
         $this->assertStringContainsString('Tag not found', $result['error']);
         $this->assertArrayNotHasKey('success', $result);
+        $this->assertTrue(\array_key_exists('hint', $result));
+        $this->assertIsString($result['hint']);
+        $this->assertNotEmpty($result['hint']);
     }
 
     public function testDeleteTagMethodHasMcpToolAttribute(): void

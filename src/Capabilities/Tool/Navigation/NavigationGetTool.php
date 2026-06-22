@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Sulu\McpServerBundle\Capabilities\Tool\Navigation;
 
-use Mcp\Capability\Attribute\McpTool;
 use Sulu\Page\Domain\Repository\NavigationRepositoryInterface;
 
 class NavigationGetTool

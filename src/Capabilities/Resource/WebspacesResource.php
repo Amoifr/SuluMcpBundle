@@ -9,6 +9,9 @@ use Sulu\Component\Webspace\Exception\EnvironmentNotFoundException;
 use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
 use Sulu\Component\Webspace\Webspace;
 
+/**
+ * @internal
+ */
 class WebspacesResource
 {
     public function __construct(

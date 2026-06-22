@@ -1,0 +1,188 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool;
+
+use CmsIg\Seal\Adapter\SearcherInterface;
+use CmsIg\Seal\EngineInterface;
+use CmsIg\Seal\Schema\Field\IdentifierField;
+use CmsIg\Seal\Schema\Index;
+use CmsIg\Seal\Schema\Schema;
+use CmsIg\Seal\Search\Condition\EqualCondition;
+use CmsIg\Seal\Search\Result;
+use CmsIg\Seal\Search\Search;
+use CmsIg\Seal\Search\SearchBuilder;
+use Mcp\Capability\Attribute\McpTool;
+use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
+use Sulu\McpServerBundle\Capabilities\Tool\ContentSearchTool;
+
+class ContentSearchToolTest extends TestCase
+{
+    private EngineInterface&MockObject $engine;
+    private SearcherInterface&MockObject $searcher;
+    private ContentSearchTool $tool;
+
+    protected function setUp(): void
+    {
+        $this->engine = $this->createMock(EngineInterface::class);
+        $this->searcher = $this->createMock(SearcherInterface::class);
+        $this->tool = new ContentSearchTool($this->engine);
+    }
+
+    private function createSearchBuilder(): SearchBuilder
+    {
+        $identifierField = new IdentifierField('id');
+        $index = new Index('website', ['id' => $identifierField]);
+        $schema = new Schema(['website' => $index]);
+
+        return (new SearchBuilder($schema, $this->searcher))->index('website');
+    }
+
+    private function createEmptyResult(): Result
+    {
+        return Result::createEmpty();
+    }
+
+    public function testTypeArticleIsMappedToPluralResourceKey(): void
+    {
+        $builder = $this->createSearchBuilder();
+
+        $this->engine
+            ->method('createSearchBuilder')
+            ->with('website')
+            ->willReturn($builder);
+
+        $this->searcher
+            ->expects($this->once())
+            ->method('search')
+            ->with($this->callback(function (Search $search): bool {
+                foreach ($search->filters as $filter) {
+                    if ($filter instanceof EqualCondition
+                        && 'resourceKey' === $filter->field
+                        && 'articles' === $filter->value
+                    ) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }))
+            ->willReturn($this->createEmptyResult());
+
+        $result = $this->tool->search('hello', 'en', null, 'article');
+
+        $this->assertArrayHasKey('results', $result);
+        $this->assertArrayHasKey('total', $result);
+    }
+
+    public function testTypePageIsMappedToPluralResourceKey(): void
+    {
+        $builder = $this->createSearchBuilder();
+
+        $this->engine
+            ->method('createSearchBuilder')
+            ->with('website')
+            ->willReturn($builder);
+
+        $this->searcher
+            ->expects($this->once())
+            ->method('search')
+            ->with($this->callback(function (Search $search): bool {
+                foreach ($search->filters as $filter) {
+                    if ($filter instanceof EqualCondition
+                        && 'resourceKey' === $filter->field
+                        && 'pages' === $filter->value
+                    ) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }))
+            ->willReturn($this->createEmptyResult());
+
+        $this->tool->search('hello', 'en', null, 'page');
+    }
+
+    public function testUnknownTypeIsPassedVerbatim(): void
+    {
+        $builder = $this->createSearchBuilder();
+
+        $this->engine
+            ->method('createSearchBuilder')
+            ->with('website')
+            ->willReturn($builder);
+
+        $this->searcher
+            ->expects($this->once())
+            ->method('search')
+            ->with($this->callback(function (Search $search): bool {
+                foreach ($search->filters as $filter) {
+                    if ($filter instanceof EqualCondition
+                        && 'resourceKey' === $filter->field
+                        && 'custom_type' === $filter->value
+                    ) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }))
+            ->willReturn($this->createEmptyResult());
+
+        $this->tool->search('hello', 'en', null, 'custom_type');
+    }
+
+    public function testSearchEngineExceptionReturnsStructuredError(): void
+    {
+        $this->engine
+            ->method('createSearchBuilder')
+            ->willThrowException(new \RuntimeException('Search engine unavailable'));
+
+        $result = $this->tool->search('hello', 'en');
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertArrayHasKey('hint', $result);
+        $this->assertStringContainsString('Content search failed', $result['error']);
+        $this->assertStringContainsString('Search engine unavailable', $result['error']);
+        $this->assertArrayNotHasKey('results', $result);
+    }
+
+    public function testSearchMethodHasMcpToolAttribute(): void
+    {
+        $reflection = new \ReflectionMethod(ContentSearchTool::class, 'search');
+        $attributes = $reflection->getAttributes(McpTool::class);
+
+        $this->assertCount(1, $attributes, 'search() method must have exactly one #[McpTool] attribute');
+
+        $instance = $attributes[0]->newInstance();
+        $this->assertSame('sulu_content_search', $instance->name);
+    }
+
+    public function testNullTypeAppliesNoResourceKeyFilter(): void
+    {
+        $builder = $this->createSearchBuilder();
+
+        $this->engine
+            ->method('createSearchBuilder')
+            ->willReturn($builder);
+
+        $this->searcher
+            ->expects($this->once())
+            ->method('search')
+            ->with($this->callback(function (Search $search): bool {
+                foreach ($search->filters as $filter) {
+                    if ($filter instanceof EqualCondition && 'resourceKey' === $filter->field) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }))
+            ->willReturn($this->createEmptyResult());
+
+        $this->tool->search('hello', 'en');
+    }
+}

@@ -21,6 +21,7 @@ services:
             $engine: '@cmsig_seal.engine.default'
 
     # MCP Resources: discovery layer for AI clients
+    Sulu\McpServerBundle\Capabilities\Resource\FieldValueExampleProvider: ~
     Sulu\McpServerBundle\Capabilities\Resource\TemplatesResource:
         arguments:
             $formMetadataProvider: '@sulu_admin.form_metadata_provider'
@@ -28,6 +29,9 @@ services:
         arguments:
             $formMetadataProvider: '@sulu_admin.form_metadata_provider'
     Sulu\McpServerBundle\Capabilities\Resource\WebspacesResource: ~
+    Sulu\McpServerBundle\Capabilities\Resource\ExtensionFieldsResource:
+        arguments:
+            $formMetadataProvider: '@sulu_admin.form_metadata_provider'
 # OAuth well-known controller
     Sulu\McpServerBundle\Security\OAuth\WellKnownController:
         arguments:
@@ -64,6 +68,14 @@ services:
         arguments:
             $mcpPath: '%sulu_mcp_server.mcp_path%'
 
+    # Forces request format to "json" for MCP requests so Sulu's MarkupBundle
+    # response listener does not run the HtmlMarkupParser on JSON-RPC responses
+    Sulu\McpServerBundle\Security\EventListener\McpRequestFormatListener:
+        arguments:
+            $mcpPath: '%sulu_mcp_server.mcp_path%'
+        tags:
+            - { name: kernel.event_listener, event: kernel.request, method: onKernelRequest, priority: 64 }
+
     # Sets Sulu system context for MCP requests so the UserProvider can authenticate OAuth users
     Sulu\McpServerBundle\Security\EventListener\OAuthSystemStoreListener:
         arguments:
@@ -86,9 +98,17 @@ services:
     # Page write tools
     Sulu\McpServerBundle\Capabilities\Tool\Page\PageCreateTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\Page\PageUpdateTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Page\PageDeleteTool: ~  # gated by dangerous_tools.delete
+
+    # Unified content tools (page | article | snippet via `type`)
+    Sulu\McpServerBundle\Capabilities\Tool\Content\ContentDeleteTool: ~  # gated by dangerous_tools.delete
+    Sulu\McpServerBundle\Capabilities\Tool\Content\ContentPublishTool: ~  # gated by dangerous_tools.publish
+    Sulu\McpServerBundle\Capabilities\Tool\Content\ContentUnpublishTool: ~  # gated by dangerous_tools.publish
 
     # Block management tools
+    Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver: ~
+    Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper:
+        arguments:
+            $formMetadataProvider: '@sulu_admin.form_metadata_provider'
     Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator:
         arguments:
             $formMetadataProvider: '@sulu_admin.form_metadata_provider'
@@ -104,35 +124,11 @@ services:
     Sulu\Bundle\PreviewBundle\Application\Manager\PreviewLinkManagerInterface:
         alias: sulu_preview.preview_link_manager
 
-    # Publishing tools
-    Sulu\McpServerBundle\Capabilities\Tool\Page\PagePublishTool: ~  # gated by dangerous_tools.publish
-    Sulu\McpServerBundle\Capabilities\Tool\Page\PageUnpublishTool: ~  # gated by dangerous_tools.publish
-
-    # Page SEO and excerpt tools
-    Sulu\McpServerBundle\Capabilities\Tool\Page\PageSeoGetTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Page\PageSeoUpdateTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Page\PageExcerptGetTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Page\PageExcerptUpdateTool: ~
-
     # Phase 04: Article tools
     Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleGetTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleListTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleCreateTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleUpdateTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleDeleteTool: ~  # gated by dangerous_tools.delete
-    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticlePublishTool: ~  # gated by dangerous_tools.publish
-    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleUnpublishTool: ~  # gated by dangerous_tools.publish
-
-    # Article SEO and excerpt tools
-    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleSeoGetTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleSeoUpdateTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleExcerptGetTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleExcerptUpdateTool: ~
-
-    # Phase 04: Article block tools
-    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleBlockAddTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleBlockRemoveTool: ~  # gated by dangerous_tools.block_remove
-    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleBlockReorderTool: ~
 
     # Phase 04: Taxonomy tools
     Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\TagCreateTool: ~
@@ -150,6 +146,8 @@ services:
     # Phase 04: Snippet tools
     Sulu\McpServerBundle\Capabilities\Tool\Snippet\SnippetGetTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\Snippet\SnippetListTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Snippet\SnippetCreateTool: ~
+    Sulu\McpServerBundle\Capabilities\Tool\Snippet\SnippetUpdateTool: ~
 
     # Phase 04: Contact tools
     Sulu\McpServerBundle\Capabilities\Tool\Contact\ContactListTool: ~

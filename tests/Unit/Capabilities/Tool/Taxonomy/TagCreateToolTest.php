@@ -53,6 +53,9 @@ final class TagCreateToolTest extends TestCase
         $this->assertStringContainsString('existing-tag', $result['error']);
         $this->assertStringContainsString('Duplicate tag', $result['error']);
         $this->assertArrayNotHasKey('success', $result);
+        $this->assertTrue(\array_key_exists('hint', $result));
+        $this->assertIsString($result['hint']);
+        $this->assertNotEmpty($result['hint']);
     }
 
     public function testCreateTagMethodHasMcpToolAttribute(): void

@@ -11,6 +11,9 @@ use Sulu\McpServerBundle\Capabilities\Tool\ContentNormalizerTrait;
 use Sulu\Page\Domain\Exception\PageNotFoundException;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 
+/**
+ * @internal
+ */
 class PageGetTool
 {
     use ContentNormalizerTrait;
@@ -26,7 +29,7 @@ class PageGetTool
      */
     #[McpTool(
         name: 'sulu_page_get',
-        description: 'Get a single page by its UUID. Returns draft metadata, template fields, and block summaries (index, _id, type, title, blockCount). Use sulu_block_list with type="page" to fetch full block content. SEO and excerpt data are NOT included — use sulu_page_seo_get and sulu_page_excerpt_get for those. Always call this before sulu_page_update.',
+        description: 'Get a single page by its UUID. Returns draft metadata, template fields, block summaries (index, _id, type, title), and SEO/excerpt data. Use sulu_block_list with type="page" to fetch full block content. Always call this before sulu_page_update.',
     )]
     public function getPage(string $webspace, string $locale, string $uuid): array
     {
@@ -50,7 +53,6 @@ class PageGetTool
             $normalized = $this->contentManager->normalize($dimensionContent);
 
             $compacted = $this->compactContent($normalized, $this->detectBlockProperties($normalized));
-            $compacted = $this->stripSeoExcerpt($compacted);
 
             return [
                 'uuid' => $page->getUuid(),
@@ -61,6 +63,7 @@ class PageGetTool
         } catch (PageNotFoundException) {
             return [
                 'error' => 'Page not found: '.$uuid,
+                'hint' => 'Verify the UUID and locale. Use sulu_page_list or sulu_content_search to find pages.',
             ];
         }
     }

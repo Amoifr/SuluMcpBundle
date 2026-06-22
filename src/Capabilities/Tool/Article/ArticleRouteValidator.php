@@ -49,8 +49,12 @@ final class ArticleRouteValidator
 
         if ($hasUrl) {
             $url = $content['url'];
+            if (\is_array($url)) {
+                return self::validatePageTreeRoute($url, 'url');
+            }
+
             if (!\is_string($url) || '' === $url) {
-                return self::error('Article content.url must be a non-empty string, e.g. "/my-article".');
+                return self::error('Article content.url must be a non-empty string, e.g. "/my-article", or a page_tree_route object.');
             }
             if (!\str_starts_with($url, '/')) {
                 return self::error(\sprintf('Article content.url must start with "/". Got: %s', $url));
@@ -59,8 +63,90 @@ final class ArticleRouteValidator
             return null;
         }
 
-        // hasPage
+        return self::validatePageTreeRouteAlias($content['page']);
+    }
+
+    /**
+     * Convert the MCP-friendly page_tree_route alias to Sulu's actual template field shape.
+     *
+     * Sulu templates still name the route property `url`, even when its type is
+     * `page_tree_route`. MCP clients may pass the more natural alias
+     * content.page={path, uuid, suffix}; before dispatching to Sulu, that needs
+     * to become content.url={page: {path, uuid}, suffix}.
+     *
+     * @param array<string, mixed> $content
+     *
+     * @return array<string, mixed>
+     */
+    public static function normalizeForSulu(array $content): array
+    {
+        if (!\array_key_exists('page', $content) || \array_key_exists('url', $content)) {
+            return $content;
+        }
+
         $page = $content['page'];
+        if (!\is_array($page)) {
+            return $content;
+        }
+
+        unset($content['page']);
+        $content['url'] = [
+            'page' => [
+                'path' => $page['path'] ?? null,
+                'uuid' => $page['uuid'] ?? null,
+            ],
+            'suffix' => $page['suffix'] ?? null,
+        ];
+
+        return $content;
+    }
+
+    /**
+     * After a create call, check whether routing actually resolved.
+     *
+     * Sulu silently produces `url: null` when the supplied routing form does
+     * not match the template's route property type. Catch that here and turn
+     * it into a clear error the LLM can act on.
+     *
+     * @param array<string, mixed> $normalizedArticle Output of ContentManager::normalize()
+     * @param array<string, mixed> $content           The routing content the caller supplied
+     *
+     * @return array<string, string>|null
+     */
+    public static function assertRoutingResolved(array $normalizedArticle, array $content): ?array
+    {
+        if (!\array_key_exists('url', $content) && !\array_key_exists('page', $content)) {
+            return null;
+        }
+
+        $resolvedUrl = $normalizedArticle['url'] ?? null;
+        if (\is_string($resolvedUrl) && '' !== $resolvedUrl) {
+            return null;
+        }
+        if (\is_array($resolvedUrl)) {
+            $page = $resolvedUrl['page'] ?? null;
+            $suffix = $resolvedUrl['suffix'] ?? null;
+            if (\is_array($page) && \is_string($suffix) && '' !== $suffix) {
+                return null;
+            }
+        }
+
+        if (\array_key_exists('url', $content)) {
+            $suggestion = \is_string($content['url'] ?? null)
+                ? 'Tried content.url as a simple route but the template likely uses page_tree_route. Retry with content={"page": {"path": "...", "uuid": "...", "suffix": "..."}}.'
+                : 'Tried content.url as a page_tree_route object but the template likely uses a simple route. Retry with content={"url": "/<full-path>"}.';
+        } else {
+            $suggestion = 'Tried content.page as a page_tree_route but the template likely uses a simple route. Retry with content={"url": "/<full-path>"}.';
+        }
+
+        return self::error(
+            'Article was created but routing was dropped (url resolved to null). This usually means the URL form does not match the template\'s route property type. '.$suggestion.' Call sulu_get_context to inspect the template field types.'
+        );
+    }
+
+    /** @return array<string, mixed>|null */
+    private static function validatePageTreeRouteAlias(mixed $page): ?array
+    {
         if (!\is_array($page)) {
             return self::error('Article content.page must be an object with keys "path", "uuid", and "suffix".');
         }
@@ -79,38 +165,30 @@ final class ArticleRouteValidator
     }
 
     /**
-     * After a create call, check whether routing actually resolved.
+     * @param array<string, mixed> $route
      *
-     * Sulu silently produces `url: null` when the supplied routing form does
-     * not match the template's route property type. Catch that here and turn
-     * it into a clear error the LLM can act on.
-     *
-     * @param array<string, mixed> $normalizedArticle Output of ContentManager::normalize()
-     * @param array<string, mixed> $content           The routing content the caller supplied
-     *
-     * @return array<string, string>|null
+     * @return array<string, mixed>|null
      */
-    public static function assertRoutingResolved(array $normalizedArticle, array $content): ?array
+    private static function validatePageTreeRoute(array $route, string $field): ?array
     {
-        $hasUrl = \array_key_exists('url', $content);
-        $hasPage = \array_key_exists('page', $content);
-
-        if (!$hasUrl && !$hasPage) {
-            return null;
+        $page = $route['page'] ?? null;
+        if (!\is_array($page)) {
+            return self::error(\sprintf('Article content.%s.page must be an object with keys "path" and "uuid".', $field));
         }
 
-        $resolvedUrl = $normalizedArticle['url'] ?? null;
-        if (\is_string($resolvedUrl) && '' !== $resolvedUrl) {
-            return null;
+        foreach (['path', 'uuid'] as $key) {
+            $value = $page[$key] ?? null;
+            if (!\is_string($value) || '' === $value) {
+                return self::error(\sprintf('Article content.%s.page.%s must be a non-empty string.', $field, $key));
+            }
         }
 
-        $suggestion = $hasUrl
-            ? 'Tried content.url but the template likely uses page_tree_route. Retry with content={"page": {"path": "...", "uuid": "...", "suffix": "..."}}.'
-            : 'Tried content.page but the template likely uses a simple route. Retry with content={"url": "/<full-path>"}.';
+        $suffix = $route['suffix'] ?? null;
+        if (!\is_string($suffix) || '' === $suffix) {
+            return self::error(\sprintf('Article content.%s.suffix must be a non-empty string.', $field));
+        }
 
-        return self::error(
-            'Article was created but routing was dropped (url resolved to null). This usually means the URL form does not match the template\'s route property type. '.$suggestion.' Call sulu_get_context to inspect the template field types.'
-        );
+        return null;
     }
 
     /** @return array<string, string> */

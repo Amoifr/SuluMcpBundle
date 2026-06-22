@@ -5,17 +5,19 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Capability\Attribute\Schema;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\BlockDataNormalizerTrait;
+use Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
-use Sulu\Page\Application\Message\ModifyPageMessage;
-use Sulu\Page\Domain\Model\PageInterface;
-use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\HandleTrait;
 use Symfony\Component\Messenger\MessageBusInterface;
 
+/**
+ * @internal
+ */
 class BlockReorderTool
 {
     use HandleTrait;
@@ -23,40 +25,64 @@ class BlockReorderTool
 
     public function __construct(
         MessageBusInterface $messageBus,
-        private readonly PageRepositoryInterface $pageRepository,
+        private readonly ContentTypeResolver $contentTypeResolver,
         private readonly ContentManagerInterface $contentManager,
     ) {
         $this->messageBus = $messageBus;
     }
 
     /**
-     * @param list<int> $newOrder
+     * @param list<int>|null         $newOrder
+     * @param array<int, mixed>|null $blockIds
      *
      * @return array<string, mixed>
      */
     #[McpTool(
         name: 'sulu_block_reorder',
-        description: 'Reorder blocks on a page by specifying the new order of indices. newOrder must be an array containing every current index exactly once in the desired order. Example: if a page has 3 blocks (indices 0,1,2), passing newOrder=[2,0,1] moves the third block to first position. Call sulu_page_get first to see the current block order. The page must be re-published after reordering.',
+        description: 'Reorder blocks on a page, article, or snippet. Pass "type" ("page", "article" or "snippet") and the entity "uuid", plus EITHER "newOrder" (every current 0-based index exactly once, e.g. [2,0,1]) OR "blockIds" (the block _id values in the desired order, e.g. ["c6c22b89","76541424"]). Prefer blockIds — it is robust because ids do not shift as blocks are added/removed. Get the current order/ids from sulu_block_list (or sulu_page_get / sulu_article_get / sulu_snippet_get). The entity must be re-published after reordering.',
     )]
     public function reorderBlocks(
-        string $pageUuid,
+        string $type,
+        string $uuid,
         string $locale,
         string $blockProperty,
-        array $newOrder,
+        #[Schema(type: 'array', description: 'New block order as 0-based indices, e.g. [2, 0, 1]. Provide this OR blockIds.', items: ['type' => 'integer'])]
+        ?array $newOrder = null,
+        #[Schema(type: 'array', description: 'Block _id values in the desired order, e.g. ["c6c22b89", "76541424"]. Provide this OR newOrder.', items: ['type' => 'string'])]
+        ?array $blockIds = null,
     ): array {
         try {
-            $page = $this->pageRepository->getOneBy(
-                [
-                    'uuid' => $pageUuid,
-                    'locale' => $locale,
-                    'stage' => DimensionContentInterface::STAGE_DRAFT,
-                ],
-                [
-                    PageRepositoryInterface::GROUP_SELECT_PAGE_ADMIN => true,
-                ],
-            );
+            if (!$this->contentTypeResolver->supports($type)) {
+                return ['error' => \sprintf('Unsupported content type "%s". Use "page", "article" or "snippet".', $type)];
+            }
 
-            $dimensionContent = $this->contentManager->resolve($page, [
+            if (null === $newOrder && null === $blockIds) {
+                return [
+                    'error' => 'Provide either newOrder (0-based indices) or blockIds (ordered list of block _id values).',
+                    'hint' => 'e.g. newOrder=[2,0,1] or blockIds=["<id-c>","<id-a>","<id-b>"].',
+                ];
+            }
+            if (null !== $newOrder && null !== $blockIds) {
+                return ['error' => 'Provide either newOrder or blockIds, not both.'];
+            }
+
+            $normalizedNewOrder = null;
+            if (null !== $newOrder) {
+                $normalizedNewOrder = $this->normalizeBlockOrder($newOrder);
+                if (null === $normalizedNewOrder) {
+                    return [
+                        'error' => 'newOrder must contain only integer indices.',
+                        'hint' => 'Pass every current block index exactly once, e.g. [2, 0, 1].',
+                    ];
+                }
+            }
+
+            $entity = $this->contentTypeResolver->loadDraft($type, $uuid, $locale);
+            if (null === $entity) {
+                return ['error' => \sprintf('%s not found: %s', \ucfirst($type), $uuid)];
+            }
+
+            $dimensionContent = $this->contentManager->resolve($entity, [ // @phpstan-ignore argument.templateType
                 'locale' => $locale,
                 'stage' => DimensionContentInterface::STAGE_DRAFT,
             ]);
@@ -66,29 +92,40 @@ class BlockReorderTool
             /** @var list<array<string, mixed>> $blocks */
             $blocks = $currentData[$blockProperty] ?? [];
 
-            if (\count($newOrder) !== \count($blocks)) {
+            if (null !== $normalizedNewOrder) {
+                $order = $normalizedNewOrder;
+            } else {
+                $order = $this->resolveBlockIdOrder($blockIds, $blocks);
+                if (\is_string($order)) {
+                    return [
+                        'error' => \sprintf('Block _id "%s" not found in %s %s.', $order, $type, $uuid),
+                        'hint' => 'Use sulu_block_list to see the current block _id values.',
+                    ];
+                }
+            }
+
+            if (\count($order) !== \count($blocks)) {
                 return [
-                    'error' => \sprintf(
-                        'newOrder length (%d) does not match block count (%d).',
-                        \count($newOrder),
-                        \count($blocks),
-                    ),
+                    'error' => \sprintf('Order length (%d) does not match block count (%d).', \count($order), \count($blocks)),
                 ];
             }
 
-            $sorted = $newOrder;
+            $sorted = $order;
             \sort($sorted);
             if ($sorted !== \range(0, \count($blocks) - 1)) {
+                // Echo back what the caller passed (block ids or indices), not the resolved indices.
+                $supplied = $normalizedNewOrder ?? $blockIds;
+
                 return [
-                    'error' => 'newOrder must contain each index from 0 to '
+                    'error' => 'The order must reference each block from 0 to '
                         .(\count($blocks) - 1)
-                        .' exactly once. Got: ['.\implode(', ', $newOrder).']',
+                        .' exactly once. Got: ['.\implode(', ', \array_map(static fn (mixed $v): string => (string) $v, $supplied)).']',
                 ];
             }
 
             $reordered = \array_map(
                 static fn (int $i): array => $blocks[$i],
-                $newOrder,
+                $order,
             );
 
             $data = [
@@ -101,22 +138,50 @@ class BlockReorderTool
             // Ensure all array keys are strings (Sulu's MetadataResolver requires string keys)
             $data = $this->stringifyKeys($data);
 
-            $message = new ModifyPageMessage(['uuid' => $pageUuid], $data);
+            $message = $this->contentTypeResolver->createModifyMessage($type, $uuid, $data);
 
-            /** @var PageInterface $updatedPage */
-            $updatedPage = $this->handle(new Envelope($message, [new EnableFlushStamp()]));
+            $this->handle(new Envelope($message, [new EnableFlushStamp()]));
 
             return [
                 'success' => true,
-                'uuid' => $updatedPage->getUuid(),
+                'uuid' => $uuid,
                 'blockCount' => \count($reordered),
-                'order' => $newOrder,
+                'order' => $order,
             ];
         } catch (\Throwable $e) {
             return [
-                'error' => \sprintf('Failed to reorder blocks on page %s: %s', $pageUuid, $e->getMessage()),
-                'hint' => 'Use sulu_page_get to see current blocks. newOrder must contain every index exactly once.',
+                'error' => \sprintf('Failed to reorder blocks on %s %s: %s', $type, $uuid, $e->getMessage()),
+                'hint' => 'Use sulu_block_list to see current blocks. Provide newOrder or blockIds covering every block exactly once.',
             ];
         }
+    }
+
+    /**
+     * Resolve an ordered list of block _id values to their current 0-based indices.
+     * Returns the offending id as a string when one cannot be found.
+     *
+     * @param array<int, mixed>          $blockIds
+     * @param list<array<string, mixed>> $blocks
+     *
+     * @return list<int>|string
+     */
+    private function resolveBlockIdOrder(array $blockIds, array $blocks): array|string
+    {
+        $idToIndex = [];
+        foreach ($blocks as $index => $block) {
+            if (isset($block['_id']) && \is_string($block['_id'])) {
+                $idToIndex[$block['_id']] = $index;
+            }
+        }
+
+        $order = [];
+        foreach ($blockIds as $id) {
+            if (!\is_string($id) || !isset($idToIndex[$id])) {
+                return \is_string($id) ? $id : \get_debug_type($id);
+            }
+            $order[] = $idToIndex[$id];
+        }
+
+        return $order;
     }
 }

@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 namespace Sulu\McpServerBundle\DependencyInjection\Compiler;
 
-use Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleBlockRemoveTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleDeleteTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Article\ArticlePublishTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleUnpublishTool;
+use Sulu\McpServerBundle\Capabilities\Tool\Content\ContentDeleteTool;
+use Sulu\McpServerBundle\Capabilities\Tool\Content\ContentPublishTool;
+use Sulu\McpServerBundle\Capabilities\Tool\Content\ContentUnpublishTool;
 use Sulu\McpServerBundle\Capabilities\Tool\Page\BlockRemoveTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Page\PageDeleteTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Page\PagePublishTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Page\PageUnpublishTool;
 use Sulu\McpServerBundle\Capabilities\Tool\Preview\PreviewLinkRevokeTool;
 use Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\CategoryDeleteTool;
 use Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\TagDeleteTool;
@@ -39,21 +35,17 @@ final class DangerousToolsPass implements CompilerPassInterface
      */
     private const TOOLS_BY_CATEGORY = [
         'delete' => [
-            PageDeleteTool::class => 'sulu_page_delete',
-            ArticleDeleteTool::class => 'sulu_article_delete',
+            ContentDeleteTool::class => 'sulu_content_delete',
             TagDeleteTool::class => 'sulu_tag_delete',
             CategoryDeleteTool::class => 'sulu_category_delete',
         ],
         'publish' => [
-            PagePublishTool::class => 'sulu_page_publish',
-            PageUnpublishTool::class => 'sulu_page_unpublish',
-            ArticlePublishTool::class => 'sulu_article_publish',
-            ArticleUnpublishTool::class => 'sulu_article_unpublish',
+            ContentPublishTool::class => 'sulu_content_publish',
+            ContentUnpublishTool::class => 'sulu_content_unpublish',
             PreviewLinkRevokeTool::class => 'sulu_preview_link_revoke',
         ],
         'block_remove' => [
             BlockRemoveTool::class => 'sulu_block_remove',
-            ArticleBlockRemoveTool::class => 'sulu_article_block_remove',
         ],
     ];
 

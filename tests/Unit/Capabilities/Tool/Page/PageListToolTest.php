@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Capability\Attribute\Schema;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
@@ -134,5 +135,18 @@ class PageListToolTest extends TestCase
 
         $instance = $attributes[0]->newInstance();
         $this->assertSame('sulu_page_list', $instance->name);
+    }
+
+    public function testParentIdParameterHasSchemaAttribute(): void
+    {
+        $reflection = new \ReflectionMethod(PageListTool::class, 'listPages');
+        $parameter = $reflection->getParameters()[3];
+        $this->assertSame('parentId', $parameter->getName());
+
+        $attributes = $parameter->getAttributes(Schema::class);
+        $this->assertCount(1, $attributes);
+
+        $schema = $attributes[0]->newInstance();
+        $this->assertStringContainsString('UUID', $schema->description);
     }
 }

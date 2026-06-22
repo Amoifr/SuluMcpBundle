@@ -7,6 +7,9 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Taxonomy;
 use Mcp\Capability\Attribute\McpTool;
 use Sulu\Bundle\TagBundle\Tag\TagManagerInterface;
 
+/**
+ * @internal
+ */
 class TagDeleteTool
 {
     public function __construct(
@@ -34,6 +37,7 @@ class TagDeleteTool
         } catch (\Throwable $e) {
             return [
                 'error' => \sprintf('Failed to delete tag %d: %s', $id, $e->getMessage()),
+                'hint' => 'Verify the tag id exists (use sulu_tag_list). Deleting a tag does not delete content that referenced it.',
             ];
         }
     }

@@ -110,6 +110,33 @@ class PageGetToolTest extends TestCase
 
         $this->assertArrayHasKey('error', $result);
         $this->assertStringContainsString('missing-uuid', $result['error']);
+        $this->assertTrue(\array_key_exists('hint', $result));
+        $this->assertIsString($result['hint']);
+        $this->assertNotEmpty($result['hint']);
+    }
+
+    public function testGetIncludesSeoAndExcerpt(): void
+    {
+        $page = $this->createMock(PageInterface::class);
+        $page->method('getUuid')->willReturn('uuid-seo');
+
+        $dimensionContent = $this->createMock(DimensionContentInterface::class);
+        $normalizedData = [
+            'title' => 'SEO Page',
+            'seo' => ['title' => 'X'],
+            'seoNoIndex' => true,
+            'excerpt' => ['title' => 'Y'],
+        ];
+
+        $this->pageRepository->method('getOneBy')->willReturn($page);
+        $this->contentManager->method('resolve')->willReturn($dimensionContent);
+        $this->contentManager->method('normalize')->willReturn($normalizedData);
+
+        $result = $this->tool->getPage('example', 'en', 'uuid-seo');
+
+        $this->assertArrayHasKey('seo', $result['data']);
+        $this->assertArrayHasKey('excerpt', $result['data']);
+        $this->assertSame(true, $result['data']['seoNoIndex']);
     }
 
     public function testGetPageMethodHasMcpToolAttribute(): void

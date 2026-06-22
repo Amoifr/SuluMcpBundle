@@ -5,20 +5,22 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Capability\Attribute\Schema;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\BlockDataNormalizerTrait;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentNormalizerTrait;
+use Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
-use Sulu\Page\Application\Message\ModifyPageMessage;
-use Sulu\Page\Domain\Model\PageInterface;
-use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\HandleTrait;
 use Symfony\Component\Messenger\MessageBusInterface;
 
+/**
+ * @internal
+ */
 class BlockAddTool
 {
     use HandleTrait;
@@ -27,7 +29,7 @@ class BlockAddTool
 
     public function __construct(
         MessageBusInterface $messageBus,
-        private readonly PageRepositoryInterface $pageRepository,
+        private readonly ContentTypeResolver $contentTypeResolver,
         private readonly ContentManagerInterface $contentManager,
         private readonly BlockIdGeneratorInterface $blockIdGenerator,
         private readonly BlockDataValidator $blockDataValidator,
@@ -42,30 +44,30 @@ class BlockAddTool
      */
     #[McpTool(
         name: 'sulu_block_add',
-        description: 'Add a content block to a page. Blocks are typed components (e.g. "text", "image", "quote") defined by the project. Workflow: 1) Call sulu_get_context to see available block types and their fields. 2) Find the block property name in the template (e.g. "blocks" or "content"). 3) Pass blockType, blockProperty, and blockData as a flat object mapping the block-type\'s template field names to values, e.g. blockData={"title": "Heading", "description": "<p>Body</p>"}. Unknown keys are rejected against the template schema; the internal {name, value} storage shape is rejected too. The block is appended or inserted at `position` (0-based). To add a block inside another, pass parentBlockId with the parent\'s _id. The page must be re-published after adding blocks.',
+        description: 'Add a content block to a page, article, or snippet. Pass "type" ("page", "article" or "snippet") and the entity "uuid". Blocks are typed components (e.g. "text", "image", "quote") defined by the project. Workflow: 1) Call sulu_get_context to see available block types and their fields. 2) Find the block property name in the template (e.g. "blocks" or "content"). 3) Pass blockType, blockProperty, and blockData as a flat object mapping the block-type\'s template field names to values, e.g. blockData={"title": "Heading", "description": "<p>Body</p>"}. Unknown keys are rejected against the template schema; the internal {name, value} storage shape is rejected too. The block is appended or inserted at `position` (0-based). To add a block inside another, pass parentBlockId with the parent\'s _id. The entity must be re-published after adding blocks.',
     )]
     public function addBlock(
-        string $pageUuid,
+        string $type,
+        string $uuid,
         string $locale,
         string $blockType,
         string $blockProperty,
+        #[Schema(type: 'object', description: 'Block field values as a flat object, e.g. {"title": "Heading", "description": "<p>Body</p>"}', additionalProperties: true)]
         array $blockData = [],
         ?int $position = null,
         ?string $parentBlockId = null,
     ): array {
         try {
-            $page = $this->pageRepository->getOneBy(
-                [
-                    'uuid' => $pageUuid,
-                    'locale' => $locale,
-                    'stage' => DimensionContentInterface::STAGE_DRAFT,
-                ],
-                [
-                    PageRepositoryInterface::GROUP_SELECT_PAGE_ADMIN => true,
-                ],
-            );
+            if (!$this->contentTypeResolver->supports($type)) {
+                return ['error' => \sprintf('Unsupported content type "%s". Use "page", "article" or "snippet".', $type)];
+            }
 
-            $dimensionContent = $this->contentManager->resolve($page, [
+            $entity = $this->contentTypeResolver->loadDraft($type, $uuid, $locale);
+            if (null === $entity) {
+                return ['error' => \sprintf('%s not found: %s', \ucfirst($type), $uuid)];
+            }
+
+            $dimensionContent = $this->contentManager->resolve($entity, [ // @phpstan-ignore argument.templateType
                 'locale' => $locale,
                 'stage' => DimensionContentInterface::STAGE_DRAFT,
             ]);
@@ -81,7 +83,7 @@ class BlockAddTool
             $templateKey = isset($currentData['template']) && \is_string($currentData['template'])
                 ? $currentData['template']
                 : null;
-            if ($validationError = $this->blockDataValidator->validate('page', $templateKey, $blockType, $blockData)) {
+            if ($validationError = $this->blockDataValidator->validate($type, $templateKey, $blockType, $blockData)) {
                 return $validationError;
             }
 
@@ -92,8 +94,8 @@ class BlockAddTool
                 $parentPath = $this->findBlockPath($currentData, $parentBlockId);
                 if (null === $parentPath) {
                     return [
-                        'error' => \sprintf('Parent block with _id "%s" not found in page %s.', $parentBlockId, $pageUuid),
-                        'hint' => 'Use sulu_page_get to see block summaries with _id values.',
+                        'error' => \sprintf('Parent block with _id "%s" not found in %s %s.', $parentBlockId, $type, $uuid),
+                        'hint' => 'Use sulu_page_get, sulu_article_get, or sulu_snippet_get to see block summaries with _id values.',
                     ];
                 }
                 $result = $this->insertBlockAtPath($blocks, $parentPath['indices'], $newBlock, $position);
@@ -120,21 +122,22 @@ class BlockAddTool
             // Ensure all array keys are strings (Sulu's MetadataResolver requires string keys)
             $data = $this->stringifyKeys($data);
 
-            $message = new ModifyPageMessage(['uuid' => $pageUuid], $data);
+            $message = $this->contentTypeResolver->createModifyMessage($type, $uuid, $data);
 
-            /** @var PageInterface $updatedPage */
-            $updatedPage = $this->handle(new Envelope($message, [new EnableFlushStamp()]));
+            $this->handle(new Envelope($message, [new EnableFlushStamp()]));
 
             return [
                 'success' => true,
-                'uuid' => $updatedPage->getUuid(),
+                'uuid' => $uuid,
+                'blockId' => $newBlock['_id'] ?? null,
+                'blockType' => $blockType,
                 'blockCount' => \count($blocks),
                 'addedAt' => $addedAt,
             ];
         } catch (\Throwable $e) {
             return [
-                'error' => \sprintf('Failed to add %s block to page %s: %s', $blockType, $pageUuid, $e->getMessage()),
-                'hint' => 'Verify the page UUID exists (use sulu_page_get), the blockProperty matches a block field in the template, and blockType is a valid block type (use sulu_get_context to see available types).',
+                'error' => \sprintf('Failed to add %s block to %s %s: %s', $blockType, $type, $uuid, $e->getMessage()),
+                'hint' => 'Verify the UUID exists (use sulu_page_get, sulu_article_get, or sulu_snippet_get), the blockProperty matches a block field in the template, and blockType is a valid block type (use sulu_get_context to see available types).',
             ];
         }
     }

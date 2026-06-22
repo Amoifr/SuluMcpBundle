@@ -193,11 +193,11 @@ Variables: `ARTICLE_UUID` set by 3.1. `BLOG_PAGE_UUID` from § Prerequisites.
    - Save returned `uuid` as `ARTICLE_UUID`.
 
 3.2 In parallel, three article block adds:
-   - `sulu_article_block_add` blockType=`heading`
+   - `sulu_block_add` `type=article uuid=<ARTICLE_UUID>` blockType=`heading`
      blockData=`[{"_id":"art-h1","title":"Article heading"}]`
-   - `sulu_article_block_add` blockType=`text`
+   - `sulu_block_add` `type=article uuid=<ARTICLE_UUID>` blockType=`text`
      blockData=`[{"_id":"art-t1","content":"<p>First paragraph.</p>"}]`
-   - `sulu_article_block_add` blockType=`section`
+   - `sulu_block_add` `type=article uuid=<ARTICLE_UUID>` blockType=`section`
      blockData=`[{"_id":"art-sec","title":"Article section with inline nested blocks","blocks":[`
        `{"_id":"art-sec-h","type":"heading","title":"Inside section"},`
        `{"_id":"art-sec-t","type":"text","content":"<p>Inline-nested text.</p>"}`
@@ -206,7 +206,7 @@ Variables: `ARTICLE_UUID` set by 3.1. `BLOG_PAGE_UUID` from § Prerequisites.
    Order in the resulting article doesn't matter as long as `blockCount=3`.
 
 3.3 Nest via `parentBlockId`:
-   - `sulu_article_block_add` blockType=`quote` parentBlockId=`art-sec`
+   - `sulu_block_add` `type=article uuid=<ARTICLE_UUID>` blockType=`quote` parentBlockId=`art-sec`
      blockData=`[{"_id":"art-sec-q","text":"<p>A quote nested through parentBlockId.</p>","attribution":"Test"}]`
 
 3.4 `sulu_article_get` `uuid=<ARTICLE_UUID> locale=en` → expect a `blocks`
@@ -221,9 +221,9 @@ Variables: `ARTICLE_UUID` set by 3.1. `BLOG_PAGE_UUID` from § Prerequisites.
    - `sulu_block_update` `type=article uuid=<ARTICLE_UUID> blockId=art-sec-h
      blockData=[{"title":"Updated nested heading"}]` → `blockPath:[2,0]`
      (or whatever the section's current index is).
-   - `sulu_article_block_reorder` `blockProperty=blocks newOrder=[2,0,1]`.
+   - `sulu_block_reorder` `type=article uuid=<ARTICLE_UUID> blockProperty=blocks newOrder=[2,0,1]`.
    - `sulu_article_update` `uuid=<ARTICLE_UUID> title="MCP Tool Test Article (updated)"`.
-   - `sulu_article_block_remove` `blockProperty=blocks blockIndex=2` →
+   - `sulu_block_remove` `type=article uuid=<ARTICLE_UUID> blockProperty=blocks blockIndex=2` →
      `blockCount:2`.
 
 3.6 Preview links (articles):
@@ -251,6 +251,21 @@ Variables: `ARTICLE_UUID` set by 3.1. `BLOG_PAGE_UUID` from § Prerequisites.
      title="Article Excerpt" description="Article teaser copy."` →
      `success:true` with merged excerpt echoed back.
    - Re-read with `sulu_article_excerpt_get` and confirm both fields persisted.
+
+3.10 One-shot authoring (article create with full payload):
+   - `sulu_article_create`
+     - `locale=en template=article title="MCP One-Shot Article"`
+     - `content={"article":"<p>Created in a single call with blocks, excerpt, and SEO.</p>","blocks":[{"_id":"os-sec","type":"section","title":"One-shot section","blocks":[{"_id":"os-sec-h","type":"heading","title":"Inside one-shot section"},{"_id":"os-sec-t","type":"text","content":"<p>Nested inside the one-shot section.</p>"}]}]}`
+     - `excerpt={"title":"One-Shot Excerpt","description":"Teaser set at create time."}`
+     - `seo={"title":"One-Shot SEO Title","noIndex":true}`
+   - **Expect**: `success:true`. Save the returned `uuid` as `ARTICLE2_UUID`.
+   - **Assert**: every block in the create response has `_id` populated (no
+     empty `_id` fields anywhere in the `blocks` tree).
+   - Follow-up `sulu_article_seo_get` `uuid=<ARTICLE2_UUID> locale=en` →
+     confirm `seo.title="One-Shot SEO Title"` and `seoNoIndex=true`.
+   - Follow-up `sulu_article_excerpt_get` `uuid=<ARTICLE2_UUID> locale=en` →
+     confirm `excerpt.title="One-Shot Excerpt"` and
+     `excerpt.description="Teaser set at create time."`.
 
 ---
 
@@ -280,8 +295,20 @@ Variables: `ARTICLE_UUID` set by 3.1. `BLOG_PAGE_UUID` from § Prerequisites.
      title="MCP test (revert me)"` → `success:true`. Then revert by passing
      the original title.
 
-4.5 Snippet (only if 1.3 found a snippet):
-   - `sulu_snippet_get` `uuid=<existing-uuid> locale=en` → expect content data.
+4.5 Snippet:
+   - `sulu_snippet_create` `locale=en template=<a snippet template key>
+     title="MCP Test Snippet" content={...}` → `success:true`. Save the
+     returned `uuid` as `SNIPPET_UUID`.
+   - `sulu_snippet_update` `uuid=<SNIPPET_UUID> locale=en
+     title="MCP Test Snippet (updated)"` → `success:true` with updated title
+     echoed back.
+   - If 1.3 found an existing snippet: `sulu_snippet_get`
+     `uuid=<existing-uuid> locale=en` → expect content data.
+   - `sulu_snippet_get` `uuid=<SNIPPET_UUID> locale=en` → confirm
+     `title="MCP Test Snippet (updated)"`.
+   - **Note**: there is no `sulu_snippet_delete` tool. The test snippet
+     (`SNIPPET_UUID`) must be removed manually via the Sulu admin UI — it
+     cannot be cleaned up via MCP.
 
 ---
 
@@ -293,7 +320,8 @@ Delete everything created in this run, in this order. Each delete must succeed.
 5.2 `sulu_category_delete` `id=<CAT_ID>`
 5.3 `sulu_tag_delete` `id=<TAG_ID>`
 5.4 `sulu_article_delete` `uuid=<ARTICLE_UUID> locale=en`
-5.5 `sulu_page_delete` `uuid=<PAGE_UUID> locale=en`
+5.5 `sulu_article_delete` `uuid=<ARTICLE2_UUID> locale=en`
+5.6 `sulu_page_delete` `uuid=<PAGE_UUID> locale=en`
 
 Final sanity check: re-run `sulu_page_list` / `sulu_article_list` /
 `sulu_tag_list` / `sulu_category_list` and confirm the test items are gone
@@ -309,16 +337,18 @@ Both should be **fixed** for the plan to pass cleanly.
 
 **Issue #1 — `blockData` shape is fragile.**
 
-- Schema declares `blockData: array`, but the trait
+✅ **RESOLVED.** The `blockData` parameter is now declared as a flat `object` schema and validated up front by `BlockDataValidator`, which rejects unknown keys and the `{name,value}` storage shape before they can corrupt Sulu's content data.
+
+- ~~Schema declares `blockData: array`, but the trait
   `BlockDataNormalizerTrait::normalizeBlockData` only flattens lists with
   exactly one element. A list of `{name,value}` pairs (e.g.
   `[{"name":"text","value":"..."},{"name":"attribution","value":"..."}]`) is
-  stored verbatim, producing integer-keyed sub-arrays in Sulu's content data.
-- Subsequent reads then crash with
+  stored verbatim, producing integer-keyed sub-arrays in Sulu's content data.~~
+- ~~Subsequent reads then crash with
   `str_contains(): Argument #1 ($haystack) must be of type string, int given`
-  inside Sulu's `MetadataResolver`.
-- Worse: `sulu_block_remove` *also* throws on the corrupted indices, so the
-  only recovery is `sulu_page_delete` + recreate.
+  inside Sulu's `MetadataResolver`.~~
+- ~~Worse: `sulu_block_remove` *also* throws on the corrupted indices, so the
+  only recovery is `sulu_page_delete` + recreate.~~
 - **Expected after fix**: any reasonable shape AI clients send (single-object
   list, raw object, list of `{name,value}`) is normalized into the right
   associative form. Step 2.2's quote block (multi-field) must succeed in one
@@ -370,12 +400,12 @@ prior context. This is expected behavior, not a tool defect.
 | `sulu_page_seo_update` | 2.13 |
 | `sulu_page_excerpt_get` | 2.14 |
 | `sulu_page_excerpt_update` | 2.14 |
-| `sulu_page_delete` | 5.5 |
-| `sulu_block_add` | 2.2, 2.4, 2.5, 2.7 |
+| `sulu_page_delete` | 5.6 |
+| `sulu_block_add` | 2.2, 2.4, 2.5, 2.7, 3.2, 3.3 |
 | `sulu_block_list` | 2.3, 2.7 |
 | `sulu_block_update` | 2.6, 2.8, 3.5 |
-| `sulu_block_remove` | 2.9 |
-| `sulu_block_reorder` | 2.6 (workaround), 2.9 |
+| `sulu_block_remove` | 2.9, 3.5 |
+| `sulu_block_reorder` | 2.6 (workaround), 2.9, 3.5 |
 | `sulu_article_list` | 1.3, 5 |
 | `sulu_article_create` | 3.1 |
 | `sulu_article_get` | 3.4 |
@@ -386,12 +416,11 @@ prior context. This is expected behavior, not a tool defect.
 | `sulu_article_seo_update` | 3.8 |
 | `sulu_article_excerpt_get` | 3.9 |
 | `sulu_article_excerpt_update` | 3.9 |
-| `sulu_article_delete` | 5.4 |
-| `sulu_article_block_add` | 3.2, 3.3 |
-| `sulu_article_block_remove` | 3.5 |
-| `sulu_article_block_reorder` | 3.5 |
+| `sulu_article_delete` | 5.4, 5.5 |
 | `sulu_snippet_list` | 1.3 |
-| `sulu_snippet_get` | 4.5 (if data) |
+| `sulu_snippet_get` | 4.5 |
+| `sulu_snippet_create` | 4.5 |
+| `sulu_snippet_update` | 4.5 |
 | `sulu_category_list` | 1.3, 4.2, 5 |
 | `sulu_category_create` | 4.2 |
 | `sulu_category_delete` | 5.1, 5.2 |

@@ -12,12 +12,14 @@ use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver;
 use Sulu\McpServerBundle\Capabilities\Tool\Page\BlockListTool;
 use Sulu\Page\Domain\Model\PageInterface;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Sulu\Snippet\Domain\Repository\SnippetRepositoryInterface;
 
 #[CoversClass(BlockListTool::class)]
+#[CoversClass(ContentTypeResolver::class)]
 final class BlockListToolTest extends TestCase
 {
     private PageRepositoryInterface&MockObject $pageRepository;
@@ -33,9 +35,7 @@ final class BlockListToolTest extends TestCase
         $this->snippetRepository = $this->createMock(SnippetRepositoryInterface::class);
         $this->contentManager = $this->createMock(ContentManagerInterface::class);
         $this->tool = new BlockListTool(
-            $this->pageRepository,
-            $this->articleRepository,
-            $this->snippetRepository,
+            new ContentTypeResolver($this->pageRepository, $this->articleRepository, $this->snippetRepository),
             $this->contentManager,
         );
     }

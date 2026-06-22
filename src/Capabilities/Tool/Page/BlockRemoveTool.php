@@ -5,17 +5,19 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Capability\Attribute\Schema;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\BlockDataNormalizerTrait;
+use Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
-use Sulu\Page\Application\Message\ModifyPageMessage;
-use Sulu\Page\Domain\Model\PageInterface;
-use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\HandleTrait;
 use Symfony\Component\Messenger\MessageBusInterface;
 
+/**
+ * @internal
+ */
 class BlockRemoveTool
 {
     use HandleTrait;
@@ -23,7 +25,7 @@ class BlockRemoveTool
 
     public function __construct(
         MessageBusInterface $messageBus,
-        private readonly PageRepositoryInterface $pageRepository,
+        private readonly ContentTypeResolver $contentTypeResolver,
         private readonly ContentManagerInterface $contentManager,
     ) {
         $this->messageBus = $messageBus;
@@ -34,27 +36,39 @@ class BlockRemoveTool
      */
     #[McpTool(
         name: 'sulu_block_remove',
-        description: 'Remove a block from a page by its 0-based index. Call sulu_page_get first to see the current blocks array and identify which index to remove. The blockProperty must match the template property name that holds blocks (same as used in sulu_block_add). Remaining blocks shift down to fill the gap. The page must be re-published after removing blocks.',
+        description: 'Remove a block from a page, article or snippet by its 0-based index OR its _id (blockId). Pass "type" ("page", "article" or "snippet") and the entity "uuid". Provide EITHER "blockIndex" (0-based) OR "blockId" (the block _id value). Prefer blockId — it is robust because ids do not shift as blocks are added/removed. Call sulu_block_list (or sulu_page_get / sulu_article_get / sulu_snippet_get) first to see the current blocks array and identify which block to remove. The blockProperty must match the template property name that holds blocks. Remaining blocks shift down to fill the gap. The entity must be re-published after removing blocks.',
     )]
     public function removeBlock(
-        string $pageUuid,
+        string $type,
+        string $uuid,
         string $locale,
         string $blockProperty,
-        int $blockIndex,
+        #[Schema(type: 'integer', description: '0-based index of the block to remove, e.g. 2. Provide this OR blockId.')]
+        ?int $blockIndex = null,
+        #[Schema(type: 'string', description: 'The block\'s _id value, e.g. "c6c22b89". Provide this OR blockIndex. Prefer blockId — ids do not shift as blocks are added/removed.')]
+        ?string $blockId = null,
     ): array {
         try {
-            $page = $this->pageRepository->getOneBy(
-                [
-                    'uuid' => $pageUuid,
-                    'locale' => $locale,
-                    'stage' => DimensionContentInterface::STAGE_DRAFT,
-                ],
-                [
-                    PageRepositoryInterface::GROUP_SELECT_PAGE_ADMIN => true,
-                ],
-            );
+            if (!$this->contentTypeResolver->supports($type)) {
+                return ['error' => \sprintf('Unsupported content type "%s". Use "page", "article" or "snippet".', $type)];
+            }
 
-            $dimensionContent = $this->contentManager->resolve($page, [
+            if (null === $blockIndex && null === $blockId) {
+                return [
+                    'error' => 'Provide either blockIndex (0-based) or blockId (the block _id value).',
+                    'hint' => 'e.g. blockIndex=2 or blockId="c6c22b89". Use sulu_block_list to see indices and _id values.',
+                ];
+            }
+            if (null !== $blockIndex && null !== $blockId) {
+                return ['error' => 'Provide either blockIndex or blockId, not both.'];
+            }
+
+            $entity = $this->contentTypeResolver->loadDraft($type, $uuid, $locale);
+            if (null === $entity) {
+                return ['error' => \sprintf('%s not found: %s', \ucfirst($type), $uuid)];
+            }
+
+            $dimensionContent = $this->contentManager->resolve($entity, [ // @phpstan-ignore argument.templateType
                 'locale' => $locale,
                 'stage' => DimensionContentInterface::STAGE_DRAFT,
             ]);
@@ -64,11 +78,23 @@ class BlockRemoveTool
             /** @var list<array<string, mixed>> $blocks */
             $blocks = $currentData[$blockProperty] ?? [];
 
+            if (null !== $blockId) {
+                $resolvedIndex = $this->resolveBlockIndexById($blockId, $blocks);
+                if (null === $resolvedIndex) {
+                    return [
+                        'error' => \sprintf('Block _id "%s" not found in %s %s.', $blockId, $type, $uuid),
+                        'hint' => 'Use sulu_block_list to see the current block _id values.',
+                    ];
+                }
+                $blockIndex = $resolvedIndex;
+            }
+
             if ($blockIndex < 0 || $blockIndex >= \count($blocks)) {
                 return [
                     'error' => \sprintf(
-                        'Block index %d out of range. Page has %d block(s) (valid indices: 0-%d).',
+                        'Block index %d out of range. %s has %d block(s) (valid indices: 0-%d).',
                         $blockIndex,
+                        \ucfirst($type),
                         \count($blocks),
                         \max(0, \count($blocks) - 1),
                     ),
@@ -87,22 +113,38 @@ class BlockRemoveTool
             // Ensure all array keys are strings (Sulu's MetadataResolver requires string keys)
             $data = $this->stringifyKeys($data);
 
-            $message = new ModifyPageMessage(['uuid' => $pageUuid], $data);
+            $message = $this->contentTypeResolver->createModifyMessage($type, $uuid, $data);
 
-            /** @var PageInterface $updatedPage */
-            $updatedPage = $this->handle(new Envelope($message, [new EnableFlushStamp()]));
+            $this->handle(new Envelope($message, [new EnableFlushStamp()]));
 
             return [
                 'success' => true,
-                'uuid' => $updatedPage->getUuid(),
+                'uuid' => $uuid,
                 'removedIndex' => $blockIndex,
                 'blockCount' => \count($blocks),
             ];
         } catch (\Throwable $e) {
             return [
-                'error' => \sprintf('Failed to remove block %d from page %s: %s', $blockIndex, $pageUuid, $e->getMessage()),
-                'hint' => 'Use sulu_page_get to see current blocks and their indices before removing.',
+                'error' => \sprintf('Failed to remove block from %s %s: %s', $type, $uuid, $e->getMessage()),
+                'hint' => 'Use sulu_block_list to see current blocks and their indices and _id values before removing.',
             ];
         }
+    }
+
+    /**
+     * Resolve a block _id to its current 0-based index.
+     * Returns null when the id cannot be found.
+     *
+     * @param list<array<string, mixed>> $blocks
+     */
+    private function resolveBlockIndexById(string $blockId, array $blocks): ?int
+    {
+        foreach ($blocks as $index => $block) {
+            if (isset($block['_id']) && $block['_id'] === $blockId) {
+                return $index;
+            }
+        }
+
+        return null;
     }
 }

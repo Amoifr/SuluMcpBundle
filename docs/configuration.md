@@ -26,9 +26,9 @@ sulu_mcp_server:
     # Opt-in flags for tools with hard-to-reverse side effects.
     # All categories default to false.
     dangerous_tools:
-        delete: false        # sulu_*_delete (page, article, tag, category)
-        publish: false       # sulu_*_publish, sulu_*_unpublish, sulu_preview_link_revoke
-        block_remove: false  # sulu_block_remove, sulu_article_block_remove
+        delete: false        # sulu_content_delete, sulu_tag_delete, sulu_category_delete
+        publish: false       # sulu_content_publish, sulu_content_unpublish, sulu_preview_link_revoke
+        block_remove: false  # sulu_block_remove
 ```
 
 ## Settings
@@ -96,13 +96,13 @@ You don't normally change this. Add scopes only if you've extended the bundle wi
 
 ### `dangerous_tools.*`
 
-Three booleans gating 11 high-impact tools. Each flag is independent — enable only what you need.
+Three booleans gating high-impact tools. Each flag is independent — enable only what you need.
 
 | Flag | Tools enabled when `true` |
 |------|---------------------------|
-| `delete` | `sulu_page_delete`, `sulu_article_delete`, `sulu_tag_delete`, `sulu_category_delete` |
-| `publish` | `sulu_page_publish`, `sulu_page_unpublish`, `sulu_article_publish`, `sulu_article_unpublish`, `sulu_preview_link_revoke` |
-| `block_remove` | `sulu_block_remove`, `sulu_article_block_remove` |
+| `delete` | `sulu_content_delete` (page/article/snippet via `type`), `sulu_tag_delete`, `sulu_category_delete` |
+| `publish` | `sulu_content_publish` (page/article/snippet via `type`), `sulu_content_unpublish` (page/article/snippet via `type`), `sulu_preview_link_revoke` |
+| `block_remove` | `sulu_block_remove` |
 
 When a flag is `false`, the corresponding tool services are removed from the container at compile time — they don't appear in MCP `tools/list` and calls fail with "unknown tool" rather than running with an error. To change a flag, edit the YAML and clear the cache (`bin/console cache:clear`).
 

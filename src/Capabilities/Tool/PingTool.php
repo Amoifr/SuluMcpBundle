@@ -8,6 +8,9 @@ use Mcp\Capability\Attribute\McpTool;
 use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
+/**
+ * @internal
+ */
 class PingTool
 {
     public function __construct(

@@ -201,4 +201,58 @@ final class BlocksResourceGlobalBlockTest extends TestCase
         // 'page' called once + 'block' called once = 2 total
         $this->assertSame(2, $callCount, 'Block metadata should only be loaded once (cached)');
     }
+
+    public function testCyclicGlobalBlockDoesNotRecurseInfinitely(): void
+    {
+        // Template references global block 'section'
+        $refSection = new FormMetadata();
+        $refSection->setKey('section');
+
+        $blockField = new FieldMetadata('blocks');
+        $blockField->setType('block');
+        $blockField->addType($refSection);
+
+        $templateForm = new FormMetadata();
+        $templateForm->setKey('default');
+        $templateForm->addItem($blockField);
+
+        $pageMetadata = new TypedFormMetadata();
+        $pageMetadata->addForm('default', $templateForm);
+
+        // Global 'section' contains a nested block field that refs 'section' again (cycle)
+        $refSectionNested = new FormMetadata();
+        $refSectionNested->setKey('section');
+
+        $nestedBlockField = new FieldMetadata('inner');
+        $nestedBlockField->setType('block');
+        $nestedBlockField->addType($refSectionNested);
+
+        $globalSection = new FormMetadata();
+        $globalSection->setKey('section');
+        $globalSection->setTitle('Section', 'en');
+        $globalSection->addItem($nestedBlockField);
+
+        $blockMetadata = new TypedFormMetadata();
+        $blockMetadata->addForm('section', $globalSection);
+
+        $this->formMetadataProvider
+            ->method('getMetadata')
+            ->willReturnCallback(fn (string $key) => match ($key) {
+                'page' => $pageMetadata,
+                'block' => $blockMetadata,
+                default => throw new \LogicException('Unexpected key: '.$key),
+            });
+
+        $result = $this->resource->getBlocks();
+
+        // Terminates and lists 'section' once
+        $this->assertCount(1, $result);
+        $this->assertSame('section', $result[0]['key']);
+
+        // The self-referencing nested 'section' is detected: marked cyclic, not recursed
+        $innerField = $result[0]['fields'][0];
+        $this->assertSame('inner', $innerField['name']);
+        $this->assertTrue($innerField['types']['section']['cyclic']);
+        $this->assertSame([], $innerField['types']['section']['fields']);
+    }
 }

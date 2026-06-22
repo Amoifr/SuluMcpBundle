@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Capability\Attribute\Schema;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -17,19 +18,25 @@ use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
+use Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver;
 use Sulu\McpServerBundle\Capabilities\Tool\Page\BlockUpdateTool;
 use Sulu\Page\Application\Message\ModifyPageMessage;
 use Sulu\Page\Domain\Model\PageInterface;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
+use Sulu\Snippet\Application\Message\ModifySnippetMessage;
+use Sulu\Snippet\Domain\Model\SnippetInterface;
+use Sulu\Snippet\Domain\Repository\SnippetRepositoryInterface;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
 #[CoversClass(BlockUpdateTool::class)]
+#[CoversClass(ContentTypeResolver::class)]
 final class BlockUpdateToolTest extends TestCase
 {
     private PageRepositoryInterface&MockObject $pageRepository;
     private ArticleRepositoryInterface&MockObject $articleRepository;
+    private SnippetRepositoryInterface&MockObject $snippetRepository;
     private ContentManagerInterface&MockObject $contentManager;
     private MessageBusInterface&MockObject $messageBus;
     private BlockIdGeneratorInterface&MockObject $blockIdGenerator;
@@ -40,6 +47,7 @@ final class BlockUpdateToolTest extends TestCase
     {
         $this->pageRepository = $this->createMock(PageRepositoryInterface::class);
         $this->articleRepository = $this->createMock(ArticleRepositoryInterface::class);
+        $this->snippetRepository = $this->createMock(SnippetRepositoryInterface::class);
         $this->contentManager = $this->createMock(ContentManagerInterface::class);
         $this->messageBus = $this->createMock(MessageBusInterface::class);
         $this->blockIdGenerator = $this->createMock(BlockIdGeneratorInterface::class);
@@ -48,8 +56,7 @@ final class BlockUpdateToolTest extends TestCase
         $this->formMetadataProvider->method('getMetadata')->willReturn($this->createMock(MetadataInterface::class));
         $this->tool = new BlockUpdateTool(
             $this->messageBus,
-            $this->pageRepository,
-            $this->articleRepository,
+            new ContentTypeResolver($this->pageRepository, $this->articleRepository, $this->snippetRepository),
             $this->contentManager,
             $this->blockIdGenerator,
             new BlockDataValidator($this->formMetadataProvider),
@@ -133,6 +140,43 @@ final class BlockUpdateToolTest extends TestCase
         $this->assertSame('article-uuid', $result['uuid']);
         $this->assertSame('art-block-1', $result['blockId']);
         $this->assertSame('content', $result['blockProperty']);
+    }
+
+    public function testUpdateSnippetBlockById(): void
+    {
+        $snippet = $this->createMock(SnippetInterface::class);
+        $this->snippetRepository->method('getOneBy')->willReturn($snippet);
+
+        $dimensionContent = $this->createMock(DimensionContentInterface::class);
+        $this->contentManager->method('resolve')->willReturn($dimensionContent);
+        $this->contentManager->method('normalize')->willReturn([
+            'template' => 'default',
+            'title' => 'Test Snippet',
+            'blocks' => [
+                ['_id' => 'snip-block-1', 'type' => 'text', 'content' => '<p>Hello</p>'],
+            ],
+        ]);
+
+        $updatedSnippet = $this->createMock(SnippetInterface::class);
+
+        $this->messageBus->expects($this->once())
+            ->method('dispatch')
+            ->with($this->callback(function (Envelope $envelope): bool {
+                $message = $envelope->getMessage();
+                $this->assertInstanceOf(ModifySnippetMessage::class, $message);
+
+                return true;
+            }))
+            ->willReturn(new Envelope($updatedSnippet, [new HandledStamp($updatedSnippet, 'handler')]));
+
+        $result = $this->tool->updateBlock('snippet', 'snippet-uuid', 'en', 'snip-block-1', [
+            'content' => '<p>Updated</p>',
+        ]);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('snippet-uuid', $result['uuid']);
+        $this->assertSame('snip-block-1', $result['blockId']);
+        $this->assertSame('blocks', $result['blockProperty']);
     }
 
     public function testBlockNotFoundReturnsError(): void
@@ -226,5 +270,18 @@ final class BlockUpdateToolTest extends TestCase
 
         $instance = $attributes[0]->newInstance();
         $this->assertSame('sulu_block_update', $instance->name);
+    }
+
+    public function testBlockDataParameterIsAdvertisedAsObjectSchema(): void
+    {
+        $reflection = new \ReflectionMethod(BlockUpdateTool::class, 'updateBlock');
+        $parameter = $reflection->getParameters()[4];
+        $attributes = $parameter->getAttributes(Schema::class);
+
+        $this->assertCount(1, $attributes);
+
+        $schema = $attributes[0]->newInstance();
+        $this->assertSame('object', $schema->type);
+        $this->assertTrue($schema->additionalProperties);
     }
 }
