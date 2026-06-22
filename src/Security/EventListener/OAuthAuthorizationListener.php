@@ -12,12 +12,8 @@ use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 /**
- * Auto-approves OAuth authorization requests for authenticated Sulu admin users.
- *
- * Listens to the league/oauth2-server-bundle authorization event and:
- * 1. Checks the user is authenticated via the Sulu admin firewall
- * 2. Sets the OAuth user from the security token
- * 3. Auto-approves the request (no consent screen in v1)
+ * Auto-approves OAuth authorization for users authenticated via the Sulu admin
+ * firewall, setting the OAuth user from the security token (no consent screen).
  */
 #[AsEventListener(event: OAuth2Events::AUTHORIZATION_REQUEST_RESOLVE)]
 class OAuthAuthorizationListener

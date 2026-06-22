@@ -10,7 +10,11 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Sulu\Bundle\TagBundle\Tag\TagInterface;
 use Sulu\Bundle\TagBundle\Tag\TagManagerInterface;
+use Sulu\McpServerBundle\AdminLink\AdminLinkGenerator;
+use Sulu\McpServerBundle\AdminLink\Provider\TagAdminLinkProvider;
 use Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\TagCreateTool;
+use Sulu\McpServerBundle\Tests\Support\StubViewRegistry;
+use Symfony\Component\Routing\RouterInterface;
 
 #[CoversClass(TagCreateTool::class)]
 final class TagCreateToolTest extends TestCase
@@ -21,7 +25,12 @@ final class TagCreateToolTest extends TestCase
     protected function setUp(): void
     {
         $this->tagManager = $this->createMock(TagManagerInterface::class);
-        $this->tool = new TagCreateTool($this->tagManager);
+
+        $router = $this->createMock(RouterInterface::class);
+        $router->method('generate')->willReturn('https://example.com/admin/');
+        $adminLinkGenerator = new AdminLinkGenerator($router, [new TagAdminLinkProvider(new StubViewRegistry())]);
+
+        $this->tool = new TagCreateTool($this->tagManager, $adminLinkGenerator);
     }
 
     public function testCreateTagReturnsSuccessWithIdAndName(): void
@@ -40,6 +49,7 @@ final class TagCreateToolTest extends TestCase
         $this->assertTrue($result['success']);
         $this->assertSame(42, $result['id']);
         $this->assertSame('breaking-news', $result['name']);
+        $this->assertSame('https://example.com/admin/#/tags/42', $result['admin_url']);
     }
 
     public function testCreateTagReturnsErrorOnException(): void

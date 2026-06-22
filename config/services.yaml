@@ -3,11 +3,53 @@ services:
         autowire: true
         autoconfigure: true
 
-    # Decorates mcp.registry so attribute-discovered tools that have been
-    # disabled via `dangerous_tools.*` config are dropped before they reach
-    # the registry. Without this, discovery re-adds them after our
-    # DangerousToolsPass removed the service definitions, and tool calls
-    # fall through to `new $class()` with no constructor args.
+    _instanceof:
+        Sulu\McpServerBundle\AdminLink\AdminLinkProviderInterface:
+            tags: ['sulu_mcp_server.admin_link_provider']
+
+    # Admin deeplink registry. Providers need sulu_admin.view_registry, which
+    # only exists in the admin container, so they carry the sulu.context: admin
+    # tag to be dropped from the website/preview container. The generator is
+    # context-agnostic and just gets an empty iterator there.
+    Sulu\McpServerBundle\AdminLink\AdminLinkGenerator:
+        arguments:
+            $providers: !tagged_iterator sulu_mcp_server.admin_link_provider
+    Sulu\McpServerBundle\AdminLink\AdminLinkGeneratorInterface: '@Sulu\McpServerBundle\AdminLink\AdminLinkGenerator'
+
+    Sulu\McpServerBundle\AdminLink\Provider\PageAdminLinkProvider:
+        arguments:
+            $viewRegistry: '@sulu_admin.view_registry'
+        tags:
+            - { name: sulu.context, context: admin }
+    Sulu\McpServerBundle\AdminLink\Provider\ArticleAdminLinkProvider:
+        arguments:
+            $viewRegistry: '@sulu_admin.view_registry'
+        tags:
+            - { name: sulu.context, context: admin }
+    Sulu\McpServerBundle\AdminLink\Provider\SnippetAdminLinkProvider:
+        arguments:
+            $viewRegistry: '@sulu_admin.view_registry'
+        tags:
+            - { name: sulu.context, context: admin }
+    Sulu\McpServerBundle\AdminLink\Provider\MediaAdminLinkProvider:
+        arguments:
+            $viewRegistry: '@sulu_admin.view_registry'
+        tags:
+            - { name: sulu.context, context: admin }
+    Sulu\McpServerBundle\AdminLink\Provider\TagAdminLinkProvider:
+        arguments:
+            $viewRegistry: '@sulu_admin.view_registry'
+        tags:
+            - { name: sulu.context, context: admin }
+    Sulu\McpServerBundle\AdminLink\Provider\CategoryAdminLinkProvider:
+        arguments:
+            $viewRegistry: '@sulu_admin.view_registry'
+        tags:
+            - { name: sulu.context, context: admin }
+
+    # Decorates mcp.registry to drop tools disabled via `dangerous_tools.*`.
+    # Attribute discovery would otherwise re-add them after DangerousToolsPass
+    # removed the services, and calls would fall through to `new $class()`.
     Sulu\McpServerBundle\Capability\FilteredRegistry:
         decorates: mcp.registry
         arguments:
@@ -125,6 +167,9 @@ services:
         alias: sulu_preview.preview_link_manager
 
     # Phase 04: Article tools
+    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleGroupResolver:
+        arguments:
+            $groupProvider: '@sulu_admin.metadata_group_provider'
     Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleGetTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleListTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleCreateTool: ~

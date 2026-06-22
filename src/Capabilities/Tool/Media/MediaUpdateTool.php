@@ -7,6 +7,7 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Media;
 use Mcp\Capability\Attribute\McpTool;
 use Sulu\Bundle\MediaBundle\Media\Manager\MediaManagerInterface;
 use Sulu\Bundle\SecurityBundle\Entity\User;
+use Sulu\McpServerBundle\AdminLink\AdminLinkGeneratorInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
 /**
@@ -17,6 +18,7 @@ class MediaUpdateTool
     public function __construct(
         private readonly MediaManagerInterface $mediaManager,
         private readonly TokenStorageInterface $tokenStorage,
+        private readonly AdminLinkGeneratorInterface $adminLinkGenerator,
     ) {
     }
 
@@ -63,11 +65,18 @@ class MediaUpdateTool
 
             $media = $this->mediaManager->save(null, $data, $user->getId());
 
-            return [
+            $result = [
                 'success' => true,
                 'id' => $media->getId(),
                 'title' => $media->getTitle(),
             ];
+
+            $adminUrl = $this->adminLinkGenerator->generate('media', ['locale' => $locale, 'id' => $media->getId()]);
+            if (null !== $adminUrl) {
+                $result['admin_url'] = $adminUrl;
+            }
+
+            return $result;
         } catch (\Throwable $e) {
             return [
                 'error' => \sprintf('Failed to update media %d: %s', $id, $e->getMessage()),

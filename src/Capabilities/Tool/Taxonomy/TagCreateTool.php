@@ -6,6 +6,7 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Taxonomy;
 
 use Mcp\Capability\Attribute\McpTool;
 use Sulu\Bundle\TagBundle\Tag\TagManagerInterface;
+use Sulu\McpServerBundle\AdminLink\AdminLinkGeneratorInterface;
 
 /**
  * @internal
@@ -14,6 +15,7 @@ class TagCreateTool
 {
     public function __construct(
         private readonly TagManagerInterface $tagManager,
+        private readonly AdminLinkGeneratorInterface $adminLinkGenerator,
     ) {
     }
 
@@ -29,11 +31,18 @@ class TagCreateTool
         try {
             $tag = $this->tagManager->save(['name' => $name]);
 
-            return [
+            $result = [
                 'success' => true,
                 'id' => $tag->getId(),
                 'name' => $tag->getName(),
             ];
+
+            $adminUrl = $this->adminLinkGenerator->generate('tag', ['id' => $tag->getId()]);
+            if (null !== $adminUrl) {
+                $result['admin_url'] = $adminUrl;
+            }
+
+            return $result;
         } catch (\Throwable $e) {
             return [
                 'error' => \sprintf('Failed to create tag "%s": %s', $name, $e->getMessage()),

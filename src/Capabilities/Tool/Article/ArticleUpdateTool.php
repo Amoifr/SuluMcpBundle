@@ -12,6 +12,7 @@ use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\McpServerBundle\AdminLink\AdminLinkGeneratorInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\BlockDataNormalizerTrait;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper;
@@ -37,6 +38,8 @@ class ArticleUpdateTool
         private readonly BlockDataValidator $blockDataValidator,
         private readonly BlockIdGeneratorInterface $blockIdGenerator,
         private readonly ContentMetadataMapper $contentMetadataMapper,
+        private readonly AdminLinkGeneratorInterface $adminLinkGenerator,
+        private readonly ArticleGroupResolver $articleGroupResolver,
     ) {
         $this->messageBus = $messageBus;
     }
@@ -132,11 +135,24 @@ class ArticleUpdateTool
             ]);
             $normalized = $this->contentManager->normalize($dimensionContent);
 
-            return [
+            $result = [
                 'success' => true,
                 'uuid' => $updatedArticle->getUuid(),
                 'data' => $this->compactContent($normalized, $this->detectBlockProperties($normalized)),
             ];
+
+            $resolvedTemplate = \is_string($normalized['template'] ?? null) ? $normalized['template'] : null;
+
+            $adminUrl = $this->adminLinkGenerator->generate('article', [
+                'locale' => $locale,
+                'uuid' => $updatedArticle->getUuid(),
+                'group' => $this->articleGroupResolver->resolveByTemplate($resolvedTemplate),
+            ]);
+            if (null !== $adminUrl) {
+                $result['admin_url'] = $adminUrl;
+            }
+
+            return $result;
         } catch (\Throwable $e) {
             return [
                 'error' => \sprintf('Failed to update article %s: %s', $uuid, $e->getMessage()),
