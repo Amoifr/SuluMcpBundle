@@ -200,4 +200,65 @@ final class TemplatesResourceGlobalBlockTest extends TestCase
         $this->assertSame('text', $quoteType['fields'][0]['name']);
         $this->assertSame('attribution', $quoteType['fields'][1]['name']);
     }
+
+    public function testCyclicGlobalBlockDoesNotRecurseInfinitely(): void
+    {
+        // Template references global block 'section'
+        $refSection = new FormMetadata();
+        $refSection->setKey('section');
+
+        $blockField = new FieldMetadata('blocks');
+        $blockField->setType('block');
+        $blockField->addType($refSection);
+
+        $templateForm = new FormMetadata();
+        $templateForm->setKey('default');
+        $templateForm->addItem($blockField);
+
+        $pageMetadata = new TypedFormMetadata();
+        $pageMetadata->addForm('default', $templateForm);
+
+        // Global 'section' contains a nested block field that refs 'section' again (cycle)
+        $refSectionNested = new FormMetadata();
+        $refSectionNested->setKey('section');
+
+        $nestedBlockField = new FieldMetadata('inner');
+        $nestedBlockField->setType('block');
+        $nestedBlockField->addType($refSectionNested);
+
+        $globalSection = new FormMetadata();
+        $globalSection->setKey('section');
+        $globalSection->setTitle('Section', 'en');
+        $globalSection->addItem($nestedBlockField);
+
+        $blockMetadata = new TypedFormMetadata();
+        $blockMetadata->addForm('section', $globalSection);
+
+        $this->formMetadataProvider
+            ->method('getMetadata')
+            ->willReturnCallback(fn (string $key) => match ($key) {
+                'page' => $pageMetadata,
+                'block' => $blockMetadata,
+                default => throw new \LogicException('Unexpected key: '.$key),
+            });
+
+        $result = $this->resource->getTemplates();
+
+        $blocksField = null;
+        foreach ($result['page']['default']['fields'] as $f) {
+            if ('blocks' === $f['name']) {
+                $blocksField = $f;
+            }
+        }
+
+        // Terminates and resolves the 'section' block type
+        $this->assertNotNull($blocksField);
+        $sectionType = $blocksField['types']['section'];
+
+        // The self-referencing nested 'section' is detected: marked cyclic, not recursed
+        $innerField = $sectionType['fields'][0];
+        $this->assertSame('inner', $innerField['name']);
+        $this->assertTrue($innerField['types']['section']['cyclic']);
+        $this->assertSame([], $innerField['types']['section']['fields']);
+    }
 }

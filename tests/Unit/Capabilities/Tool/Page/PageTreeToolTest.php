@@ -115,6 +115,101 @@ class PageTreeToolTest extends TestCase
         $this->assertSame([], $result['tree']);
     }
 
+    public function testGetPageTreeMaxDepthStopsRecursionAtBoundary(): void
+    {
+        $grandchild = $this->createMock(PageInterface::class);
+        $grandchild->method('getUuid')->willReturn('uuid-grandchild');
+        $grandchild->method('getChildren')->willReturn(new ArrayCollection([]));
+        $grandchild->method('getParent')->willReturn(null);
+
+        $child = $this->createMock(PageInterface::class);
+        $child->method('getUuid')->willReturn('uuid-child');
+        $child->method('getChildren')->willReturn(new ArrayCollection([$grandchild]));
+        $child->method('getParent')->willReturn(null);
+
+        $parent = $this->createMock(PageInterface::class);
+        $parent->method('getUuid')->willReturn('uuid-parent');
+        $parent->method('getChildren')->willReturn(new ArrayCollection([$child]));
+        $parent->method('getParent')->willReturn(null);
+
+        $this->pageRepository->method('findByAsTree')->willReturn([$parent]);
+
+        $parentDim = $this->createDimensionContentMock('Parent', '/', 'default', 'published');
+        $childDim = $this->createDimensionContentMock('Child', '/child', 'default', 'published');
+
+        $this->contentManager->method('resolve')
+            ->willReturnCallback(function (PageInterface $page) use ($parent, $parentDim, $childDim) {
+                if ($page === $parent) {
+                    return $parentDim;
+                }
+
+                return $childDim;
+            });
+
+        $result = $this->tool->getPageTree('example', 'en', 1);
+
+        $parentNode = $result['tree'][0];
+        $this->assertTrue($parentNode['hasChildren']);
+        $this->assertCount(1, $parentNode['children'], 'depth=0 is below maxDepth=1, so child should be included');
+
+        $childNode = $parentNode['children'][0];
+        $this->assertTrue($childNode['hasChildren'], 'child has children so hasChildren must be true');
+        $this->assertSame([], $childNode['children'], 'grandchild must be omitted at maxDepth=1');
+    }
+
+    public function testGetPageTreeMaxDepthZeroReturnsOnlyRootPages(): void
+    {
+        $child = $this->createMock(PageInterface::class);
+        $child->method('getUuid')->willReturn('uuid-child');
+        $child->method('getChildren')->willReturn(new ArrayCollection([]));
+        $child->method('getParent')->willReturn(null);
+
+        $root = $this->createMock(PageInterface::class);
+        $root->method('getUuid')->willReturn('uuid-root');
+        $root->method('getChildren')->willReturn(new ArrayCollection([$child]));
+        $root->method('getParent')->willReturn(null);
+
+        $this->pageRepository->method('findByAsTree')->willReturn([$root]);
+
+        $rootDim = $this->createDimensionContentMock('Root', '/', 'default', 'published');
+        $this->contentManager->method('resolve')->willReturn($rootDim);
+
+        $result = $this->tool->getPageTree('example', 'en', 0);
+
+        $rootNode = $result['tree'][0];
+        $this->assertTrue($rootNode['hasChildren'], 'root has children so hasChildren must be true');
+        $this->assertSame([], $rootNode['children'], 'children must be empty at maxDepth=0');
+    }
+
+    public function testGetPageTreeWithoutMaxDepthReturnsFullNesting(): void
+    {
+        $grandchild = $this->createMock(PageInterface::class);
+        $grandchild->method('getUuid')->willReturn('uuid-grandchild');
+        $grandchild->method('getChildren')->willReturn(new ArrayCollection([]));
+        $grandchild->method('getParent')->willReturn(null);
+
+        $child = $this->createMock(PageInterface::class);
+        $child->method('getUuid')->willReturn('uuid-child');
+        $child->method('getChildren')->willReturn(new ArrayCollection([$grandchild]));
+        $child->method('getParent')->willReturn(null);
+
+        $root = $this->createMock(PageInterface::class);
+        $root->method('getUuid')->willReturn('uuid-root');
+        $root->method('getChildren')->willReturn(new ArrayCollection([$child]));
+        $root->method('getParent')->willReturn(null);
+
+        $this->pageRepository->method('findByAsTree')->willReturn([$root]);
+
+        $dim = $this->createDimensionContentMock('Page', '/', 'default', 'published');
+        $this->contentManager->method('resolve')->willReturn($dim);
+
+        $result = $this->tool->getPageTree('example', 'en');
+
+        $rootNode = $result['tree'][0];
+        $this->assertCount(1, $rootNode['children']);
+        $this->assertCount(1, $rootNode['children'][0]['children'], 'grandchild must be present when no maxDepth');
+    }
+
     public function testGetPageTreeMethodHasMcpToolAttribute(): void
     {
         $reflection = new \ReflectionMethod(PageTreeTool::class, 'getPageTree');

@@ -8,8 +8,16 @@ use Mcp\Capability\Attribute\McpTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
+use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FieldMetadata;
+use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormMetadata;
+use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\TypedFormMetadata;
+use Sulu\Bundle\AdminBundle\Metadata\MetadataInterface;
+use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
+use Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper;
 use Sulu\McpServerBundle\Capabilities\Tool\Page\PageUpdateTool;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Sulu\Page\Application\Message\ModifyPageMessage;
@@ -25,6 +33,9 @@ final class PageUpdateToolTest extends TestCase
     private MessageBusInterface&MockObject $messageBus;
     private ContentManagerInterface&MockObject $contentManager;
     private PageRepositoryInterface&MockObject $pageRepository;
+    private MetadataProviderInterface&MockObject $formMetadataProvider;
+    private MetadataProviderInterface&MockObject $mapperMetadataProvider;
+    private BlockIdGeneratorInterface&MockObject $blockIdGenerator;
     private PageUpdateTool $tool;
 
     protected function setUp(): void
@@ -32,7 +43,45 @@ final class PageUpdateToolTest extends TestCase
         $this->messageBus = $this->createMock(MessageBusInterface::class);
         $this->contentManager = $this->createMock(ContentManagerInterface::class);
         $this->pageRepository = $this->createMock(PageRepositoryInterface::class);
-        $this->tool = new PageUpdateTool($this->messageBus, $this->contentManager, $this->pageRepository);
+        $this->formMetadataProvider = $this->createMock(MetadataProviderInterface::class);
+        // Default: provider returns a non-typed metadata so the validator skips strict checks.
+        $this->formMetadataProvider->method('getMetadata')->willReturn($this->createMock(MetadataInterface::class));
+        $this->mapperMetadataProvider = $this->createMock(MetadataProviderInterface::class);
+        // Provide Sulu's native SEO/excerpt field names so the mapper places them correctly.
+        $this->mapperMetadataProvider->method('getMetadata')->willReturnCallback(
+            fn (string $key) => match ($key) {
+                'content_seo_metadata' => $this->makeFormMeta(['seo/title', 'seo/description', 'seo/keywords', 'seo/canonicalUrl', 'seoNoIndex', 'seoNoFollow', 'seoHideInSitemap']),
+                'content_excerpt_metadata' => $this->makeFormMeta(['excerpt/title', 'excerpt/more', 'excerpt/description', 'excerpt/icon', 'excerpt/image']),
+                'content_excerpt_taxonomies' => $this->makeFormMeta(['excerptCategories', 'excerptTags']),
+                default => $this->makeFormMeta([]),
+            },
+        );
+        $this->blockIdGenerator = $this->createMock(BlockIdGeneratorInterface::class);
+        $this->blockIdGenerator->method('generateId')->willReturn('gen-id');
+
+        $this->tool = new PageUpdateTool(
+            $this->messageBus,
+            $this->contentManager,
+            $this->pageRepository,
+            new BlockDataValidator($this->formMetadataProvider),
+            $this->blockIdGenerator,
+            new ContentMetadataMapper($this->mapperMetadataProvider),
+        );
+    }
+
+    /** @param list<string> $names */
+    private function makeFormMeta(array $names): FormMetadata
+    {
+        $items = [];
+        foreach ($names as $name) {
+            $field = $this->createMock(FieldMetadata::class);
+            $field->method('getName')->willReturn($name);
+            $items[$name] = $field;
+        }
+        $form = $this->createMock(FormMetadata::class);
+        $form->method('getItems')->willReturn($items);
+
+        return $form;
     }
 
     private function setUpReadModifyWrite(string $uuid, string $locale, array $currentData = []): PageInterface&MockObject
@@ -101,7 +150,7 @@ final class PageUpdateToolTest extends TestCase
             ->willReturnCallback(function (Envelope $envelope) use ($mockPage, &$capturedData) {
                 $message = $envelope->getMessage();
                 $this->assertInstanceOf(ModifyPageMessage::class, $message);
-                $capturedData = (new \ReflectionProperty($message, 'data'))->getValue($message);
+                $capturedData = $message->getData();
 
                 return $envelope->with(new HandledStamp($mockPage, 'handler'));
             });
@@ -213,5 +262,167 @@ final class PageUpdateToolTest extends TestCase
     public function testNormalizeContentHandlesEmptyArray(): void
     {
         $this->assertSame([], PageUpdateTool::normalizeContent([]));
+    }
+
+    public function testUpdatePageAssignsBlockIdsToNestedBlocks(): void
+    {
+        $this->setUpReadModifyWrite('uuid-1', 'en', ['template' => 'default', 'title' => 'Title']);
+
+        $mockPage = $this->createMock(PageInterface::class);
+        $mockPage->method('getUuid')->willReturn('uuid-1');
+
+        $capturedData = null;
+        $this->messageBus->expects($this->once())
+            ->method('dispatch')
+            ->willReturnCallback(function (Envelope $envelope) use ($mockPage, &$capturedData) {
+                $message = $envelope->getMessage();
+                $this->assertInstanceOf(ModifyPageMessage::class, $message);
+                $capturedData = $message->getData();
+
+                return $envelope->with(new HandledStamp($mockPage, 'handler'));
+            });
+
+        $this->tool->updatePage(
+            'uuid-1',
+            'en',
+            null,
+            null,
+            null,
+            [
+                'blocks' => [
+                    ['type' => 'text', 'title' => 'A'],
+                    ['type' => 'section', 'title' => 'S', 'blocks' => [
+                        ['type' => 'text', 'title' => 'N'],
+                    ]],
+                ],
+            ],
+        );
+
+        $this->assertNotNull($capturedData);
+        $blocks = $capturedData['blocks'];
+        $this->assertNotEmpty($blocks[0]['_id']);
+        $this->assertNotEmpty($blocks[1]['_id']);
+        $this->assertNotEmpty($blocks[1]['blocks'][0]['_id']);
+    }
+
+    public function testUpdatePageRejectsInvalidBlocksBeforeWrite(): void
+    {
+        $titleField = new FieldMetadata('title');
+        $titleField->setType('text_line');
+        $textBlock = new FormMetadata();
+        $textBlock->setKey('text');
+        $textBlock->addItem($titleField);
+
+        $blocksField = new FieldMetadata('blocks');
+        $blocksField->setType('block');
+        $blocksField->addType($textBlock);
+
+        $template = new FormMetadata();
+        $template->setKey('default');
+        $template->addItem($blocksField);
+
+        $typed = new TypedFormMetadata();
+        $typed->addForm('default', $template);
+
+        $this->formMetadataProvider = $this->createMock(MetadataProviderInterface::class);
+        $this->formMetadataProvider->method('getMetadata')
+            ->willReturnCallback(fn (string $key) => 'page' === $key ? $typed : null);
+
+        $this->tool = new PageUpdateTool(
+            $this->messageBus,
+            $this->contentManager,
+            $this->pageRepository,
+            new BlockDataValidator($this->formMetadataProvider),
+            $this->blockIdGenerator,
+            new ContentMetadataMapper($this->mapperMetadataProvider),
+        );
+
+        // Set up the read side so we reach the content branch
+        $existingPage = $this->createMock(PageInterface::class);
+        $existingPage->method('getUuid')->willReturn('uuid-1');
+        $this->pageRepository->method('getOneBy')->willReturn($existingPage);
+        $currentDimensionContent = $this->createMock(DimensionContentInterface::class);
+        $this->contentManager->method('resolve')->willReturn($currentDimensionContent);
+        $this->contentManager->method('normalize')->willReturn(['template' => 'default', 'title' => 'Title']);
+
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $result = $this->tool->updatePage(
+            'uuid-1',
+            'en',
+            null,
+            null,
+            null,
+            ['blocks' => [['type' => 'text', 'bogus' => 'x']]],
+        );
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('bogus', $result['error']);
+    }
+
+    public function testUpdatePageReturnsCompactedData(): void
+    {
+        $this->setUpReadModifyWrite('uuid-1', 'en', [
+            'title' => 'New Title',
+            'id' => 99,
+            'blocks' => [['_id' => 'b1', 'type' => 'text', 'content' => '<p>HTML</p>']],
+        ]);
+
+        $mockPage = $this->createMock(PageInterface::class);
+        $mockPage->method('getUuid')->willReturn('uuid-1');
+
+        $this->messageBus->method('dispatch')
+            ->willReturnCallback(fn (Envelope $envelope) => $envelope->with(new HandledStamp($mockPage, 'handler')));
+
+        $result = $this->tool->updatePage('uuid-1', 'en', 'New Title');
+
+        $this->assertTrue($result['success']);
+        $this->assertArrayNotHasKey('id', $result['data']);
+        $this->assertSame('New Title', $result['data']['title']);
+        // Blocks are summarized to index/type, not full content
+        $this->assertSame('text', $result['data']['blocks'][0]['type']);
+        $this->assertArrayNotHasKey('content', $result['data']['blocks'][0]);
+    }
+
+    public function testUpdatePageAppliesExcerptAndSeoToDispatchedMessage(): void
+    {
+        $mockPage = $this->createMock(PageInterface::class);
+        $mockPage->method('getUuid')->willReturn('uuid-1');
+
+        $existingPage = $this->createMock(PageInterface::class);
+        $existingPage->method('getUuid')->willReturn('uuid-1');
+        $this->pageRepository->method('getOneBy')->willReturn($existingPage);
+
+        $currentDimensionContent = $this->createMock(DimensionContentInterface::class);
+        $this->contentManager->method('resolve')->willReturn($currentDimensionContent);
+        $this->contentManager->method('normalize')->willReturn(['template' => 'default']);
+
+        $capturedData = null;
+        $this->messageBus->expects($this->once())
+            ->method('dispatch')
+            ->willReturnCallback(function (Envelope $envelope) use ($mockPage, &$capturedData) {
+                $message = $envelope->getMessage();
+                $this->assertInstanceOf(ModifyPageMessage::class, $message);
+                $capturedData = $message->getData();
+
+                return $envelope->with(new HandledStamp($mockPage, 'handler'));
+            });
+
+        $this->tool->updatePage(
+            'uuid-1',
+            'en',
+            null,
+            null,
+            null,
+            null,
+            ['title' => 'T', 'description' => '<p>D</p>', 'image' => ['id' => 5]],
+            ['title' => 'S', 'description' => 'meta', 'seoNoIndex' => true],
+        );
+
+        $this->assertNotNull($capturedData);
+        $this->assertSame('T', $capturedData['excerpt']['title']);
+        $this->assertSame(['id' => 5], $capturedData['excerpt']['image']);
+        $this->assertSame('S', $capturedData['seo']['title']);
+        $this->assertTrue($capturedData['seoNoIndex']);
     }
 }

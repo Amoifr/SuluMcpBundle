@@ -68,6 +68,9 @@ class MediaUpdateToolTest extends TestCase
 
         $this->assertArrayHasKey('error', $result);
         $this->assertStringContainsString('authenticated', $result['error']);
+        $this->assertTrue(\array_key_exists('hint', $result));
+        $this->assertIsString($result['hint']);
+        $this->assertNotEmpty($result['hint']);
     }
 
     public function testUpdateMediaPassesOnlyProvidedFields(): void
@@ -96,6 +99,24 @@ class MediaUpdateToolTest extends TestCase
             ->willReturn($media);
 
         $this->tool->updateMedia(42, 'en', null, null, '(c) 2026');
+    }
+
+    public function testUpdateMediaReturnsHintOnSaveFailure(): void
+    {
+        $user = $this->createMock(User::class);
+        $user->method('getId')->willReturn(1);
+        $token = $this->createMock(TokenInterface::class);
+        $token->method('getUser')->willReturn($user);
+        $this->tokenStorage->method('getToken')->willReturn($token);
+
+        $this->mediaManager->method('save')->willThrowException(new \RuntimeException('Save failed'));
+
+        $result = $this->tool->updateMedia(42, 'en', 'Title');
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertTrue(\array_key_exists('hint', $result));
+        $this->assertIsString($result['hint']);
+        $this->assertNotEmpty($result['hint']);
     }
 
     public function testUpdateMediaMethodHasMcpToolAttribute(): void

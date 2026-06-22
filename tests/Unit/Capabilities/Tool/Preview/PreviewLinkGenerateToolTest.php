@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Preview;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Capability\Attribute\Schema;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Sulu\Bundle\PreviewBundle\Application\Manager\PreviewLinkManagerInterface;
@@ -46,7 +47,7 @@ class PreviewLinkGenerateToolTest extends TestCase
             ->with('sulu_preview.public_preview', ['token' => 'abc123'], UrlGeneratorInterface::ABSOLUTE_URL)
             ->willReturn('https://example.com/preview/abc123');
 
-        $result = $this->tool->generatePreviewLink('pages', 'page-uuid-1', 'en', 'example');
+        $result = $this->tool->generatePreviewLink('page', 'page-uuid-1', 'en', 'example');
 
         $this->assertTrue($result['success']);
         $this->assertSame('https://example.com/preview/abc123', $result['preview_url']);
@@ -76,7 +77,7 @@ class PreviewLinkGenerateToolTest extends TestCase
             ->with('sulu_preview.public_preview', ['token' => 'def456'], UrlGeneratorInterface::ABSOLUTE_URL)
             ->willReturn('https://example.com/preview/def456');
 
-        $result = $this->tool->generatePreviewLink('articles', 'article-uuid-1', 'de', 'sulu');
+        $result = $this->tool->generatePreviewLink('article', 'article-uuid-1', 'de', 'sulu');
 
         $this->assertTrue($result['success']);
         $this->assertSame('https://example.com/preview/def456', $result['preview_url']);
@@ -86,11 +87,36 @@ class PreviewLinkGenerateToolTest extends TestCase
         $this->assertSame('de', $result['locale']);
     }
 
+    public function testTypeIsMappedToResourceKeyForGenerate(): void
+    {
+        $previewLink = $this->createMock(PreviewLinkInterface::class);
+        $previewLink->method('getToken')->willReturn('tok');
+        $previewLink->method('getResourceKey')->willReturn('articles');
+        $previewLink->method('getResourceId')->willReturn('article-uuid-1');
+        $previewLink->method('getLocale')->willReturn('en');
+
+        $capturedResourceKey = null;
+        $this->previewLinkManager
+            ->expects($this->once())
+            ->method('generate')
+            ->willReturnCallback(function (string $resourceKey) use (&$capturedResourceKey, $previewLink) {
+                $capturedResourceKey = $resourceKey;
+
+                return $previewLink;
+            });
+
+        $this->router->method('generate')->willReturn('https://example.com/preview/tok');
+
+        $this->tool->generatePreviewLink('article', 'article-uuid-1', 'en', 'example');
+
+        $this->assertSame('articles', $capturedResourceKey, 'Singular "article" must be mapped to plural "articles" before calling the manager.');
+    }
+
     public function testGeneratePreviewLinkRejectsMissingWebspace(): void
     {
         $this->previewLinkManager->expects($this->never())->method('generate');
 
-        $result = $this->tool->generatePreviewLink('articles', 'article-uuid-1', 'en');
+        $result = $this->tool->generatePreviewLink('article', 'article-uuid-1', 'en');
 
         $this->assertArrayHasKey('error', $result);
         $this->assertStringContainsString('webspace', $result['error']);
@@ -110,7 +136,7 @@ class PreviewLinkGenerateToolTest extends TestCase
 
         $this->router->method('generate')->willReturn('https://example.com/preview/tok');
 
-        $this->tool->generatePreviewLink('pages', 'uuid-1', 'en', 'my-webspace');
+        $this->tool->generatePreviewLink('page', 'uuid-1', 'en', 'my-webspace');
     }
 
     public function testGeneratePreviewLinkReturnsErrorOnException(): void
@@ -119,7 +145,7 @@ class PreviewLinkGenerateToolTest extends TestCase
             ->method('generate')
             ->willThrowException(new \RuntimeException('Resource not found'));
 
-        $result = $this->tool->generatePreviewLink('pages', 'bad-uuid', 'en', 'example');
+        $result = $this->tool->generatePreviewLink('page', 'bad-uuid', 'en', 'example');
 
         $this->assertArrayHasKey('error', $result);
         $this->assertStringContainsString('Resource not found', $result['error']);
@@ -135,5 +161,18 @@ class PreviewLinkGenerateToolTest extends TestCase
 
         $instance = $attributes[0]->newInstance();
         $this->assertSame('sulu_preview_link_generate', $instance->name);
+    }
+
+    public function testTypeParameterHasSchemaAttributeWithSingularEnum(): void
+    {
+        $reflection = new \ReflectionMethod(PreviewLinkGenerateTool::class, 'generatePreviewLink');
+        $parameter = $reflection->getParameters()[0];
+        $this->assertSame('type', $parameter->getName());
+
+        $attributes = $parameter->getAttributes(Schema::class);
+        $this->assertCount(1, $attributes);
+
+        $schema = $attributes[0]->newInstance();
+        $this->assertSame(['page', 'article'], $schema->enum);
     }
 }

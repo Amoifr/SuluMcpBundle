@@ -7,6 +7,9 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Media;
 use Mcp\Capability\Attribute\McpTool;
 use Sulu\Bundle\MediaBundle\Media\Manager\MediaManagerInterface;
 
+/**
+ * @internal
+ */
 class MediaGetTool
 {
     public function __construct(
@@ -39,6 +42,7 @@ class MediaGetTool
         } catch (\Throwable) {
             return [
                 'error' => \sprintf('Media not found: %d', $id),
+                'hint' => 'Verify the media id. Use sulu_media_list to browse available media.',
             ];
         }
     }

@@ -48,6 +48,31 @@ final class SnippetListToolTest extends TestCase
         $this->assertSame(20, $result['limit']);
     }
 
+    public function testListSnippetsReturnsSummaryFieldsOnly(): void
+    {
+        $snippet = $this->createMock(SnippetInterface::class);
+        $snippet->method('getUuid')->willReturn('s-uuid');
+        $dimensionContent = $this->createMock(DimensionContentInterface::class);
+
+        $this->snippetRepository->method('findBy')->willReturn([$snippet]);
+        $this->snippetRepository->method('countBy')->willReturn(1);
+        $this->contentManager->method('resolve')->willReturn($dimensionContent);
+        $this->contentManager->method('normalize')->willReturn([
+            'title' => 'Footer',
+            'template' => 'footer',
+            'blocks' => [['_id' => 'b1', 'type' => 'text', 'content' => '<p>HTML</p>']],
+            'article' => '<p>Rich HTML</p>',
+        ]);
+
+        $result = $this->tool->listSnippets('en');
+
+        $item = $result['snippets'][0];
+        $this->assertSame('Footer', $item['data']['title']);
+        $this->assertSame('footer', $item['data']['template']);
+        $this->assertArrayNotHasKey('blocks', $item['data']);
+        $this->assertArrayNotHasKey('article', $item['data']);
+    }
+
     public function testMethodHasMcpToolAttribute(): void
     {
         $reflection = new \ReflectionMethod(SnippetListTool::class, 'listSnippets');

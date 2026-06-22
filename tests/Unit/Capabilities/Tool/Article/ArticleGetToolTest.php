@@ -112,6 +112,9 @@ final class ArticleGetToolTest extends TestCase
 
         $this->assertArrayHasKey('error', $result);
         $this->assertStringContainsString('missing-uuid', $result['error']);
+        $this->assertTrue(\array_key_exists('hint', $result));
+        $this->assertIsString($result['hint']);
+        $this->assertNotEmpty($result['hint']);
     }
 
     public function testGetArticleMethodHasMcpToolAttribute(): void

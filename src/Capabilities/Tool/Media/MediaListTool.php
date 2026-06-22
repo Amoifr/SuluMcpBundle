@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Capabilities\Tool\Media;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Capability\Attribute\Schema;
 use Sulu\Bundle\MediaBundle\Media\Manager\MediaManagerInterface;
 
+/**
+ * @internal
+ */
 class MediaListTool
 {
     public function __construct(
@@ -27,10 +31,13 @@ class MediaListTool
         string $locale,
         ?int $collectionId = null,
         ?string $search = null,
+        #[Schema(type: 'array', description: 'Filter by media type name(s). Typical values: "image", "video", "audio", "document" (the type names configured in this Sulu install). Omit for all types.', items: ['type' => 'string'])]
         ?array $types = null,
+        int $page = 1,
         int $limit = 20,
-        int $offset = 0,
     ): array {
+        $offset = ($page - 1) * $limit;
+
         $filter = [];
 
         if (null !== $collectionId) {
@@ -63,7 +70,7 @@ class MediaListTool
             'media' => $results,
             'total' => $total,
             'limit' => $limit,
-            'offset' => $offset,
+            'page' => $page,
         ];
     }
 }

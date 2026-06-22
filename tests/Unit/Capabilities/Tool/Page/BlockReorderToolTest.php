@@ -5,24 +5,36 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Capability\Attribute\Schema;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Sulu\Article\Application\Message\ModifyArticleMessage;
+use Sulu\Article\Domain\Model\ArticleInterface;
+use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver;
 use Sulu\McpServerBundle\Capabilities\Tool\Page\BlockReorderTool;
 use Sulu\Page\Application\Message\ModifyPageMessage;
 use Sulu\Page\Domain\Model\PageInterface;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
+use Sulu\Snippet\Application\Message\ModifySnippetMessage;
+use Sulu\Snippet\Domain\Model\SnippetInterface;
+use Sulu\Snippet\Domain\Repository\SnippetRepositoryInterface;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
 #[CoversClass(BlockReorderTool::class)]
+#[CoversClass(ContentTypeResolver::class)]
 final class BlockReorderToolTest extends TestCase
 {
     private MessageBusInterface&MockObject $messageBus;
     private PageRepositoryInterface&MockObject $pageRepository;
+    private ArticleRepositoryInterface&MockObject $articleRepository;
+    private SnippetRepositoryInterface&MockObject $snippetRepository;
     private ContentManagerInterface&MockObject $contentManager;
     private BlockReorderTool $tool;
 
@@ -30,48 +42,85 @@ final class BlockReorderToolTest extends TestCase
     {
         $this->messageBus = $this->createMock(MessageBusInterface::class);
         $this->pageRepository = $this->createMock(PageRepositoryInterface::class);
+        $this->articleRepository = $this->createMock(ArticleRepositoryInterface::class);
+        $this->snippetRepository = $this->createMock(SnippetRepositoryInterface::class);
         $this->contentManager = $this->createMock(ContentManagerInterface::class);
-        $this->tool = new BlockReorderTool($this->messageBus, $this->pageRepository, $this->contentManager);
+        $this->tool = new BlockReorderTool(
+            $this->messageBus,
+            new ContentTypeResolver($this->pageRepository, $this->articleRepository, $this->snippetRepository),
+            $this->contentManager,
+        );
     }
 
-    public function testReorderBlocksChangesOrder(): void
+    /**
+     * @return iterable<string, array{string, class-string}>
+     */
+    public static function contentTypeProvider(): iterable
     {
-        $existingBlocks = [
+        yield 'page' => ['page', ModifyPageMessage::class];
+        yield 'article' => ['article', ModifyArticleMessage::class];
+        yield 'snippet' => ['snippet', ModifySnippetMessage::class];
+    }
+
+    /**
+     * @param class-string $expectedMessageClass
+     */
+    #[DataProvider('contentTypeProvider')]
+    public function testReorderBlocksDispatchesCorrectMessagePerType(string $type, string $expectedMessageClass): void
+    {
+        $this->setupEntityWithBlocks($type, [
             ['type' => 'text', 'title' => 'First'],
             ['type' => 'image', 'src' => '/img.jpg'],
             ['type' => 'text', 'title' => 'Third'],
-        ];
-        $this->setupPageWithBlocks($existingBlocks);
+        ]);
 
         $this->messageBus->expects($this->once())
             ->method('dispatch')
-            ->willReturnCallback(function (Envelope $envelope) {
-                $message = $envelope->getMessage();
-                $this->assertInstanceOf(ModifyPageMessage::class, $message);
+            ->willReturnCallback(function (Envelope $envelope) use ($expectedMessageClass) {
+                $this->assertInstanceOf($expectedMessageClass, $envelope->getMessage());
 
-                return $envelope->with(new HandledStamp($this->createPageMock(), 'handler'));
+                return $envelope->with(new HandledStamp(null, 'handler'));
             });
 
-        $result = $this->tool->reorderBlocks('test-uuid', 'en', 'blocks', [2, 0, 1]);
+        $result = $this->tool->reorderBlocks($type, 'test-uuid', 'en', 'blocks', [2, 0, 1]);
 
         $this->assertTrue($result['success']);
         $this->assertSame(3, $result['blockCount']);
         $this->assertSame([2, 0, 1], $result['order']);
+        $this->assertSame('test-uuid', $result['uuid']);
+    }
+
+    public function testReorderBlocksReturnsErrorForUnsupportedType(): void
+    {
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $result = $this->tool->reorderBlocks('media', 'test-uuid', 'en', 'blocks', [0]);
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('Unsupported content type', $result['error']);
+    }
+
+    public function testReorderBlocksReturnsErrorWhenEntityNotFound(): void
+    {
+        $this->pageRepository->method('getOneBy')->willThrowException(new \RuntimeException('not found'));
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $result = $this->tool->reorderBlocks('page', 'missing-uuid', 'en', 'blocks', [0]);
+
+        $this->assertArrayHasKey('error', $result);
     }
 
     public function testReorderBlocksReturnsErrorForWrongLength(): void
     {
-        $existingBlocks = [
+        $this->setupEntityWithBlocks('page', [
             ['type' => 'text', 'title' => 'First'],
             ['type' => 'text', 'title' => 'Second'],
             ['type' => 'text', 'title' => 'Third'],
-        ];
-        $this->setupPageWithBlocks($existingBlocks);
+        ]);
 
-        $this->messageBus->expects($this->never())
-            ->method('dispatch');
+        $this->messageBus->expects($this->never())->method('dispatch');
 
-        $result = $this->tool->reorderBlocks('test-uuid', 'en', 'blocks', [0, 1]);
+        $result = $this->tool->reorderBlocks('page', 'test-uuid', 'en', 'blocks', [0, 1]);
 
         $this->assertArrayHasKey('error', $result);
         $this->assertStringContainsString('does not match block count', $result['error']);
@@ -79,17 +128,15 @@ final class BlockReorderToolTest extends TestCase
 
     public function testReorderBlocksReturnsErrorForDuplicateIndices(): void
     {
-        $existingBlocks = [
+        $this->setupEntityWithBlocks('page', [
             ['type' => 'text', 'title' => 'First'],
             ['type' => 'text', 'title' => 'Second'],
             ['type' => 'text', 'title' => 'Third'],
-        ];
-        $this->setupPageWithBlocks($existingBlocks);
+        ]);
 
-        $this->messageBus->expects($this->never())
-            ->method('dispatch');
+        $this->messageBus->expects($this->never())->method('dispatch');
 
-        $result = $this->tool->reorderBlocks('test-uuid', 'en', 'blocks', [0, 0, 1]);
+        $result = $this->tool->reorderBlocks('page', 'test-uuid', 'en', 'blocks', [0, 0, 1]);
 
         $this->assertArrayHasKey('error', $result);
         $this->assertStringContainsString('exactly once', $result['error']);
@@ -97,55 +144,45 @@ final class BlockReorderToolTest extends TestCase
 
     public function testReorderBlocksReturnsErrorForOutOfRangeIndex(): void
     {
-        $existingBlocks = [
+        $this->setupEntityWithBlocks('page', [
             ['type' => 'text', 'title' => 'First'],
             ['type' => 'text', 'title' => 'Second'],
             ['type' => 'text', 'title' => 'Third'],
-        ];
-        $this->setupPageWithBlocks($existingBlocks);
+        ]);
 
-        $this->messageBus->expects($this->never())
-            ->method('dispatch');
+        $this->messageBus->expects($this->never())->method('dispatch');
 
-        $result = $this->tool->reorderBlocks('test-uuid', 'en', 'blocks', [0, 1, 5]);
+        $result = $this->tool->reorderBlocks('page', 'test-uuid', 'en', 'blocks', [0, 1, 5]);
 
         $this->assertArrayHasKey('error', $result);
         $this->assertStringContainsString('exactly once', $result['error']);
     }
 
-    public function testReorderBlocksPreservesBlockContent(): void
+    public function testReorderBlocksAcceptsNumericStringIndices(): void
     {
-        $existingBlocks = [
-            ['type' => 'text', 'title' => 'Alpha'],
-            ['type' => 'image', 'src' => '/beta.jpg'],
-        ];
-        $this->setupPageWithBlocks($existingBlocks);
+        $this->setupEntityWithBlocks('page', [
+            ['type' => 'text', 'title' => 'First'],
+            ['type' => 'text', 'title' => 'Second'],
+        ]);
 
         $this->messageBus->expects($this->once())
             ->method('dispatch')
-            ->willReturnCallback(fn (Envelope $envelope) => $envelope->with(new HandledStamp($this->createPageMock(), 'handler')));
+            ->willReturnCallback(fn (Envelope $envelope) => $envelope->with(new HandledStamp(null, 'handler')));
 
-        $result = $this->tool->reorderBlocks('test-uuid', 'en', 'blocks', [1, 0]);
+        $result = $this->tool->reorderBlocks('page', 'test-uuid', 'en', 'blocks', ['1', '0']);
 
         $this->assertTrue($result['success']);
-        $this->assertSame(2, $result['blockCount']);
+        $this->assertSame([1, 0], $result['order']);
     }
 
-    public function testReorderBlocksReturnsSuccessWithOrder(): void
+    public function testReorderBlocksRejectsNonIntegerIndices(): void
     {
-        $existingBlocks = [
-            ['type' => 'text', 'title' => 'First'],
-            ['type' => 'text', 'title' => 'Second'],
-        ];
-        $this->setupPageWithBlocks($existingBlocks);
+        $this->messageBus->expects($this->never())->method('dispatch');
 
-        $this->messageBus->method('dispatch')
-            ->willReturnCallback(fn (Envelope $envelope) => $envelope->with(new HandledStamp($this->createPageMock(), 'handler')));
+        $result = $this->tool->reorderBlocks('page', 'test-uuid', 'en', 'blocks', ['first']);
 
-        $result = $this->tool->reorderBlocks('test-uuid', 'en', 'blocks', [1, 0]);
-
-        $this->assertArrayHasKey('order', $result);
-        $this->assertSame([1, 0], $result['order']);
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('integer indices', $result['error']);
     }
 
     public function testReorderBlocksMethodHasMcpToolAttribute(): void
@@ -159,30 +196,97 @@ final class BlockReorderToolTest extends TestCase
         $this->assertSame('sulu_block_reorder', $instance->name);
     }
 
+    public function testNewOrderParameterIsAdvertisedAsIntegerArraySchema(): void
+    {
+        $reflection = new \ReflectionMethod(BlockReorderTool::class, 'reorderBlocks');
+        $parameter = $reflection->getParameters()[4];
+        $attributes = $parameter->getAttributes(Schema::class);
+
+        $this->assertCount(1, $attributes);
+
+        $schema = $attributes[0]->newInstance();
+        $this->assertSame('array', $schema->type);
+        $this->assertSame(['type' => 'integer'], $schema->items);
+    }
+
+    public function testReorderByBlockIdsReordersByIdentity(): void
+    {
+        $this->setupEntityWithBlocks('page', [
+            ['_id' => 'a', 'type' => 'text', 'title' => 'First'],
+            ['_id' => 'b', 'type' => 'image', 'src' => '/img.jpg'],
+            ['_id' => 'c', 'type' => 'text', 'title' => 'Third'],
+        ]);
+
+        $this->messageBus->expects($this->once())
+            ->method('dispatch')
+            ->willReturnCallback(fn (Envelope $envelope) => $envelope->with(new HandledStamp(null, 'handler')));
+
+        $result = $this->tool->reorderBlocks('page', 'test-uuid', 'en', 'blocks', null, ['c', 'a', 'b']);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame([2, 0, 1], $result['order']);
+    }
+
+    public function testReorderByBlockIdsRejectsUnknownId(): void
+    {
+        $this->setupEntityWithBlocks('page', [
+            ['_id' => 'a', 'type' => 'text', 'title' => 'First'],
+            ['_id' => 'b', 'type' => 'text', 'title' => 'Second'],
+        ]);
+
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $result = $this->tool->reorderBlocks('page', 'test-uuid', 'en', 'blocks', null, ['a', 'missing']);
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('missing', $result['error']);
+    }
+
+    public function testReorderRequiresNewOrderOrBlockIds(): void
+    {
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $result = $this->tool->reorderBlocks('page', 'test-uuid', 'en', 'blocks');
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('newOrder', $result['error']);
+        $this->assertStringContainsString('blockIds', $result['error']);
+    }
+
+    public function testReorderRejectsBothNewOrderAndBlockIds(): void
+    {
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $result = $this->tool->reorderBlocks('page', 'test-uuid', 'en', 'blocks', [0, 1], ['a', 'b']);
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('not both', $result['error']);
+    }
+
     /**
      * @param list<array<string, mixed>> $blocks
      */
-    private function setupPageWithBlocks(array $blocks): void
+    private function setupEntityWithBlocks(string $type, array $blocks): void
     {
-        $page = $this->createMock(PageInterface::class);
-        $page->method('getUuid')->willReturn('test-uuid');
+        $entity = $this->createMock(match ($type) {
+            'page' => PageInterface::class,
+            'article' => ArticleInterface::class,
+            'snippet' => SnippetInterface::class,
+            default => PageInterface::class,
+        });
 
-        $this->pageRepository->method('getOneBy')->willReturn($page);
+        match ($type) {
+            'article' => $this->articleRepository->method('getOneBy')->willReturn($entity),
+            'snippet' => $this->snippetRepository->method('getOneBy')->willReturn($entity),
+            default => $this->pageRepository->method('getOneBy')->willReturn($entity),
+        };
 
         $dimensionContent = $this->createMock(DimensionContentInterface::class);
         $this->contentManager->method('resolve')->willReturn($dimensionContent);
         $this->contentManager->method('normalize')->willReturn([
             'template' => 'default',
-            'title' => 'Test Page',
+            'title' => 'Test',
             'blocks' => $blocks,
         ]);
-    }
-
-    private function createPageMock(): PageInterface&MockObject
-    {
-        $page = $this->createMock(PageInterface::class);
-        $page->method('getUuid')->willReturn('test-uuid');
-
-        return $page;
     }
 }

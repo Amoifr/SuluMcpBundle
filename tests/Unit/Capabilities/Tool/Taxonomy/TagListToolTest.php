@@ -24,35 +24,89 @@ final class TagListToolTest extends TestCase
         $this->tool = new TagListTool($this->tagRepository);
     }
 
-    public function testListTagsReturnsAllTags(): void
+    public function testListTagsReturnsPaginatedTagsAndTotal(): void
     {
-        $tag1 = $this->createMock(TagInterface::class);
-        $tag1->method('getId')->willReturn(1);
-        $tag1->method('getName')->willReturn('news');
+        $tags = [];
+        for ($i = 1; $i <= 25; ++$i) {
+            $tag = $this->createMock(TagInterface::class);
+            $tag->method('getId')->willReturn($i);
+            $tag->method('getName')->willReturn("tag-{$i}");
+            $tags[] = $tag;
+        }
 
-        $tag2 = $this->createMock(TagInterface::class);
-        $tag2->method('getId')->willReturn(2);
-        $tag2->method('getName')->willReturn('blog');
-
-        $this->tagRepository->expects($this->once())
-            ->method('findAll')
-            ->willReturn([$tag1, $tag2]);
+        $this->tagRepository->method('findAll')->willReturn($tags);
 
         $result = $this->tool->listTags();
 
         $this->assertArrayHasKey('tags', $result);
-        $this->assertCount(2, $result['tags']);
-        $this->assertSame(['id' => 1, 'name' => 'news'], $result['tags'][0]);
-        $this->assertSame(['id' => 2, 'name' => 'blog'], $result['tags'][1]);
+        $this->assertCount(20, $result['tags'], 'default limit is 20');
+        $this->assertSame(25, $result['total']);
+        $this->assertSame(1, $result['page']);
+        $this->assertSame(20, $result['limit']);
+        $this->assertSame(['id' => 1, 'name' => 'tag-1'], $result['tags'][0]);
     }
 
-    public function testListTagsReturnsEmptyArrayWhenNoTags(): void
+    public function testListTagsSecondPageReturnsCorrectSlice(): void
+    {
+        $tags = [];
+        for ($i = 1; $i <= 25; ++$i) {
+            $tag = $this->createMock(TagInterface::class);
+            $tag->method('getId')->willReturn($i);
+            $tag->method('getName')->willReturn("tag-{$i}");
+            $tags[] = $tag;
+        }
+
+        $this->tagRepository->method('findAll')->willReturn($tags);
+
+        $result = $this->tool->listTags(2, 20);
+
+        $this->assertCount(5, $result['tags'], 'page 2 with limit 20 returns remaining 5 tags');
+        $this->assertSame(25, $result['total']);
+        $this->assertSame(2, $result['page']);
+        $this->assertSame(['id' => 21, 'name' => 'tag-21'], $result['tags'][0]);
+    }
+
+    public function testListTagsCustomLimit(): void
+    {
+        $tags = [];
+        for ($i = 1; $i <= 10; ++$i) {
+            $tag = $this->createMock(TagInterface::class);
+            $tag->method('getId')->willReturn($i);
+            $tag->method('getName')->willReturn("tag-{$i}");
+            $tags[] = $tag;
+        }
+
+        $this->tagRepository->method('findAll')->willReturn($tags);
+
+        $result = $this->tool->listTags(1, 3);
+
+        $this->assertCount(3, $result['tags']);
+        $this->assertSame(10, $result['total']);
+        $this->assertSame(1, $result['page']);
+        $this->assertSame(3, $result['limit']);
+    }
+
+    public function testListTagsReturnsEmptyResultWhenNoTags(): void
     {
         $this->tagRepository->method('findAll')->willReturn([]);
 
         $result = $this->tool->listTags();
 
-        $this->assertSame(['tags' => []], $result);
+        $this->assertSame([], $result['tags']);
+        $this->assertSame(0, $result['total']);
+    }
+
+    public function testListTagsReturnsErrorOnFailure(): void
+    {
+        $this->tagRepository->method('findAll')
+            ->willThrowException(new \RuntimeException('DB error'));
+
+        $result = $this->tool->listTags();
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertArrayHasKey('hint', $result);
+        $this->assertIsString($result['hint']);
+        $this->assertNotEmpty($result['hint']);
     }
 
     public function testListTagsMethodHasMcpToolAttribute(): void

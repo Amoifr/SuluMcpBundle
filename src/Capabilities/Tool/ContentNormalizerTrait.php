@@ -26,18 +26,6 @@ trait ContentNormalizerTrait
     ];
 
     /**
-     * SEO keys present on the normalized content. Surfaced only through the dedicated
-     * sulu_*_seo_get / sulu_*_seo_update tools.
-     */
-    private const SEO_FIELDS = ['seo', 'seoNoIndex', 'seoNoFollow', 'seoHideInSitemap'];
-
-    /**
-     * Excerpt keys present on the normalized content. Surfaced only through the
-     * dedicated sulu_*_excerpt_get / sulu_*_excerpt_update tools.
-     */
-    private const EXCERPT_FIELDS = ['excerpt'];
-
-    /**
      * @param array<string, mixed> $normalized
      * @param list<string>         $blockProperties Block property names to summarize (e.g. ['blocks', 'homeBlocks'])
      *
@@ -376,54 +364,6 @@ trait ContentNormalizerTrait
         }
 
         return $out;
-    }
-
-    /**
-     * Remove SEO and excerpt keys from normalized content. Used by the generic
-     * page/article get tools so SEO/excerpt are only surfaced through the dedicated tools.
-     *
-     * @param array<string, mixed> $normalized
-     *
-     * @return array<string, mixed>
-     */
-    private function stripSeoExcerpt(array $normalized): array
-    {
-        foreach ([...self::SEO_FIELDS, ...self::EXCERPT_FIELDS] as $field) {
-            unset($normalized[$field]);
-        }
-
-        return $normalized;
-    }
-
-    /**
-     * Pluck SEO fields from normalized content.
-     *
-     * @param array<string, mixed> $normalized
-     *
-     * @return array<string, mixed>
-     */
-    private function extractSeo(array $normalized): array
-    {
-        $out = [];
-        foreach (self::SEO_FIELDS as $field) {
-            if (\array_key_exists($field, $normalized)) {
-                $out[$field] = $normalized[$field];
-            }
-        }
-
-        return $out;
-    }
-
-    /**
-     * Pluck excerpt fields from normalized content.
-     *
-     * @param array<string, mixed> $normalized
-     *
-     * @return array<string, mixed>
-     */
-    private function extractExcerpt(array $normalized): array
-    {
-        return ['excerpt' => $normalized['excerpt'] ?? []];
     }
 
     /**

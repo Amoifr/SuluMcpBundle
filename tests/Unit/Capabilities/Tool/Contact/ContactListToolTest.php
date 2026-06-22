@@ -37,7 +37,7 @@ final class ContactListToolTest extends TestCase
 
         $this->contactRepository->method('findGetAll')->willReturn([$contact]);
 
-        $result = $this->tool->listContacts('contact', 20, 0);
+        $result = $this->tool->listContacts('contact', 1, 20);
 
         $this->assertSame('contact', $result['type']);
         $this->assertCount(1, $result['items']);
@@ -51,11 +51,41 @@ final class ContactListToolTest extends TestCase
         $this->accountRepository->method('findAllSelect')
             ->willReturn([['id' => 1, 'name' => 'Acme Corp']]);
 
-        $result = $this->tool->listContacts('account', 20, 0);
+        $result = $this->tool->listContacts('account', 1, 20);
 
         $this->assertSame('account', $result['type']);
         $this->assertCount(1, $result['items']);
         $this->assertSame('Acme Corp', $result['items'][0]['name']);
+    }
+
+    public function testListContactsCalculatesOffsetFromPage(): void
+    {
+        $this->contactRepository
+            ->expects($this->once())
+            ->method('findGetAll')
+            ->with(5, 5, [], [])
+            ->willReturn([]);
+
+        $this->tool->listContacts('contact', 2, 5);
+    }
+
+    public function testListAccountsCalculatesOffsetFromPage(): void
+    {
+        $accounts = [
+            ['id' => 1, 'name' => 'A'],
+            ['id' => 2, 'name' => 'B'],
+            ['id' => 3, 'name' => 'C'],
+            ['id' => 4, 'name' => 'D'],
+            ['id' => 5, 'name' => 'E'],
+            ['id' => 6, 'name' => 'F'],
+        ];
+        $this->accountRepository->method('findAllSelect')->willReturn($accounts);
+
+        $result = $this->tool->listContacts('account', 2, 2);
+
+        $this->assertCount(2, $result['items']);
+        $this->assertSame('C', $result['items'][0]['name']);
+        $this->assertSame('D', $result['items'][1]['name']);
     }
 
     public function testListContactsReturnsErrorOnException(): void

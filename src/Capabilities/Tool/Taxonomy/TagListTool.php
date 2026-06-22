@@ -7,6 +7,9 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Taxonomy;
 use Mcp\Capability\Attribute\McpTool;
 use Sulu\Bundle\TagBundle\Tag\TagRepositoryInterface;
 
+/**
+ * @internal
+ */
 class TagListTool
 {
     public function __construct(
@@ -19,17 +22,30 @@ class TagListTool
      */
     #[McpTool(
         name: 'sulu_tag_list',
-        description: 'List all tags. Returns flat array of tag objects with id and name.',
+        description: 'List tags with pagination. Returns a page of tag objects (each with id and name), plus total tag count so you know how many pages exist. Use page and limit to navigate large tag collections.',
     )]
-    public function listTags(): array
+    public function listTags(int $page = 1, int $limit = 20): array
     {
-        $tags = $this->tagRepository->findAll();
+        try {
+            $allTags = $this->tagRepository->findAll();
+            $total = \count($allTags);
+            $offset = ($page - 1) * $limit;
+            $pageTags = \array_slice($allTags, $offset, $limit);
 
-        return [
-            'tags' => \array_map(
-                fn ($tag) => ['id' => $tag->getId(), 'name' => $tag->getName()],
-                $tags,
-            ),
-        ];
+            return [
+                'tags' => \array_map(
+                    fn ($tag) => ['id' => $tag->getId(), 'name' => $tag->getName()],
+                    $pageTags,
+                ),
+                'total' => $total,
+                'page' => $page,
+                'limit' => $limit,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'error' => \sprintf('Failed to list tags: %s', $e->getMessage()),
+                'hint' => 'Verify the database connection.',
+            ];
+        }
     }
 }

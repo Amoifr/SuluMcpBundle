@@ -10,6 +10,9 @@ use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\TypedFormMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
 
+/**
+ * @internal
+ */
 class BlocksResource
 {
     /** @var array<string, FormMetadata>|null */
@@ -52,7 +55,7 @@ class BlocksResource
                         $blockTypes[$blockTypeName] = [
                             'key' => $blockTypeName,
                             'label' => $resolvedForm->getTitle('en'),
-                            'fields' => $this->normalizeBlockFields($resolvedForm),
+                            'fields' => $this->normalizeBlockFields($resolvedForm, [$blockTypeName => true]),
                             'available_in_templates' => [],
                         ];
                     }
@@ -93,8 +96,12 @@ class BlocksResource
         return $this->globalBlockForms;
     }
 
-    /** @return list<array<string, mixed>> */
-    private function normalizeBlockFields(FormMetadata $blockForm): array
+    /**
+     * @param array<string, true> $visiting block type names currently on the resolution path
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function normalizeBlockFields(FormMetadata $blockForm, array $visiting = []): array
     {
         $fields = [];
         foreach ($blockForm->getItems() as $item) {
@@ -108,10 +115,22 @@ class BlocksResource
                 $types = [];
                 foreach ($item->getTypes() as $typeName => $nestedBlockForm) {
                     $resolvedNested = $this->resolveBlockForm($typeName, $nestedBlockForm);
+
+                    if (isset($visiting[$typeName])) {
+                        $types[$typeName] = [
+                            'key' => $typeName,
+                            'label' => $resolvedNested->getTitle('en'),
+                            'fields' => [],
+                            'cyclic' => true,
+                        ];
+
+                        continue;
+                    }
+
                     $types[$typeName] = [
                         'key' => $typeName,
                         'label' => $resolvedNested->getTitle('en'),
-                        'fields' => $this->normalizeBlockFields($resolvedNested),
+                        'fields' => $this->normalizeBlockFields($resolvedNested, $visiting + [$typeName => true]),
                     ];
                 }
                 $field['types'] = $types;

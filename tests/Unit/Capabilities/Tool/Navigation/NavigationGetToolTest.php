@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Navigation;
 
-use Mcp\Capability\Attribute\McpTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;

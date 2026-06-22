@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Capability\Attribute\Schema;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 
+/**
+ * @internal
+ */
 class PageListTool
 {
     private const SUMMARY_FIELDS = [
@@ -37,6 +41,7 @@ class PageListTool
         string $webspace,
         string $locale,
         ?string $template = null,
+        #[Schema(description: 'UUID of the parent page (a string). Omit for root-level pages. Get UUIDs from sulu_page_tree or sulu_page_list.')]
         ?string $parentId = null,
         int $page = 1,
         int $limit = 20,

@@ -8,15 +8,20 @@ use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Sulu\Article\Application\Message\CreateArticleMessage;
 use Sulu\Article\Domain\Model\ArticleInterface;
+use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\BlockDataNormalizerTrait;
-use Sulu\McpServerBundle\Capabilities\Tool\Page\PageUpdateTool;
+use Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\HandleTrait;
 use Symfony\Component\Messenger\MessageBusInterface;
 
+/**
+ * @internal
+ */
 class ArticleCreateTool
 {
     use HandleTrait;
@@ -25,35 +30,53 @@ class ArticleCreateTool
     public function __construct(
         MessageBusInterface $messageBus,
         private readonly ContentManagerInterface $contentManager,
+        private readonly BlockDataValidator $blockDataValidator,
+        private readonly BlockIdGeneratorInterface $blockIdGenerator,
+        private readonly ContentMetadataMapper $contentMetadataMapper,
     ) {
         $this->messageBus = $messageBus;
     }
 
     /**
      * @param array<string, mixed>|null $content
+     * @param array<string, mixed>|null $excerpt
+     * @param array<string, mixed>|null $seo
      *
      * @return array<string, mixed>
      */
     #[McpTool(
         name: 'sulu_article_create',
-        description: 'Create a new article (draft). Workflow: 1) Call sulu_get_context to discover article templates and their fields. 2) Choose a template key (e.g. "blog") and pass its field values in "content" as a flat object: content={"article": "<p>HTML here</p>"}. The "title" is a separate parameter -- do not repeat it in content. IMPORTANT: articles need URL routing data, and the form depends on the template field type. If the template has a property of type "route", pass content={"url": "/my-article"}. If the template has a property of type "page_tree_route" (most blog templates), pass content={"page": {"path": "/blog", "uuid": "<parent-page-uuid>", "suffix": "my-article"}}. The wrong form is rejected here (so you do not get a silent url=null). After create, call sulu_article_publish to make it live.',
+        description: 'Create a new article (draft). Workflow: 1) Call sulu_get_context to discover article templates and their fields. 2) Choose a template key (e.g. "blog") and pass its field values in "content" as a flat object: content={"article": "<p>HTML here</p>"}. Content may also include a full "blocks" tree (nested blocks allowed), e.g. content={"blocks": [{"type": "text", "content": "<p>…</p>"}]} — block _ids are assigned automatically and unknown block fields are rejected before saving. The "title" is a separate parameter -- do not repeat it in content. IMPORTANT: articles need URL routing data, and the form depends on the template field type. If the template has a property of type "route", pass content={"url": "/my-article"}. If the template has a property of type "page_tree_route" (most blog templates), pass content={"page": {"path": "/blog", "uuid": "<parent-page-uuid>", "suffix": "my-article"}}. The wrong form is rejected here (so you do not get a silent url=null). Leave type unset unless the project defines multiple article types. After create, call sulu_content_publish (type: article) to make it live.',
     )]
     public function createArticle(
         string $locale,
         string $template,
         string $title,
+        #[Schema(description: 'Optional article type key, only for projects that configure multiple article types in their article template metadata. Omit to use the default type. Most installs do not need this.')]
         ?string $type = null,
-        #[Schema(type: 'object', description: 'Template field values as key-value pairs, e.g. {"article": "<p>HTML content</p>"}. Must include URL routing data: either {"url": "/path"} for simple route templates, or {"page": {"path", "uuid", "suffix"}} for page_tree_route templates.', additionalProperties: true)]
+        #[Schema(type: 'object', description: 'Template field values as key-value pairs, e.g. {"article": "<p>HTML content</p>"}. Must include URL routing data: either {"url": "/path"} for simple route templates, or {"page": {"path": "/blog", "uuid": "<parent-page-uuid>", "suffix": "my-article"}} for page_tree_route templates.', additionalProperties: true)]
         ?array $content = null,
+        #[Schema(type: 'object', description: 'Optional excerpt/teaser fields keyed by the project\'s excerpt field names (e.g. title, description, more, image, icon, excerptCategories, excerptTags). Media fields take {"id": <mediaId>}. Call sulu_get_context for the exact field list.', additionalProperties: true)]
+        ?array $excerpt = null,
+        #[Schema(type: 'object', description: 'Optional SEO fields keyed by the project\'s SEO field names (e.g. title, description, keywords, canonicalUrl, seoNoIndex, seoNoFollow, seoHideInSitemap). Call sulu_get_context for the exact field list.', additionalProperties: true)]
+        ?array $seo = null,
     ): array {
         try {
-            $normalizedContent = null !== $content ? PageUpdateTool::normalizeContent($content) : [];
+            $normalizedContent = null !== $content ? self::normalizeContent($content) : [];
 
             if ($validationError = ArticleRouteValidator::validate($normalizedContent, required: true)) {
                 return $validationError;
             }
 
-            $data = \array_merge($normalizedContent, [
+            $suluContent = ArticleRouteValidator::normalizeForSulu($normalizedContent);
+
+            if ($blockError = $this->blockDataValidator->validateContentTree($suluContent, 'article', $template)) {
+                return $blockError;
+            }
+
+            $suluContent = $this->assignBlockIds($suluContent, $this->blockIdGenerator);
+
+            $data = \array_merge($suluContent, [
                 'locale' => $locale,
                 'template' => $template,
                 'title' => $title,
@@ -61,6 +84,15 @@ class ArticleCreateTool
 
             if (null !== $type) {
                 $data['type'] = $type;
+            }
+
+            $data = $this->contentMetadataMapper->applyExcerpt($data, $excerpt, $locale);
+            if (isset($data['error'])) {
+                return $data;
+            }
+            $data = $this->contentMetadataMapper->applySeo($data, $seo, $locale);
+            if (isset($data['error'])) {
+                return $data;
             }
 
             // Ensure all array keys are strings (Sulu's MetadataResolver requires string keys)

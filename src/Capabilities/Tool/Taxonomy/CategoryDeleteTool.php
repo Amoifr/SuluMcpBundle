@@ -7,6 +7,9 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Taxonomy;
 use Mcp\Capability\Attribute\McpTool;
 use Sulu\Bundle\CategoryBundle\Category\CategoryManagerInterface;
 
+/**
+ * @internal
+ */
 class CategoryDeleteTool
 {
     public function __construct(
@@ -34,6 +37,7 @@ class CategoryDeleteTool
         } catch (\Throwable $e) {
             return [
                 'error' => \sprintf('Failed to delete category %d: %s', $id, $e->getMessage()),
+                'hint' => 'Verify the category id exists (use sulu_category_list). Deleting a category also deletes its children.',
             ];
         }
     }

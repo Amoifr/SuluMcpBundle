@@ -8,6 +8,9 @@ use Mcp\Capability\Attribute\McpTool;
 use Sulu\Bundle\ContactBundle\Entity\AccountRepositoryInterface;
 use Sulu\Bundle\ContactBundle\Entity\ContactRepositoryInterface;
 
+/**
+ * @internal
+ */
 class ContactListTool
 {
     public function __construct(
@@ -23,8 +26,10 @@ class ContactListTool
         name: 'sulu_contact_list',
         description: 'List contacts or accounts. Set type="contact" for people or type="account" for organizations. Returns basic info (id, name). Contacts and accounts are used for author attribution and organizational references in content.',
     )]
-    public function listContacts(string $type = 'contact', int $limit = 20, int $offset = 0): array
+    public function listContacts(string $type = 'contact', int $page = 1, int $limit = 20): array
     {
+        $offset = ($page - 1) * $limit;
+
         try {
             if ('account' === $type) {
                 $items = $this->accountRepository->findAllSelect(['id', 'name']);

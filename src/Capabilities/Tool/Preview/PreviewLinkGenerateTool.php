@@ -5,13 +5,19 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Capabilities\Tool\Preview;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Capability\Attribute\Schema;
 use Sulu\Bundle\PreviewBundle\Application\Manager\PreviewLinkManagerInterface;
 use Symfony\Component\Routing\Exception\RouteNotFoundException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Routing\RouterInterface;
 
+/**
+ * @internal
+ */
 class PreviewLinkGenerateTool
 {
+    private const TYPE_MAP = ['page' => 'pages', 'article' => 'articles'];
+
     public function __construct(
         private readonly PreviewLinkManagerInterface $previewLinkManager,
         private readonly RouterInterface $router,
@@ -23,10 +29,15 @@ class PreviewLinkGenerateTool
      */
     #[McpTool(
         name: 'sulu_preview_link_generate',
-        description: 'Generate a shareable public preview URL for a draft page or article. Returns a token-protected URL under /admin/p/<token> that reviewers can open without a CMS login. The `webspace` parameter is REQUIRED for both pages and articles -- Sulu\'s preview renderer needs to know which webspace context (theme, routes, templates) to render the preview under, and articles that aren\'t scoped to a webspace at generation time produce a token that crashes when opened. Use sulu_ping or sulu_get_context to list the available webspaces.',
+        description: 'Generate a shareable public preview URL for a draft page or article. Returns a token-protected URL under /admin/p/<token> that reviewers can open without a CMS login. The `webspace` parameter is REQUIRED for both pages and articles -- Sulu\'s preview renderer needs to know which webspace context (theme, routes, templates) to render the preview under, and articles that aren\'t scoped to a webspace at generation time produce a token that crashes when opened. Use sulu_ping or sulu_get_context to list the available webspaces. Pass `type` as "page" or "article" (the same singular values used by the other tools).',
     )]
-    public function generatePreviewLink(string $resourceKey, string $uuid, string $locale, ?string $webspace = null): array
-    {
+    public function generatePreviewLink(
+        #[Schema(description: 'Content type to preview: "page" or "article" (same singular values used by the other tools).', enum: ['page', 'article'])]
+        string $type,
+        string $uuid,
+        string $locale,
+        ?string $webspace = null,
+    ): array {
         if (null === $webspace || '' === $webspace) {
             return [
                 'error' => 'Missing required parameter "webspace". Sulu\'s preview renderer needs a webspace key to set up the request context (theme, routes, templates), and the stored preview link will crash when opened without it. Pass the webspace key, e.g. "sulu". Use sulu_ping to list available webspaces.',
@@ -35,6 +46,7 @@ class PreviewLinkGenerateTool
         }
 
         try {
+            $resourceKey = self::TYPE_MAP[$type] ?? $type;
             $options = ['webspaceKey' => $webspace];
 
             $previewLink = $this->previewLinkManager->generate($resourceKey, $uuid, $locale, $options);
@@ -61,7 +73,7 @@ class PreviewLinkGenerateTool
         } catch (\Throwable $e) {
             return [
                 'error' => \sprintf('Failed to generate preview link: %s', $e->getMessage()),
-                'hint' => 'Verify the resource exists, the resourceKey is correct (pages or articles), and the webspace is valid (use sulu_ping to list webspaces).',
+                'hint' => 'Verify the resource exists, the type is correct ("page" or "article"), and the webspace is valid (use sulu_ping to list webspaces).',
             ];
         }
     }

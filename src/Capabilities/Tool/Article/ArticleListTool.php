@@ -9,6 +9,9 @@ use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 
+/**
+ * @internal
+ */
 class ArticleListTool
 {
     private const SUMMARY_FIELDS = [

@@ -47,7 +47,7 @@ Do NOT rely on assumptions about available templates or block types — the CMS 
 
 | Tool | Description |
 |------|-------------|
-| `sulu_get_context` | **Start here.** Returns templates (grouped by content type: `page`, `article`, `snippet`), block types, and webspaces for a given webspace. |
+| `sulu_get_context` | **Start here.** Returns templates (grouped by content type: `page`, `article`, `snippet`), block types, and webspaces. |
 | `sulu_ping` | Verify connection, see authenticated user and available webspaces. |
 | `sulu_content_search` | Search published content by keyword. Returns UUIDs and resource types to use with get tools. |
 
@@ -60,9 +60,9 @@ Do NOT rely on assumptions about available templates or block types — the CMS 
 | `sulu_page_get` | Get full page content. Returns block summaries — use `sulu_block_list` for full blocks. |
 | `sulu_page_create` | Create a new page (as draft). |
 | `sulu_page_update` | Update page fields. Only pass changed fields. |
-| `sulu_page_publish` | Publish a draft page. **Ask user first.** |
-| `sulu_page_unpublish` | Take a page offline (keeps draft). |
-| `sulu_page_delete` | Permanently delete a page. **Cannot be undone.** |
+| `sulu_content_publish` | Publish a draft page/article/snippet. Pass `type="page"`. **Ask user first.** |
+| `sulu_content_unpublish` | Take a page offline (keeps draft). Pass `type="page"`. |
+| `sulu_content_delete` | Permanently delete a page. Pass `type="page"`. **Cannot be undone.** |
 
 ### Articles
 
@@ -74,9 +74,9 @@ Articles are the primary content type for blog posts, news, case studies, and ot
 | `sulu_article_get` | Get full article content with block summaries. Always call before editing. |
 | `sulu_article_create` | Create a new article (as draft). Requires locale, template, and title. |
 | `sulu_article_update` | Update article fields. Merges changes — only pass what changed. |
-| `sulu_article_publish` | Publish a draft article. **Ask user first.** |
-| `sulu_article_unpublish` | Take an article offline (keeps draft). |
-| `sulu_article_delete` | Permanently delete an article. |
+| `sulu_content_publish` | Publish a draft article. Pass `type="article"`. **Ask user first.** |
+| `sulu_content_unpublish` | Take an article offline (keeps draft). Pass `type="article"`. |
+| `sulu_content_delete` | Permanently delete an article. Pass `type="article"`. |
 
 ### Blocks (Content Components)
 
@@ -84,14 +84,11 @@ Blocks are the building units of pages and articles — typed components like te
 
 | Tool | Description |
 |------|-------------|
-| `sulu_block_list` | Get paginated block content for any entity (page/article/snippet). |
-| `sulu_block_update` | Update a single block by its `_id`. Only changed fields need to be passed. Works for pages and articles. |
-| `sulu_block_add` | Add a block to a page at a specific position or at the end. |
-| `sulu_block_remove` | Remove a block from a page by index. |
-| `sulu_block_reorder` | Reorder page blocks by providing the new index order. |
-| `sulu_article_block_add` | Add a block to an article. |
-| `sulu_article_block_remove` | Remove a block from an article. |
-| `sulu_article_block_reorder` | Reorder article blocks. |
+| `sulu_block_list` | Get paginated block content for any entity (`type` = page/article/snippet). |
+| `sulu_block_add` | Add a block to any entity (`type` + `uuid`) at a specific position or at the end. |
+| `sulu_block_update` | Update a single block by its `_id` on any entity. Only changed fields need to be passed. |
+| `sulu_block_remove` | Remove a block from any entity by index. |
+| `sulu_block_reorder` | Reorder blocks on any entity — pass `newOrder` (index list) or, more robustly, `blockIds` (the `_id`s in desired order). |
 
 ### Snippets (Reusable Content)
 
@@ -138,7 +135,7 @@ Articles are where AI assistants add the most value — drafting blog posts, new
 #### Step 1: Gather Context
 
 ```
-sulu_get_context(webspace)     → templates, block types, webspaces
+sulu_get_context()             → templates, block types, webspaces
 sulu_content_search(query=...) → existing articles on similar topics — read 1-2 to match tone and structure
 sulu_article_list(template)    → recent articles in the same template, for additional voice samples
 sulu_category_list()           → available categories for the article
@@ -191,17 +188,31 @@ sulu_article_create(locale, template, title, content={...})
 
 #### Step 4: Add Content Blocks
 
-If the article template uses blocks (most do):
+If the article template uses blocks (most do), there are two ways to author them.
+
+**Preferred — author the whole block tree in the create (or update) call.** Pass the full `blocks` array, including nested blocks, directly in `content`:
 
 ```
-sulu_article_block_add(articleUuid, locale, blockType, blockProperty, blockData)
+sulu_article_create(locale, template, title, content={
+    "url": "/my-article",
+    "blocks": [
+        {"type": "text", "content": "<p>Intro…</p>"},
+        {"type": "section", "title": "Details", "blocks": [
+            {"type": "text", "content": "<p>Nested…</p>"}
+        ]}
+    ]
+})
 ```
 
-- Get available block types and their fields from `sulu_get_context` — the keys you pass in `blockData` must match the **field names defined in the block type**, not arbitrary labels.
-- The `blockProperty` must match the template's block field name (e.g., "blocks", "content").
-- Pass `blockData` as a flat object mapping field names to values: `blockData={"title": "Section Title", "description": "<p>Body</p>"}`. Do **not** wrap fields in Sulu's internal `{name, value}` storage shape — that is rejected.
-- Add blocks in order — each is appended at the end, or pass `position` for specific placement.
-- **Verify after the first block.** Before adding 5+ blocks, add one, then call `sulu_article_get` (or `sulu_block_list`) and confirm the block fields rendered the values you expect. Cheaper to fix a shape mismatch on block #1 than on block #10.
+Block `_id`s are assigned automatically, and unknown block fields are rejected **before any write** (you get an actionable error instead of a silently-empty block). This is the fastest, most reliable path for a complete draft.
+
+**Incremental — refine individual blocks afterward** with `sulu_block_add(type="article", uuid, …)`, `sulu_block_update`, `sulu_block_reorder`, `sulu_block_remove`. Use these to tweak one block without resending the whole tree.
+
+For both paths:
+- Get available block types and their fields from `sulu_get_context` — the keys must match the **field names defined in the block type**, not arbitrary labels.
+- The block property name (e.g., "blocks", "content") must match the template.
+- Pass block fields as a flat object: `{"type": "text", "content": "<p>…</p>"}`. Do **not** use Sulu's internal `{name, value}` storage shape — it is rejected.
+- **Verify the shape early.** On a long draft, author a couple of blocks first, call `sulu_article_get` (or `sulu_block_list`), and confirm the fields rendered as expected before committing to a large tree.
 
 #### Step 5: Review and Publish
 
@@ -209,7 +220,7 @@ sulu_article_block_add(articleUuid, locale, blockType, blockProperty, blockData)
 sulu_article_get(uuid, locale)           → verify the article looks correct
 sulu_block_list(type="article", uuid)    → check block content if many blocks
 → Ask user: "Ready to publish?"
-sulu_article_publish(uuid, locale)       → only after user confirms
+sulu_content_publish(type="article", uuid, locale)       → only after user confirms
 ```
 
 ### Finding Articles by Keyword
@@ -232,8 +243,8 @@ sulu_article_get(uuid, locale)
 2. **Read block details:** `sulu_block_list(type="article", uuid, locale, blockProperty)` for full content
 3. **Update metadata:** `sulu_article_update(uuid, locale, title="New Title")` — only pass changed fields
 4. **Update a block:** `sulu_block_update(type="article", uuid, locale, blockId, blockData)` — only pass changed fields
-5. **Add/remove blocks:** Use `sulu_article_block_add` / `sulu_article_block_remove`
-6. **Re-publish:** After any edit, the article returns to draft — call `sulu_article_publish` to go live again
+5. **Add/remove blocks:** Use `sulu_block_add(type="article", ...)` / `sulu_block_remove(type="article", ...)`
+6. **Re-publish:** After any edit, the article returns to draft — call `sulu_content_publish(type="article", ...)` to go live again
 
 ### Article Content Tips
 
@@ -252,10 +263,10 @@ Pages form the site structure — homepage, about, services, contact, etc. They 
 ### Page Creation Workflow
 
 1. **Get the site tree:** `sulu_page_tree(webspace)` — find the parent page UUID
-2. **Get context:** `sulu_get_context(webspace)` — available templates and block types
-3. **Create the page:** `sulu_page_create(webspace, locale, template, title, parentId)` — URL auto-generates from title
-4. **Add blocks:** `sulu_block_add(pageUuid, locale, blockType, blockProperty, blockData)`
-5. **Verify and publish:** `sulu_page_get` → user approval → `sulu_page_publish`
+2. **Get context:** `sulu_get_context()` — available templates and block types
+3. **Create the page with its blocks in one call** (preferred): `sulu_page_create(webspace, locale, template, title, parentId, content={"blocks": [ … nested blocks … ]})` — URL auto-generates from the title, block `_id`s are assigned automatically, and unknown block fields are rejected before any write.
+4. **Refine if needed:** use `sulu_block_add(type="page", uuid, …)` / `sulu_block_update` / `sulu_block_reorder` to tweak individual blocks without resending the whole tree.
+5. **Verify and publish:** `sulu_page_get` → user approval → `sulu_content_publish(type="page", ...)`
 
 ### Editing Existing Pages
 
@@ -284,6 +295,7 @@ Pages form the site structure — homepage, about, services, contact, etc. They 
 - Write descriptive URL slugs
 - For FAQ content, structure questions as users would search them
 - Use categories and tags consistently for content organization and discoverability
+- **Set SEO and excerpt in the create/update call.** `sulu_page_create` / `sulu_page_update` / `sulu_article_create` / `sulu_article_update` accept optional `seo` and `excerpt` objects keyed by the project's field names. Call `sulu_get_context` first — it returns `seoFields` and `excerptFields` listing the exact field names and types for this project (e.g. `title`, `description`, `keywords`, `canonicalUrl`, `seoNoIndex` for SEO; `title`, `description`, `more`, `image`, `icon`, `excerptCategories`, `excerptTags` for excerpt). SEO and excerpt data are included in the output of `sulu_page_get` / `sulu_article_get`.
 
 ### Block Best Practices
 

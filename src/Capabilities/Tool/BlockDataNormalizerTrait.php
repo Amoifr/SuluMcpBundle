@@ -67,6 +67,39 @@ trait BlockDataNormalizerTrait
     }
 
     /**
+     * Normalize block order indices from MCP clients.
+     *
+     * Some clients keep stale schemas and send numeric indices as strings. Treat
+     * those as integers while rejecting non-index values.
+     *
+     * @param array<mixed> $newOrder
+     *
+     * @return list<int>|null
+     */
+    private function normalizeBlockOrder(array $newOrder): ?array
+    {
+        $normalized = [];
+
+        foreach ($newOrder as $index) {
+            if (\is_int($index)) {
+                $normalized[] = $index;
+
+                continue;
+            }
+
+            if (\is_string($index) && \preg_match('/^\d+$/', $index)) {
+                $normalized[] = (int) $index;
+
+                continue;
+            }
+
+            return null;
+        }
+
+        return $normalized;
+    }
+
+    /**
      * Recursively convert all array keys to strings.
      * Sulu's MetadataResolver requires string keys (it uses str_contains() on keys).
      *
@@ -83,5 +116,36 @@ trait BlockDataNormalizerTrait
         }
 
         return $result;
+    }
+
+    /**
+     * Normalize content from AI clients that may send it as a list instead of a flat object.
+     *
+     * Handles: [{"article": "..."}] → ["article" => "..."]
+     * Handles: [{"name": "article", "value": "..."}] → ["article" => "..."]
+     * Passes through: {"article": "..."} → ["article" => "..."]
+     *
+     * @param array<mixed> $content
+     *
+     * @return array<string, mixed>
+     */
+    public static function normalizeContent(array $content): array
+    {
+        if ([] !== $content && !\array_is_list($content)) {
+            return $content;
+        }
+
+        $normalized = [];
+        foreach ($content as $item) {
+            if (\is_array($item)) {
+                if (isset($item['name'], $item['value'])) {
+                    $normalized[(string) $item['name']] = $item['value'];
+                } else {
+                    $normalized = \array_merge($normalized, $item);
+                }
+            }
+        }
+
+        return $normalized;
     }
 }

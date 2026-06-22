@@ -5,24 +5,36 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Capability\Attribute\Schema;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Sulu\Article\Application\Message\ModifyArticleMessage;
+use Sulu\Article\Domain\Model\ArticleInterface;
+use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver;
 use Sulu\McpServerBundle\Capabilities\Tool\Page\BlockRemoveTool;
 use Sulu\Page\Application\Message\ModifyPageMessage;
 use Sulu\Page\Domain\Model\PageInterface;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
+use Sulu\Snippet\Application\Message\ModifySnippetMessage;
+use Sulu\Snippet\Domain\Model\SnippetInterface;
+use Sulu\Snippet\Domain\Repository\SnippetRepositoryInterface;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
 #[CoversClass(BlockRemoveTool::class)]
+#[CoversClass(ContentTypeResolver::class)]
 final class BlockRemoveToolTest extends TestCase
 {
     private MessageBusInterface&MockObject $messageBus;
     private PageRepositoryInterface&MockObject $pageRepository;
+    private ArticleRepositoryInterface&MockObject $articleRepository;
+    private SnippetRepositoryInterface&MockObject $snippetRepository;
     private ContentManagerInterface&MockObject $contentManager;
     private BlockRemoveTool $tool;
 
@@ -30,47 +42,84 @@ final class BlockRemoveToolTest extends TestCase
     {
         $this->messageBus = $this->createMock(MessageBusInterface::class);
         $this->pageRepository = $this->createMock(PageRepositoryInterface::class);
+        $this->articleRepository = $this->createMock(ArticleRepositoryInterface::class);
+        $this->snippetRepository = $this->createMock(SnippetRepositoryInterface::class);
         $this->contentManager = $this->createMock(ContentManagerInterface::class);
-        $this->tool = new BlockRemoveTool($this->messageBus, $this->pageRepository, $this->contentManager);
+        $this->tool = new BlockRemoveTool(
+            $this->messageBus,
+            new ContentTypeResolver($this->pageRepository, $this->articleRepository, $this->snippetRepository),
+            $this->contentManager,
+        );
     }
 
-    public function testRemoveBlockRemovesAtIndex(): void
+    /**
+     * @return iterable<string, array{string, class-string}>
+     */
+    public static function contentTypeProvider(): iterable
     {
-        $existingBlocks = [
+        yield 'page' => ['page', ModifyPageMessage::class];
+        yield 'article' => ['article', ModifyArticleMessage::class];
+        yield 'snippet' => ['snippet', ModifySnippetMessage::class];
+    }
+
+    /**
+     * @param class-string $expectedMessageClass
+     */
+    #[DataProvider('contentTypeProvider')]
+    public function testRemoveBlockDispatchesCorrectMessagePerType(string $type, string $expectedMessageClass): void
+    {
+        $this->setupEntityWithBlocks($type, [
             ['type' => 'text', 'title' => 'First'],
             ['type' => 'image', 'src' => '/img.jpg'],
             ['type' => 'text', 'title' => 'Third'],
-        ];
-        $this->setupPageWithBlocks($existingBlocks);
+        ]);
 
         $this->messageBus->expects($this->once())
             ->method('dispatch')
-            ->willReturnCallback(function (Envelope $envelope) {
-                $message = $envelope->getMessage();
-                $this->assertInstanceOf(ModifyPageMessage::class, $message);
+            ->willReturnCallback(function (Envelope $envelope) use ($expectedMessageClass) {
+                $this->assertInstanceOf($expectedMessageClass, $envelope->getMessage());
 
-                return $envelope->with(new HandledStamp($this->createPageMock(), 'handler'));
+                return $envelope->with(new HandledStamp(null, 'handler'));
             });
 
-        $result = $this->tool->removeBlock('test-uuid', 'en', 'blocks', 1);
+        $result = $this->tool->removeBlock($type, 'test-uuid', 'en', 'blocks', blockIndex: 1);
 
         $this->assertTrue($result['success']);
         $this->assertSame(2, $result['blockCount']);
         $this->assertSame(1, $result['removedIndex']);
+        $this->assertSame('test-uuid', $result['uuid']);
     }
 
-    public function testRemoveBlockReturnsErrorForInvalidIndex(): void
+    public function testRemoveBlockReturnsErrorForUnsupportedType(): void
     {
-        $existingBlocks = [
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $result = $this->tool->removeBlock('media', 'test-uuid', 'en', 'blocks', blockIndex: 0);
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('Unsupported content type', $result['error']);
+    }
+
+    public function testRemoveBlockReturnsErrorWhenEntityNotFound(): void
+    {
+        $this->pageRepository->method('getOneBy')->willThrowException(new \RuntimeException('not found'));
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $result = $this->tool->removeBlock('page', 'missing-uuid', 'en', 'blocks', blockIndex: 0);
+
+        $this->assertArrayHasKey('error', $result);
+    }
+
+    public function testRemoveBlockReturnsErrorForOutOfRangeIndex(): void
+    {
+        $this->setupEntityWithBlocks('page', [
             ['type' => 'text', 'title' => 'First'],
             ['type' => 'text', 'title' => 'Second'],
-        ];
-        $this->setupPageWithBlocks($existingBlocks);
+        ]);
 
-        $this->messageBus->expects($this->never())
-            ->method('dispatch');
+        $this->messageBus->expects($this->never())->method('dispatch');
 
-        $result = $this->tool->removeBlock('test-uuid', 'en', 'blocks', 5);
+        $result = $this->tool->removeBlock('page', 'test-uuid', 'en', 'blocks', blockIndex: 5);
 
         $this->assertArrayHasKey('error', $result);
         $this->assertStringContainsString('out of range', $result['error']);
@@ -78,55 +127,16 @@ final class BlockRemoveToolTest extends TestCase
 
     public function testRemoveBlockReturnsErrorForNegativeIndex(): void
     {
-        $existingBlocks = [
+        $this->setupEntityWithBlocks('page', [
             ['type' => 'text', 'title' => 'First'],
-        ];
-        $this->setupPageWithBlocks($existingBlocks);
+        ]);
 
-        $this->messageBus->expects($this->never())
-            ->method('dispatch');
+        $this->messageBus->expects($this->never())->method('dispatch');
 
-        $result = $this->tool->removeBlock('test-uuid', 'en', 'blocks', -1);
+        $result = $this->tool->removeBlock('page', 'test-uuid', 'en', 'blocks', blockIndex: -1);
 
         $this->assertArrayHasKey('error', $result);
         $this->assertStringContainsString('out of range', $result['error']);
-    }
-
-    public function testRemoveBlockReturnsSuccessWithRemovedIndex(): void
-    {
-        $existingBlocks = [
-            ['type' => 'text', 'title' => 'First'],
-            ['type' => 'text', 'title' => 'Second'],
-        ];
-        $this->setupPageWithBlocks($existingBlocks);
-
-        $this->messageBus->method('dispatch')
-            ->willReturnCallback(fn (Envelope $envelope) => $envelope->with(new HandledStamp($this->createPageMock(), 'handler')));
-
-        $result = $this->tool->removeBlock('test-uuid', 'en', 'blocks', 0);
-
-        $this->assertArrayHasKey('removedIndex', $result);
-        $this->assertSame(0, $result['removedIndex']);
-        $this->assertSame(1, $result['blockCount']);
-    }
-
-    public function testRemoveBlockPreservesOtherBlocks(): void
-    {
-        $existingBlocks = [
-            ['type' => 'text', 'title' => 'Keep First'],
-            ['type' => 'image', 'src' => '/remove-me.jpg'],
-            ['type' => 'text', 'title' => 'Keep Last'],
-        ];
-        $this->setupPageWithBlocks($existingBlocks);
-
-        $this->messageBus->expects($this->once())
-            ->method('dispatch')
-            ->willReturnCallback(fn (Envelope $envelope) => $envelope->with(new HandledStamp($this->createPageMock(), 'handler')));
-
-        $result = $this->tool->removeBlock('test-uuid', 'en', 'blocks', 1);
-
-        $this->assertTrue($result['success']);
-        $this->assertSame(2, $result['blockCount']);
     }
 
     public function testRemoveBlockMethodHasMcpToolAttribute(): void
@@ -140,30 +150,127 @@ final class BlockRemoveToolTest extends TestCase
         $this->assertSame('sulu_block_remove', $instance->name);
     }
 
+    public function testRemoveByBlockIdRemovesCorrectBlock(): void
+    {
+        $this->setupEntityWithBlocks('page', [
+            ['_id' => 'aaa', 'type' => 'text', 'title' => 'First'],
+            ['_id' => 'bbb', 'type' => 'image', 'src' => '/img.jpg'],
+            ['_id' => 'ccc', 'type' => 'text', 'title' => 'Third'],
+        ]);
+
+        $capturedData = null;
+        $this->messageBus->expects($this->once())
+            ->method('dispatch')
+            ->willReturnCallback(function (Envelope $envelope) use (&$capturedData) {
+                $this->assertInstanceOf(ModifyPageMessage::class, $envelope->getMessage());
+                $capturedData = $envelope->getMessage()->getData();
+
+                return $envelope->with(new HandledStamp(null, 'handler'));
+            });
+
+        $result = $this->tool->removeBlock('page', 'test-uuid', 'en', 'blocks', blockId: 'bbb');
+
+        $this->assertTrue($result['success']);
+        $this->assertSame(1, $result['removedIndex']);
+        $this->assertSame(2, $result['blockCount']);
+        $this->assertSame('test-uuid', $result['uuid']);
+
+        $this->assertIsArray($capturedData);
+        $remainingBlocks = $capturedData['blocks'];
+        $this->assertCount(2, $remainingBlocks);
+        $remainingIds = \array_column($remainingBlocks, '_id');
+        $this->assertContains('aaa', $remainingIds);
+        $this->assertContains('ccc', $remainingIds);
+        $this->assertNotContains('bbb', $remainingIds);
+    }
+
+    public function testRemoveByBlockIdReturnsErrorForUnknownId(): void
+    {
+        $this->setupEntityWithBlocks('page', [
+            ['_id' => 'aaa', 'type' => 'text', 'title' => 'First'],
+            ['_id' => 'bbb', 'type' => 'text', 'title' => 'Second'],
+        ]);
+
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $result = $this->tool->removeBlock('page', 'test-uuid', 'en', 'blocks', blockId: 'missing');
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertArrayHasKey('hint', $result);
+        $this->assertStringContainsString('missing', $result['error']);
+        $this->assertStringContainsString('sulu_block_list', $result['hint']);
+    }
+
+    public function testRemoveRequiresBlockIndexOrBlockId(): void
+    {
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $result = $this->tool->removeBlock('page', 'test-uuid', 'en', 'blocks');
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertArrayHasKey('hint', $result);
+        $this->assertStringContainsString('blockIndex', $result['error']);
+        $this->assertStringContainsString('blockId', $result['error']);
+    }
+
+    public function testRemoveRejectsBothBlockIndexAndBlockId(): void
+    {
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $result = $this->tool->removeBlock('page', 'test-uuid', 'en', 'blocks', blockIndex: 0, blockId: 'aaa');
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('not both', $result['error']);
+    }
+
+    public function testBlockIndexParameterHasSchemaAttribute(): void
+    {
+        $reflection = new \ReflectionMethod(BlockRemoveTool::class, 'removeBlock');
+        $parameter = $reflection->getParameters()[4];
+        $this->assertSame('blockIndex', $parameter->getName());
+        $attributes = $parameter->getAttributes(Schema::class);
+
+        $this->assertCount(1, $attributes);
+        $schema = $attributes[0]->newInstance();
+        $this->assertSame('integer', $schema->type);
+    }
+
+    public function testBlockIdParameterHasSchemaAttribute(): void
+    {
+        $reflection = new \ReflectionMethod(BlockRemoveTool::class, 'removeBlock');
+        $parameter = $reflection->getParameters()[5];
+        $this->assertSame('blockId', $parameter->getName());
+        $attributes = $parameter->getAttributes(Schema::class);
+
+        $this->assertCount(1, $attributes);
+        $schema = $attributes[0]->newInstance();
+        $this->assertSame('string', $schema->type);
+    }
+
     /**
      * @param list<array<string, mixed>> $blocks
      */
-    private function setupPageWithBlocks(array $blocks): void
+    private function setupEntityWithBlocks(string $type, array $blocks): void
     {
-        $page = $this->createMock(PageInterface::class);
-        $page->method('getUuid')->willReturn('test-uuid');
+        $entity = $this->createMock(match ($type) {
+            'page' => PageInterface::class,
+            'article' => ArticleInterface::class,
+            'snippet' => SnippetInterface::class,
+            default => PageInterface::class,
+        });
 
-        $this->pageRepository->method('getOneBy')->willReturn($page);
+        match ($type) {
+            'article' => $this->articleRepository->method('getOneBy')->willReturn($entity),
+            'snippet' => $this->snippetRepository->method('getOneBy')->willReturn($entity),
+            default => $this->pageRepository->method('getOneBy')->willReturn($entity),
+        };
 
         $dimensionContent = $this->createMock(DimensionContentInterface::class);
         $this->contentManager->method('resolve')->willReturn($dimensionContent);
         $this->contentManager->method('normalize')->willReturn([
             'template' => 'default',
-            'title' => 'Test Page',
+            'title' => 'Test',
             'blocks' => $blocks,
         ]);
-    }
-
-    private function createPageMock(): PageInterface&MockObject
-    {
-        $page = $this->createMock(PageInterface::class);
-        $page->method('getUuid')->willReturn('test-uuid');
-
-        return $page;
     }
 }

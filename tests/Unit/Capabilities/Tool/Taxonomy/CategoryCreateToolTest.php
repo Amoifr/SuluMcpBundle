@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Taxonomy;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Capability\Attribute\Schema;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -76,6 +77,23 @@ final class CategoryCreateToolTest extends TestCase
 
         $this->assertArrayHasKey('error', $result);
         $this->assertStringContainsString('No authenticated user', $result['error']);
+        $this->assertTrue(\array_key_exists('hint', $result));
+        $this->assertIsString($result['hint']);
+        $this->assertNotEmpty($result['hint']);
+    }
+
+    public function testCreateCategoryReturnsHintOnSaveFailure(): void
+    {
+        $this->mockAuthenticatedUser(1);
+
+        $this->categoryManager->method('save')->willThrowException(new \RuntimeException('Duplicate key'));
+
+        $result = $this->tool->createCategory('en', 'Duplicate');
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertTrue(\array_key_exists('hint', $result));
+        $this->assertIsString($result['hint']);
+        $this->assertNotEmpty($result['hint']);
     }
 
     public function testMethodHasMcpToolAttribute(): void
@@ -85,6 +103,20 @@ final class CategoryCreateToolTest extends TestCase
 
         $this->assertCount(1, $attributes);
         $this->assertSame('sulu_category_create', $attributes[0]->newInstance()->name);
+    }
+
+    public function testParentIdParameterHasSchemaAttribute(): void
+    {
+        $reflection = new \ReflectionMethod(CategoryCreateTool::class, 'createCategory');
+        $parameter = $reflection->getParameters()[3];
+        $this->assertSame('parentId', $parameter->getName());
+
+        $attributes = $parameter->getAttributes(Schema::class);
+        $this->assertCount(1, $attributes);
+
+        $schema = $attributes[0]->newInstance();
+        $this->assertStringContainsString('Integer', $schema->description);
+        $this->assertStringContainsString('NOT a UUID', $schema->description);
     }
 
     private function mockAuthenticatedUser(int $userId): void

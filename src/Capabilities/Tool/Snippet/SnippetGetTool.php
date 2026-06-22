@@ -11,6 +11,9 @@ use Sulu\McpServerBundle\Capabilities\Tool\ContentNormalizerTrait;
 use Sulu\Snippet\Domain\Exception\SnippetNotFoundException;
 use Sulu\Snippet\Domain\Repository\SnippetRepositoryInterface;
 
+/**
+ * @internal
+ */
 class SnippetGetTool
 {
     use ContentNormalizerTrait;
@@ -57,6 +60,7 @@ class SnippetGetTool
         } catch (SnippetNotFoundException) {
             return [
                 'error' => 'Snippet not found: '.$uuid,
+                'hint' => 'Verify the UUID and locale. Use sulu_snippet_list to find snippets.',
             ];
         }
     }
