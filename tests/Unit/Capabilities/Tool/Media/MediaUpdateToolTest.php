@@ -10,7 +10,11 @@ use PHPUnit\Framework\TestCase;
 use Sulu\Bundle\MediaBundle\Api\Media;
 use Sulu\Bundle\MediaBundle\Media\Manager\MediaManagerInterface;
 use Sulu\Bundle\SecurityBundle\Entity\User;
+use Sulu\McpServerBundle\AdminLink\AdminLinkGenerator;
+use Sulu\McpServerBundle\AdminLink\Provider\MediaAdminLinkProvider;
 use Sulu\McpServerBundle\Capabilities\Tool\Media\MediaUpdateTool;
+use Sulu\McpServerBundle\Tests\Support\StubViewRegistry;
+use Symfony\Component\Routing\RouterInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 
@@ -24,7 +28,12 @@ class MediaUpdateToolTest extends TestCase
     {
         $this->mediaManager = $this->createMock(MediaManagerInterface::class);
         $this->tokenStorage = $this->createMock(TokenStorageInterface::class);
-        $this->tool = new MediaUpdateTool($this->mediaManager, $this->tokenStorage);
+
+        $router = $this->createMock(RouterInterface::class);
+        $router->method('generate')->willReturn('https://example.com/admin/');
+        $adminLinkGenerator = new AdminLinkGenerator($router, [new MediaAdminLinkProvider(new StubViewRegistry())]);
+
+        $this->tool = new MediaUpdateTool($this->mediaManager, $this->tokenStorage, $adminLinkGenerator);
     }
 
     public function testUpdateMediaSuccessfully(): void
@@ -58,6 +67,7 @@ class MediaUpdateToolTest extends TestCase
         $this->assertTrue($result['success']);
         $this->assertSame(42, $result['id']);
         $this->assertSame('Updated Title', $result['title']);
+        $this->assertSame('https://example.com/admin/#/media/en/42', $result['admin_url']);
     }
 
     public function testUpdateMediaReturnsErrorWhenNoUser(): void

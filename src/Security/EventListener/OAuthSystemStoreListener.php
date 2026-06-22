@@ -8,16 +8,11 @@ use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 
 /**
- * Sets the Sulu system context for MCP endpoint requests.
+ * Sets the Sulu system on kernel.request for MCP requests.
  *
- * The Sulu UserProvider requires a system to be set in the SystemStore
- * to verify that the user has a role in that system. For admin requests,
- * Sulu sets this via SuluAdminRequestListener. For MCP requests (which
- * go through the OAuth firewall, not the admin firewall), no system is
- * set by default — causing UserNotFoundException even for valid users.
- *
- * This listener sets the system on kernel.request (before authentication),
- * so the UserProvider can find users when the OAuth authenticator loads them.
+ * Sulu's UserProvider needs a system in the SystemStore to check the user's role.
+ * SuluAdminRequestListener sets it for admin requests, but MCP uses the OAuth
+ * firewall — without this, valid users hit UserNotFoundException.
  */
 class OAuthSystemStoreListener
 {

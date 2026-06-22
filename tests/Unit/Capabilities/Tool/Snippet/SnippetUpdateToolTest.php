@@ -17,9 +17,12 @@ use Sulu\Bundle\AdminBundle\Metadata\MetadataInterface;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\McpServerBundle\AdminLink\AdminLinkGenerator;
+use Sulu\McpServerBundle\AdminLink\Provider\SnippetAdminLinkProvider;
 use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver;
 use Sulu\McpServerBundle\Capabilities\Tool\Snippet\SnippetUpdateTool;
+use Sulu\McpServerBundle\Tests\Support\StubViewRegistry;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Sulu\Snippet\Application\Message\ModifySnippetMessage;
@@ -28,6 +31,7 @@ use Sulu\Snippet\Domain\Repository\SnippetRepositoryInterface;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
+use Symfony\Component\Routing\RouterInterface;
 
 #[CoversClass(SnippetUpdateTool::class)]
 final class SnippetUpdateToolTest extends TestCase
@@ -54,12 +58,17 @@ final class SnippetUpdateToolTest extends TestCase
         $this->blockIdGenerator = $this->createMock(BlockIdGeneratorInterface::class);
         $this->blockIdGenerator->method('generateId')->willReturn('gen-id');
 
+        $router = $this->createMock(RouterInterface::class);
+        $router->method('generate')->willReturn('https://example.com/admin/');
+        $adminLinkGenerator = new AdminLinkGenerator($router, [new SnippetAdminLinkProvider(new StubViewRegistry())]);
+
         $this->tool = new SnippetUpdateTool(
             $this->messageBus,
             $this->contentManager,
             new ContentTypeResolver($this->pageRepository, $this->articleRepository, $this->snippetRepository),
             new BlockDataValidator($this->formMetadataProvider),
             $this->blockIdGenerator,
+            $adminLinkGenerator,
         );
     }
 
@@ -200,6 +209,7 @@ final class SnippetUpdateToolTest extends TestCase
 
         $this->assertTrue($result['success']);
         $this->assertSame('uuid-1', $result['uuid']);
+        $this->assertSame('https://example.com/admin/#/snippets/en/uuid-1', $result['admin_url']);
     }
 
     public function testUpdateSnippetReturnsErrorWhenNotFound(): void
@@ -298,12 +308,15 @@ final class SnippetUpdateToolTest extends TestCase
         $this->formMetadataProvider->method('getMetadata')
             ->willReturnCallback(fn (string $key) => 'snippet' === $key ? $typed : null);
 
+        $router = $this->createMock(RouterInterface::class);
+        $router->method('generate')->willReturn('https://example.com/admin/');
         $this->tool = new SnippetUpdateTool(
             $this->messageBus,
             $this->contentManager,
             new ContentTypeResolver($this->pageRepository, $this->articleRepository, $this->snippetRepository),
             new BlockDataValidator($this->formMetadataProvider),
             $this->blockIdGenerator,
+            new AdminLinkGenerator($router, [new SnippetAdminLinkProvider(new StubViewRegistry())]),
         );
 
         $existingSnippet = $this->createMock(SnippetInterface::class);

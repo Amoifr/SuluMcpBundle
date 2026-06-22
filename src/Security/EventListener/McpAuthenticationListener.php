@@ -14,15 +14,9 @@ use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface;
 
 /**
- * Returns 401 with WWW-Authenticate header for unauthenticated MCP requests.
- *
- * Per the MCP authorization spec (RFC 9728), the response must include a
- * WWW-Authenticate header with `resource_metadata` pointing to the
- * Protected Resource Metadata (PRM) endpoint so MCP clients can discover
- * the OAuth authorization server.
- *
- * Higher priority (10) than McpExceptionListener (5) so authentication
- * errors are handled before the generic exception handler.
+ * Returns 401 + WWW-Authenticate for unauthenticated MCP requests, pointing
+ * clients to the PRM endpoint (RFC 9728) for OAuth discovery. Priority 10 so
+ * it runs before McpExceptionListener (5).
  */
 #[AsEventListener(event: KernelEvents::EXCEPTION, priority: 10)]
 class McpAuthenticationListener implements AuthenticationEntryPointInterface

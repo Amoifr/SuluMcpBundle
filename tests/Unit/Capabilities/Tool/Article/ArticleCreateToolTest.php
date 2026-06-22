@@ -13,19 +13,26 @@ use Sulu\Article\Application\Message\CreateArticleMessage;
 use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FieldMetadata;
+use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormGroup;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\TypedFormMetadata;
+use Sulu\Bundle\AdminBundle\Metadata\GroupProviderInterface;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataInterface;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\McpServerBundle\AdminLink\AdminLinkGenerator;
+use Sulu\McpServerBundle\AdminLink\Provider\ArticleAdminLinkProvider;
 use Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleCreateTool;
+use Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleGroupResolver;
 use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper;
+use Sulu\McpServerBundle\Tests\Support\StubViewRegistry;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
+use Symfony\Component\Routing\RouterInterface;
 
 #[CoversClass(ArticleCreateTool::class)]
 final class ArticleCreateToolTest extends TestCase
@@ -35,6 +42,7 @@ final class ArticleCreateToolTest extends TestCase
     private BlockIdGeneratorInterface&MockObject $blockIdGenerator;
     private MetadataProviderInterface&MockObject $formMetadataProvider;
     private MetadataProviderInterface&MockObject $mapperMetadataProvider;
+    private ArticleGroupResolver $articleGroupResolver;
     private ArticleCreateTool $tool;
 
     protected function setUp(): void
@@ -56,12 +64,20 @@ final class ArticleCreateToolTest extends TestCase
                 default => $this->makeFormMeta([]),
             },
         );
+        $router = $this->createMock(RouterInterface::class);
+        $router->method('generate')->willReturn('https://example.com/admin/');
+        $adminLinkGenerator = new AdminLinkGenerator($router, [new ArticleAdminLinkProvider(new StubViewRegistry())]);
+        $groupProvider = $this->createMock(GroupProviderInterface::class);
+        $groupProvider->method('getGroups')->willReturn([]);
+        $this->articleGroupResolver = new ArticleGroupResolver($groupProvider, $this->contentManager);
         $this->tool = new ArticleCreateTool(
             $this->messageBus,
             $this->contentManager,
             new BlockDataValidator($this->formMetadataProvider),
             $this->blockIdGenerator,
             new ContentMetadataMapper($this->mapperMetadataProvider),
+            $adminLinkGenerator,
+            $this->articleGroupResolver,
         );
     }
 
@@ -117,6 +133,43 @@ final class ArticleCreateToolTest extends TestCase
 
         $this->assertTrue($result['success']);
         $this->assertSame('article-uuid-123', $result['uuid']);
+        $this->assertSame('https://example.com/admin/#/en/default/article-uuid-123', $result['admin_url']);
+    }
+
+    public function testCreateArticleUsesResolvedCustomGroupInAdminUrl(): void
+    {
+        $mockArticle = $this->createMock(ArticleInterface::class);
+        $mockArticle->method('getUuid')->willReturn('custom-uuid');
+
+        $this->messageBus->method('dispatch')
+            ->willReturnCallback(fn (Envelope $envelope) => $envelope->with(new HandledStamp($mockArticle, 'handler')));
+
+        $mockDimensionContent = $this->createMock(DimensionContentInterface::class);
+        $this->contentManager->method('resolve')->willReturn($mockDimensionContent);
+        $this->contentManager->method('normalize')->willReturn(['title' => 'Custom', 'url' => '/custom']);
+
+        $groupProvider = $this->createMock(GroupProviderInterface::class);
+        $groupProvider->method('getGroups')->willReturn([
+            'blog-group' => new FormGroup('blog-group', 'Blog', ['blog']),
+        ]);
+
+        $router = $this->createMock(RouterInterface::class);
+        $router->method('generate')->willReturn('https://example.com/admin/');
+
+        $tool = new ArticleCreateTool(
+            $this->messageBus,
+            $this->contentManager,
+            new BlockDataValidator($this->formMetadataProvider),
+            $this->blockIdGenerator,
+            new ContentMetadataMapper($this->mapperMetadataProvider),
+            new AdminLinkGenerator($router, [new ArticleAdminLinkProvider(new StubViewRegistry())]),
+            new ArticleGroupResolver($groupProvider, $this->contentManager),
+        );
+
+        $result = $tool->createArticle('en', 'blog', 'Custom', null, ['url' => '/custom']);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('https://example.com/admin/#/en/blog-group/custom-uuid', $result['admin_url']);
     }
 
     public function testCreateArticleIncludesTypeInData(): void
@@ -434,12 +487,16 @@ final class ArticleCreateToolTest extends TestCase
         $this->formMetadataProvider->method('getMetadata')
             ->willReturnCallback(fn (string $key) => 'article' === $key ? $typed : null);
 
+        $router = $this->createMock(RouterInterface::class);
+        $router->method('generate')->willReturn('https://example.com/admin/');
         $this->tool = new ArticleCreateTool(
             $this->messageBus,
             $this->contentManager,
             new BlockDataValidator($this->formMetadataProvider),
             $this->blockIdGenerator,
             new ContentMetadataMapper($this->mapperMetadataProvider),
+            new AdminLinkGenerator($router, [new ArticleAdminLinkProvider(new StubViewRegistry())]),
+            $this->articleGroupResolver,
         );
 
         $this->messageBus->expects($this->never())->method('dispatch');

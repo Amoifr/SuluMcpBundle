@@ -16,9 +16,12 @@ use Sulu\Bundle\AdminBundle\Metadata\MetadataInterface;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\McpServerBundle\AdminLink\AdminLinkGenerator;
+use Sulu\McpServerBundle\AdminLink\Provider\PageAdminLinkProvider;
 use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper;
 use Sulu\McpServerBundle\Capabilities\Tool\Page\PageUpdateTool;
+use Sulu\McpServerBundle\Tests\Support\StubViewRegistry;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Sulu\Page\Application\Message\ModifyPageMessage;
 use Sulu\Page\Domain\Model\PageInterface;
@@ -26,6 +29,7 @@ use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
+use Symfony\Component\Routing\RouterInterface;
 
 #[CoversClass(PageUpdateTool::class)]
 final class PageUpdateToolTest extends TestCase
@@ -36,6 +40,7 @@ final class PageUpdateToolTest extends TestCase
     private MetadataProviderInterface&MockObject $formMetadataProvider;
     private MetadataProviderInterface&MockObject $mapperMetadataProvider;
     private BlockIdGeneratorInterface&MockObject $blockIdGenerator;
+    private AdminLinkGenerator $adminLinkGenerator;
     private PageUpdateTool $tool;
 
     protected function setUp(): void
@@ -59,6 +64,10 @@ final class PageUpdateToolTest extends TestCase
         $this->blockIdGenerator = $this->createMock(BlockIdGeneratorInterface::class);
         $this->blockIdGenerator->method('generateId')->willReturn('gen-id');
 
+        $router = $this->createMock(RouterInterface::class);
+        $router->method('generate')->willReturn('https://example.com/admin/');
+        $this->adminLinkGenerator = new AdminLinkGenerator($router, [new PageAdminLinkProvider(new StubViewRegistry())]);
+
         $this->tool = new PageUpdateTool(
             $this->messageBus,
             $this->contentManager,
@@ -66,6 +75,7 @@ final class PageUpdateToolTest extends TestCase
             new BlockDataValidator($this->formMetadataProvider),
             $this->blockIdGenerator,
             new ContentMetadataMapper($this->mapperMetadataProvider),
+            $this->adminLinkGenerator,
         );
     }
 
@@ -199,10 +209,16 @@ final class PageUpdateToolTest extends TestCase
         $this->messageBus->method('dispatch')
             ->willReturnCallback(fn (Envelope $envelope) => $envelope->with(new HandledStamp($mockPage, 'handler')));
 
+        $mockPage->method('getWebspaceKey')->willReturn('example');
+
         $result = $this->tool->updatePage('uuid-1', 'en', 'Updated Title');
 
         $this->assertTrue($result['success']);
         $this->assertSame('uuid-1', $result['uuid']);
+        $this->assertSame(
+            'https://example.com/admin/#/webspaces/example/pages/en/uuid-1',
+            $result['admin_url'],
+        );
     }
 
     public function testUpdatePageReturnsErrorOnException(): void
@@ -335,6 +351,7 @@ final class PageUpdateToolTest extends TestCase
             new BlockDataValidator($this->formMetadataProvider),
             $this->blockIdGenerator,
             new ContentMetadataMapper($this->mapperMetadataProvider),
+            $this->adminLinkGenerator,
         );
 
         // Set up the read side so we reach the content branch

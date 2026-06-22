@@ -11,7 +11,11 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Sulu\Bundle\CategoryBundle\Category\CategoryManagerInterface;
 use Sulu\Bundle\CategoryBundle\Entity\CategoryInterface;
+use Sulu\McpServerBundle\AdminLink\AdminLinkGenerator;
+use Sulu\McpServerBundle\AdminLink\Provider\CategoryAdminLinkProvider;
 use Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\CategoryCreateTool;
+use Sulu\McpServerBundle\Tests\Support\StubViewRegistry;
+use Symfony\Component\Routing\RouterInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -27,7 +31,12 @@ final class CategoryCreateToolTest extends TestCase
     {
         $this->categoryManager = $this->createMock(CategoryManagerInterface::class);
         $this->tokenStorage = $this->createMock(TokenStorageInterface::class);
-        $this->tool = new CategoryCreateTool($this->categoryManager, $this->tokenStorage);
+
+        $router = $this->createMock(RouterInterface::class);
+        $router->method('generate')->willReturn('https://example.com/admin/');
+        $adminLinkGenerator = new AdminLinkGenerator($router, [new CategoryAdminLinkProvider(new StubViewRegistry())]);
+
+        $this->tool = new CategoryCreateTool($this->categoryManager, $this->tokenStorage, $adminLinkGenerator);
     }
 
     public function testCreateCategoryReturnsSuccess(): void
@@ -49,6 +58,7 @@ final class CategoryCreateToolTest extends TestCase
         $this->assertSame(10, $result['id']);
         $this->assertSame('Technology', $result['name']);
         $this->assertSame('technology', $result['key']);
+        $this->assertSame('https://example.com/admin/#/categories/en/10', $result['admin_url']);
     }
 
     public function testCreateCategoryWithParentId(): void

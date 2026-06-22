@@ -11,6 +11,7 @@ use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\McpServerBundle\AdminLink\AdminLinkGeneratorInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\BlockDataNormalizerTrait;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper;
@@ -33,6 +34,8 @@ class ArticleCreateTool
         private readonly BlockDataValidator $blockDataValidator,
         private readonly BlockIdGeneratorInterface $blockIdGenerator,
         private readonly ContentMetadataMapper $contentMetadataMapper,
+        private readonly AdminLinkGeneratorInterface $adminLinkGenerator,
+        private readonly ArticleGroupResolver $articleGroupResolver,
     ) {
         $this->messageBus = $messageBus;
     }
@@ -115,11 +118,22 @@ class ArticleCreateTool
                 return $postCheckError;
             }
 
-            return [
+            $result = [
                 'success' => true,
                 'uuid' => $article->getUuid(),
                 'data' => $normalized,
             ];
+
+            $adminUrl = $this->adminLinkGenerator->generate('article', [
+                'locale' => $locale,
+                'uuid' => $article->getUuid(),
+                'group' => $this->articleGroupResolver->resolveByTemplate($template),
+            ]);
+            if (null !== $adminUrl) {
+                $result['admin_url'] = $adminUrl;
+            }
+
+            return $result;
         } catch (\Throwable $e) {
             return [
                 'error' => \sprintf('Failed to create article "%s": %s', $title, $e->getMessage()),

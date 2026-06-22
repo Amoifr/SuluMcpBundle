@@ -16,15 +16,19 @@ use Sulu\Bundle\AdminBundle\Metadata\MetadataInterface;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\McpServerBundle\AdminLink\AdminLinkGenerator;
+use Sulu\McpServerBundle\AdminLink\Provider\PageAdminLinkProvider;
 use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper;
 use Sulu\McpServerBundle\Capabilities\Tool\Page\PageCreateTool;
+use Sulu\McpServerBundle\Tests\Support\StubViewRegistry;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Sulu\Page\Application\Message\CreatePageMessage;
 use Sulu\Page\Domain\Model\PageInterface;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
+use Symfony\Component\Routing\RouterInterface;
 
 #[CoversClass(PageCreateTool::class)]
 final class PageCreateToolTest extends TestCase
@@ -34,6 +38,7 @@ final class PageCreateToolTest extends TestCase
     private MetadataProviderInterface&MockObject $formMetadataProvider;
     private MetadataProviderInterface&MockObject $mapperMetadataProvider;
     private BlockIdGeneratorInterface&MockObject $blockIdGenerator;
+    private AdminLinkGenerator $adminLinkGenerator;
     private PageCreateTool $tool;
 
     protected function setUp(): void
@@ -56,12 +61,17 @@ final class PageCreateToolTest extends TestCase
         $this->blockIdGenerator = $this->createMock(BlockIdGeneratorInterface::class);
         $this->blockIdGenerator->method('generateId')->willReturn('gen-id');
 
+        $router = $this->createMock(RouterInterface::class);
+        $router->method('generate')->willReturn('https://example.com/admin/');
+        $this->adminLinkGenerator = new AdminLinkGenerator($router, [new PageAdminLinkProvider(new StubViewRegistry())]);
+
         $this->tool = new PageCreateTool(
             $this->messageBus,
             $this->contentManager,
             new BlockDataValidator($this->formMetadataProvider),
             $this->blockIdGenerator,
             new ContentMetadataMapper($this->mapperMetadataProvider),
+            $this->adminLinkGenerator,
         );
     }
 
@@ -223,6 +233,10 @@ final class PageCreateToolTest extends TestCase
         $this->assertTrue($result['success']);
         $this->assertSame('new-page-uuid', $result['uuid']);
         $this->assertArrayHasKey('data', $result);
+        $this->assertSame(
+            'https://example.com/admin/#/webspaces/example/pages/en/new-page-uuid',
+            $result['admin_url'],
+        );
     }
 
     public function testCreatePageReturnsErrorOnException(): void
@@ -321,6 +335,7 @@ final class PageCreateToolTest extends TestCase
             new BlockDataValidator($this->formMetadataProvider),
             $this->blockIdGenerator,
             new ContentMetadataMapper($this->mapperMetadataProvider),
+            $this->adminLinkGenerator,
         );
 
         $this->messageBus->expects($this->never())->method('dispatch');

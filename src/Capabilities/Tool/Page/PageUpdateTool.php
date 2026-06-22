@@ -9,6 +9,7 @@ use Mcp\Capability\Attribute\Schema;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\McpServerBundle\AdminLink\AdminLinkGeneratorInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\BlockDataNormalizerTrait;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper;
@@ -37,6 +38,7 @@ class PageUpdateTool
         private readonly BlockDataValidator $blockDataValidator,
         private readonly BlockIdGeneratorInterface $blockIdGenerator,
         private readonly ContentMetadataMapper $contentMetadataMapper,
+        private readonly AdminLinkGeneratorInterface $adminLinkGenerator,
     ) {
         $this->messageBus = $messageBus;
     }
@@ -132,11 +134,22 @@ class PageUpdateTool
             ]);
             $normalized = $this->contentManager->normalize($dimensionContent);
 
-            return [
+            $result = [
                 'success' => true,
                 'uuid' => $updatedPage->getUuid(),
                 'data' => $this->compactContent($normalized, $this->detectBlockProperties($normalized)),
             ];
+
+            $adminUrl = $this->adminLinkGenerator->generate('page', [
+                'webspace' => $updatedPage->getWebspaceKey(),
+                'locale' => $locale,
+                'uuid' => $updatedPage->getUuid(),
+            ]);
+            if (null !== $adminUrl) {
+                $result['admin_url'] = $adminUrl;
+            }
+
+            return $result;
         } catch (\Throwable $e) {
             return [
                 'error' => \sprintf('Failed to update page %s: %s', $uuid, $e->getMessage()),

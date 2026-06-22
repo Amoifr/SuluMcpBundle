@@ -15,17 +15,23 @@ use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterfa
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FieldMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\TypedFormMetadata;
+use Sulu\Bundle\AdminBundle\Metadata\GroupProviderInterface;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataInterface;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\McpServerBundle\AdminLink\AdminLinkGenerator;
+use Sulu\McpServerBundle\AdminLink\Provider\ArticleAdminLinkProvider;
+use Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleGroupResolver;
 use Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleUpdateTool;
 use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper;
+use Sulu\McpServerBundle\Tests\Support\StubViewRegistry;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
+use Symfony\Component\Routing\RouterInterface;
 
 #[CoversClass(ArticleUpdateTool::class)]
 final class ArticleUpdateToolTest extends TestCase
@@ -36,6 +42,7 @@ final class ArticleUpdateToolTest extends TestCase
     private BlockIdGeneratorInterface&MockObject $blockIdGenerator;
     private MetadataProviderInterface&MockObject $formMetadataProvider;
     private MetadataProviderInterface&MockObject $mapperMetadataProvider;
+    private ArticleGroupResolver $articleGroupResolver;
     private ArticleUpdateTool $tool;
 
     protected function setUp(): void
@@ -58,6 +65,12 @@ final class ArticleUpdateToolTest extends TestCase
                 default => $this->makeFormMeta([]),
             },
         );
+        $router = $this->createMock(RouterInterface::class);
+        $router->method('generate')->willReturn('https://example.com/admin/');
+        $adminLinkGenerator = new AdminLinkGenerator($router, [new ArticleAdminLinkProvider(new StubViewRegistry())]);
+        $groupProvider = $this->createMock(GroupProviderInterface::class);
+        $groupProvider->method('getGroups')->willReturn([]);
+        $this->articleGroupResolver = new ArticleGroupResolver($groupProvider, $this->contentManager);
         $this->tool = new ArticleUpdateTool(
             $this->messageBus,
             $this->contentManager,
@@ -65,6 +78,8 @@ final class ArticleUpdateToolTest extends TestCase
             new BlockDataValidator($this->formMetadataProvider),
             $this->blockIdGenerator,
             new ContentMetadataMapper($this->mapperMetadataProvider),
+            $adminLinkGenerator,
+            $this->articleGroupResolver,
         );
     }
 
@@ -109,6 +124,7 @@ final class ArticleUpdateToolTest extends TestCase
 
         $this->assertTrue($result['success']);
         $this->assertSame('uuid-1', $result['uuid']);
+        $this->assertSame('https://example.com/admin/#/en/default/uuid-1', $result['admin_url']);
     }
 
     public function testUpdateArticleMergesContentOverCurrentData(): void
@@ -311,6 +327,8 @@ final class ArticleUpdateToolTest extends TestCase
         $this->formMetadataProvider->method('getMetadata')
             ->willReturnCallback(fn (string $key) => 'article' === $key ? $typed : null);
 
+        $router = $this->createMock(RouterInterface::class);
+        $router->method('generate')->willReturn('https://example.com/admin/');
         $this->tool = new ArticleUpdateTool(
             $this->messageBus,
             $this->contentManager,
@@ -318,6 +336,8 @@ final class ArticleUpdateToolTest extends TestCase
             new BlockDataValidator($this->formMetadataProvider),
             $this->blockIdGenerator,
             new ContentMetadataMapper($this->mapperMetadataProvider),
+            new AdminLinkGenerator($router, [new ArticleAdminLinkProvider(new StubViewRegistry())]),
+            $this->articleGroupResolver,
         );
 
         $currentArticle = $this->createMock(ArticleInterface::class);

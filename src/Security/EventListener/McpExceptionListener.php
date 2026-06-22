@@ -11,18 +11,9 @@ use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
- * Converts exceptions on the MCP endpoint to structured JSON-RPC error responses.
- *
- * Exception type mapping:
- * - PermissionDeniedException -> 403 with type "permission_denied" and structured data
- * - InvalidArgumentException  -> 400 with type "invalid_params"
- * - Generic exceptions        -> 500 with type "internal_error"
- *
- * Only handles exceptions for requests to the MCP endpoint path.
- * Non-MCP requests are left for Symfony's default exception handling.
- *
- * Lower priority (5) than McpAuthenticationListener (10) so authentication
- * exceptions are handled first.
+ * Converts MCP-endpoint exceptions to JSON-RPC error responses:
+ * PermissionDeniedException -> 403, InvalidArgumentException -> 400,
+ * anything else -> 500. Non-MCP requests fall through to Symfony.
  */
 #[AsEventListener(event: KernelEvents::EXCEPTION, priority: 5)]
 class McpExceptionListener

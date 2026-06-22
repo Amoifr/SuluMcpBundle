@@ -16,14 +16,18 @@ use Sulu\Bundle\AdminBundle\Metadata\MetadataInterface;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\McpServerBundle\AdminLink\AdminLinkGenerator;
+use Sulu\McpServerBundle\AdminLink\Provider\SnippetAdminLinkProvider;
 use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\Snippet\SnippetCreateTool;
+use Sulu\McpServerBundle\Tests\Support\StubViewRegistry;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Sulu\Snippet\Application\Message\CreateSnippetMessage;
 use Sulu\Snippet\Domain\Model\SnippetInterface;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
+use Symfony\Component\Routing\RouterInterface;
 
 #[CoversClass(SnippetCreateTool::class)]
 final class SnippetCreateToolTest extends TestCase
@@ -44,11 +48,16 @@ final class SnippetCreateToolTest extends TestCase
         $this->blockIdGenerator = $this->createMock(BlockIdGeneratorInterface::class);
         $this->blockIdGenerator->method('generateId')->willReturn('gen-id');
 
+        $router = $this->createMock(RouterInterface::class);
+        $router->method('generate')->willReturn('https://example.com/admin/');
+        $adminLinkGenerator = new AdminLinkGenerator($router, [new SnippetAdminLinkProvider(new StubViewRegistry())]);
+
         $this->tool = new SnippetCreateTool(
             $this->messageBus,
             $this->contentManager,
             new BlockDataValidator($this->formMetadataProvider),
             $this->blockIdGenerator,
+            $adminLinkGenerator,
         );
     }
 
@@ -77,6 +86,7 @@ final class SnippetCreateToolTest extends TestCase
 
         $this->assertTrue($result['success']);
         $this->assertSame('snippet-uuid-123', $result['uuid']);
+        $this->assertSame('https://example.com/admin/#/snippets/en/snippet-uuid-123', $result['admin_url']);
     }
 
     public function testCreateSnippetMergesLocaleTemplateAndTitleIntoData(): void
@@ -263,11 +273,14 @@ final class SnippetCreateToolTest extends TestCase
         $this->formMetadataProvider->method('getMetadata')
             ->willReturnCallback(fn (string $key) => 'snippet' === $key ? $typed : null);
 
+        $router = $this->createMock(RouterInterface::class);
+        $router->method('generate')->willReturn('https://example.com/admin/');
         $this->tool = new SnippetCreateTool(
             $this->messageBus,
             $this->contentManager,
             new BlockDataValidator($this->formMetadataProvider),
             $this->blockIdGenerator,
+            new AdminLinkGenerator($router, [new SnippetAdminLinkProvider(new StubViewRegistry())]),
         );
 
         $this->messageBus->expects($this->never())->method('dispatch');

@@ -1,0 +1,43 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Sulu\McpServerBundle\AdminLink\Provider;
+
+use Sulu\Bundle\AdminBundle\Admin\View\ViewRegistry;
+use Sulu\McpServerBundle\AdminLink\AdminLinkContextTrait;
+use Sulu\McpServerBundle\AdminLink\AdminLinkProviderInterface;
+use Sulu\Snippet\Infrastructure\Sulu\Admin\SnippetAdmin;
+
+/**
+ * @internal
+ */
+final readonly class SnippetAdminLinkProvider implements AdminLinkProviderInterface
+{
+    use AdminLinkContextTrait;
+
+    public function __construct(
+        private ViewRegistry $viewRegistry,
+    ) {
+    }
+
+    public function getType(): string
+    {
+        return 'snippet';
+    }
+
+    public function buildPath(array $context): ?string
+    {
+        $locale = $this->requireString($context, 'locale');
+        $uuid = $this->requireString($context, 'uuid');
+
+        if (null === $locale || null === $uuid) {
+            return null;
+        }
+
+        return $this->resolveViewPath($this->viewRegistry, SnippetAdmin::EDIT_TABS_VIEW, [
+            ':locale' => $locale,
+            ':id' => $uuid,
+        ]);
+    }
+}

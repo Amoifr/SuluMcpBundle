@@ -7,6 +7,7 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Taxonomy;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Sulu\Bundle\CategoryBundle\Category\CategoryManagerInterface;
+use Sulu\McpServerBundle\AdminLink\AdminLinkGeneratorInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
@@ -18,6 +19,7 @@ class CategoryCreateTool
     public function __construct(
         private readonly CategoryManagerInterface $categoryManager,
         private readonly TokenStorageInterface $tokenStorage,
+        private readonly AdminLinkGeneratorInterface $adminLinkGenerator,
     ) {
     }
 
@@ -55,12 +57,19 @@ class CategoryCreateTool
 
             $category = $this->categoryManager->save($data, $user->getId(), $locale);
 
-            return [
+            $result = [
                 'success' => true,
                 'id' => $category->getId(),
                 'name' => $name,
                 'key' => $category->getKey(),
             ];
+
+            $adminUrl = $this->adminLinkGenerator->generate('category', ['locale' => $locale, 'id' => $category->getId()]);
+            if (null !== $adminUrl) {
+                $result['admin_url'] = $adminUrl;
+            }
+
+            return $result;
         } catch (\Throwable $e) {
             return [
                 'error' => \sprintf('Failed to create category "%s": %s', $name, $e->getMessage()),

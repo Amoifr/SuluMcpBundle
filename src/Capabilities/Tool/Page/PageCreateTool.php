@@ -9,6 +9,7 @@ use Mcp\Capability\Attribute\Schema;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\McpServerBundle\AdminLink\AdminLinkGeneratorInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\BlockDataNormalizerTrait;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper;
@@ -33,6 +34,7 @@ class PageCreateTool
         private readonly BlockDataValidator $blockDataValidator,
         private readonly BlockIdGeneratorInterface $blockIdGenerator,
         private readonly ContentMetadataMapper $contentMetadataMapper,
+        private readonly AdminLinkGeneratorInterface $adminLinkGenerator,
     ) {
         $this->messageBus = $messageBus;
     }
@@ -98,11 +100,22 @@ class PageCreateTool
             ]);
             $normalized = $this->contentManager->normalize($dimensionContent);
 
-            return [
+            $result = [
                 'success' => true,
                 'uuid' => $page->getUuid(),
                 'data' => $normalized,
             ];
+
+            $adminUrl = $this->adminLinkGenerator->generate('page', [
+                'webspace' => $webspace,
+                'locale' => $locale,
+                'uuid' => $page->getUuid(),
+            ]);
+            if (null !== $adminUrl) {
+                $result['admin_url'] = $adminUrl;
+            }
+
+            return $result;
         } catch (\Throwable $e) {
             return [
                 'error' => \sprintf('Failed to create page "%s" in webspace "%s": %s', $title, $webspace, $e->getMessage()),
