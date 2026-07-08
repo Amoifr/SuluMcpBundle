@@ -79,13 +79,15 @@ Tools in the **delete**, **publish**, and **block_remove** categories are gated 
 
 ## Connecting an MCP client
 
-The MCP endpoint defaults to `/_mcp`. Authentication uses Sulu's user system via OAuth 2.1 (Dynamic Client Registration supported through `league/oauth2-server-bundle`).
+The MCP endpoint defaults to `/admin/_mcp`. Authentication uses Sulu's user system via OAuth 2.1 (Dynamic Client Registration supported through `league/oauth2-server-bundle`).
 
 Per-client setup guides:
 
 - [Claude.ai](docs/clients/claude-ai.md)
 - [Claude Code](docs/clients/claude-code.md)
 - [Claude Cowork](docs/clients/claude-cowork.md)
+- [ChatGPT](docs/clients/chatgpt.md)
+- [Codex](docs/clients/codex.md)
 
 For the recommended system prompt to give your AI assistant when working with Sulu content, see [`docs/CONTENT_ASSISTANT_PROMPT.md`](docs/CONTENT_ASSISTANT_PROMPT.md). The full docs index lives at [`docs/README.md`](docs/README.md).
 
