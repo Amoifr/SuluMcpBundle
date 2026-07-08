@@ -31,6 +31,20 @@ class SuluMcpServerExtension extends Extension implements PrependExtensionInterf
                 ],
             ]);
         }
+
+        if ($container->hasExtension('league_oauth2_server')) {
+            $container->prependExtensionConfig('league_oauth2_server', [
+                'authorization_server' => [
+                    'access_token_ttl' => $this->secondsToDateIntervalSpec($config['oauth']['access_token_ttl']),
+                    'refresh_token_ttl' => $this->secondsToDateIntervalSpec($config['oauth']['refresh_token_ttl']),
+                    'require_code_challenge_for_public_clients' => true,
+                ],
+                'scopes' => [
+                    'available' => $config['oauth']['scopes'],
+                    'default' => $config['oauth']['scopes'],
+                ],
+            ]);
+        }
     }
 
     public function load(array $configs, ContainerBuilder $container): void
@@ -55,5 +69,10 @@ class SuluMcpServerExtension extends Extension implements PrependExtensionInterf
             new FileLocator(\dirname(__DIR__, 2).'/config')
         );
         $loader->load('services.yaml');
+    }
+
+    private function secondsToDateIntervalSpec(int $seconds): string
+    {
+        return \sprintf('PT%dS', $seconds);
     }
 }

@@ -79,11 +79,13 @@ services:
         arguments:
             $serverUrl: '%sulu_mcp_server.server_url%'
             $mcpPath: '%sulu_mcp_server.mcp_path%'
+            $scopes: '%sulu_mcp_server.oauth.scopes%'
         tags: ['controller.service_arguments']
 
     Sulu\McpServerBundle\Security\OAuth\DynamicClientRegistrationController:
         arguments:
             $serverUrl: '%sulu_mcp_server.server_url%'
+            $allowedScopes: '%sulu_mcp_server.oauth.scopes%'
         tags: ['controller.service_arguments']
 
     Sulu\McpServerBundle\Security\OAuth\SuluUserResolver: ~

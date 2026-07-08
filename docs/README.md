@@ -10,6 +10,8 @@ Sulu MCP Server is a Symfony bundle that turns a Sulu 3.x installation into an [
   - [Claude.ai](clients/claude-ai.md) — hosted web/desktop app, OAuth connector.
   - [Claude Code](clients/claude-code.md) — CLI, configured via `.mcp.json`.
   - [Claude Cowork](clients/claude-cowork.md) — collaborative workspace, OAuth connector.
+  - [ChatGPT](clients/chatgpt.md) — custom connector, one-command manual OAuth setup.
+  - [Codex](clients/codex.md) — CLI, public client over loopback OAuth.
 
 ## What it exposes
 
@@ -35,4 +37,6 @@ For hosted clients (Claude.ai, Claude Cowork), create an OAuth client up front:
 php bin/console sulu:mcp:create-client "Claude.ai Production"
 ```
 
-The command prints the Client ID, Client Secret, and the redirect URI to paste into the client's connector setup. Claude Code uses Dynamic Client Registration and skips this step.
+The command prints the Client ID, Client Secret, and redirect URI to paste into the client's connector setup. Claude Code and Codex use Dynamic Client Registration and skip this step. ChatGPT's manual connector reveals its callback URL only after the connector is saved, so `sulu:mcp:create-client --client=chatgpt` keeps running and asks you to paste the callback URL before it finishes.
+
+> **Not yet supported:** Client ID Metadata Documents (CIMD), the metadata-URL-based onboarding that ChatGPT increasingly prefers. Tracked as a future enhancement; use DCR or the manual flow in the meantime.
