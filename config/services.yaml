@@ -88,7 +88,16 @@ services:
             $allowedScopes: '%sulu_mcp_server.oauth.scopes%'
         tags: ['controller.service_arguments']
 
+    Sulu\McpServerBundle\Security\OAuth\OAuthConsentStore: ~
+
+    Sulu\McpServerBundle\Security\OAuth\OAuthConsentController:
+        tags: ['controller.service_arguments']
+
     Sulu\McpServerBundle\Security\OAuth\SuluUserResolver: ~
+
+    Sulu\McpServerBundle\Admin\OAuthConsentAdmin:
+        tags:
+            - { name: sulu.context, context: admin }
 
     # OAuth authorization
     Sulu\McpServerBundle\Security\EventListener\OAuthAuthorizationListener: ~

@@ -6,36 +6,51 @@ namespace Sulu\McpServerBundle\Security\EventListener;
 
 use League\Bundle\OAuth2ServerBundle\Event\AuthorizationRequestResolveEvent;
 use League\Bundle\OAuth2ServerBundle\OAuth2Events;
+use Sulu\McpServerBundle\Security\OAuth\OAuthConsentRequest;
+use Sulu\McpServerBundle\Security\OAuth\OAuthConsentStore;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
-use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
-use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
-use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 
-/**
- * Auto-approves OAuth authorization for users authenticated via the Sulu admin
- * firewall, setting the OAuth user from the security token (no consent screen).
- */
 #[AsEventListener(event: OAuth2Events::AUTHORIZATION_REQUEST_RESOLVE)]
-class OAuthAuthorizationListener
+final readonly class OAuthAuthorizationListener
 {
     public function __construct(
-        private readonly TokenStorageInterface $tokenStorage,
+        private RequestStack $requestStack,
+        private OAuthConsentStore $consentStore,
     ) {
     }
 
     public function __invoke(AuthorizationRequestResolveEvent $event): void
     {
-        $token = $this->tokenStorage->getToken();
-        if (!$token instanceof TokenInterface) {
+        $request = $this->requestStack->getCurrentRequest();
+        if (!$request instanceof Request || !$request->hasSession()) {
             return;
         }
 
-        $user = $token->getUser();
-        if (!$user instanceof UserInterface) {
-            return;
+        $requestId = $this->consentStore->getRequestId($request);
+        if (null !== $requestId) {
+            $decision = $this->consentStore->consumeDecision($request, $requestId);
+            if (null !== $decision) {
+                $event->resolveAuthorization($decision);
+
+                return;
+            }
+
+            if ($this->consentStore->get($request, $requestId) instanceof OAuthConsentRequest) {
+                $event->setResponse(new RedirectResponse($this->consentViewUrl($requestId)));
+
+                return;
+            }
         }
 
-        $event->setUser($user);
-        $event->resolveAuthorization(AuthorizationRequestResolveEvent::AUTHORIZATION_APPROVED);
+        $consentRequest = $this->consentStore->create($request, $event);
+        $event->setResponse(new RedirectResponse($this->consentViewUrl($consentRequest->getId())));
+    }
+
+    private function consentViewUrl(string $requestId): string
+    {
+        return \sprintf('/admin/#/mcp/authorize/%s', $requestId);
     }
 }

@@ -37,7 +37,7 @@
         "@babel/preset-env": "^7.5.5",
         "@babel/preset-react": "^7.0.0",
         "@ckeditor/ckeditor5-dev-utils": "^39.6.3",
-        "@ckeditor/ckeditor5-theme-lark": "^41.2.1",
+        "@ckeditor/ckeditor5-theme-lark": "^47.6.0",
         "autoprefixer": "^10.4.7",
         "babel-loader": "^9.1.0",
         "core-js": "^3.18.0",
@@ -63,5 +63,12 @@
         "bun": "^1.0",
         "pnpm": "^8.0 || ^9.0 || ^10.0",
         "npm": "8.* || 9.* || 10.* || 11.*"
+    },
+    "overrides": {
+        "@ckeditor/ckeditor5-core": "48.3.0",
+        "@ckeditor/ckeditor5-engine": "48.3.0",
+        "@ckeditor/ckeditor5-ui": "48.3.0",
+        "@ckeditor/ckeditor5-utils": "48.3.0",
+        "@ckeditor/ckeditor5-watchdog": "48.3.0"
     }
 }

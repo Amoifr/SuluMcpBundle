@@ -31,6 +31,8 @@ A handful of high-impact tools (delete, publish, block-remove) are gated behind 
 
 OAuth 2.1 with Dynamic Client Registration, backed by `league/oauth2-server-bundle`. Once a client completes the OAuth flow, every MCP request runs under that Sulu user — operations the user cannot perform in the admin UI also fail via MCP.
 
+After login, Sulu shows an explicit authorization screen naming the client and requested scopes. The client only receives tokens when the Sulu user approves that screen.
+
 For hosted clients (Claude.ai, Claude Cowork), create an OAuth client up front:
 
 ```bash

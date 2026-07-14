@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "8c6346ebacc1acd83b602ddb5ab2a655",
+    "content-hash": "72950c0740243ed75b9c2c91b1e981c4",
     "packages": [
         {
             "name": "clue/stream-filter",
@@ -5510,16 +5510,16 @@
         },
         {
             "name": "sulu/sulu",
-            "version": "3.0.7",
+            "version": "3.0.x-dev",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sulu/sulu.git",
-                "reference": "81426c02ccd5569c5e2abacd84e220f15b5f2440"
+                "reference": "c117312b047a987d63549d82ca4500249299f37d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sulu/sulu/zipball/81426c02ccd5569c5e2abacd84e220f15b5f2440",
-                "reference": "81426c02ccd5569c5e2abacd84e220f15b5f2440",
+                "url": "https://api.github.com/repos/sulu/sulu/zipball/c117312b047a987d63549d82ca4500249299f37d",
+                "reference": "c117312b047a987d63549d82ca4500249299f37d",
                 "shasum": ""
             },
             "require": {
@@ -5697,6 +5697,7 @@
                 "scheb/2fa-bundle": "Needed for two factor authentication.",
                 "symfony/monolog-bundle": "^3.1"
             },
+            "default-branch": true,
             "type": "library",
             "autoload": {
                 "psr-4": {
@@ -5740,7 +5741,7 @@
                 "issues": "https://github.com/sulu/skeleton/issues",
                 "source": "https://github.com/sulu/skeleton"
             },
-            "time": "2026-05-26T14:47:28+00:00"
+            "time": "2026-07-14T13:06:13+00:00"
         },
         {
             "name": "symfony-cmf/routing",
@@ -14506,9 +14507,18 @@
             "time": "2025-11-17T20:03:58+00:00"
         }
     ],
-    "aliases": [],
+    "aliases": [
+        {
+            "package": "sulu/sulu",
+            "version": "3.0.9999999.9999999-dev",
+            "alias": "3.0.8",
+            "alias_normalized": "3.0.8.0"
+        }
+    ],
     "minimum-stability": "dev",
-    "stability-flags": {},
+    "stability-flags": {
+        "sulu/sulu": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
