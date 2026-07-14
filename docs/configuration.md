@@ -94,6 +94,8 @@ The scopes the server advertises and accepts. The two defaults map to MCP semant
 
 You don't normally change this. Add scopes only if you've extended the bundle with custom OAuth grants.
 
+During OAuth authorization, users authenticate with the normal Sulu admin login and then approve or deny the client on a Sulu admin consent screen. The consent screen uses the scopes configured here and the authenticated user's existing Sulu permissions; there is no separate MCP user or permission layer.
+
 ### `dangerous_tools.*`
 
 Three booleans gating high-impact tools. Each flag is independent — enable only what you need.

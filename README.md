@@ -80,6 +80,7 @@ Tools in the **delete**, **publish**, and **block_remove** categories are gated 
 ## Connecting an MCP client
 
 The MCP endpoint defaults to `/admin/_mcp`. Authentication uses Sulu's user system via OAuth 2.1 (Dynamic Client Registration supported through `league/oauth2-server-bundle`).
+During OAuth authorization, Sulu opens the admin login when needed and then shows an explicit consent screen before the MCP client receives tokens.
 
 Per-client setup guides:
 
