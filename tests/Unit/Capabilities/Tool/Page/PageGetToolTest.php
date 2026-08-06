@@ -2,24 +2,26 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Page;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\PageGetTool;
+use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
-use Sulu\McpServerBundle\Capabilities\Tool\Page\PageGetTool;
-use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\Page\Domain\Exception\PageNotFoundException;
 use Sulu\Page\Domain\Model\Page;
 use Sulu\Page\Domain\Model\PageInterface;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 
-class PageGetToolTest extends TestCase
+#[CoversClass(PageGetTool::class)]
+final class PageGetToolTest extends TestCase
 {
     private PageRepositoryInterface&MockObject $pageRepository;
     private ContentManagerInterface&MockObject $contentManager;

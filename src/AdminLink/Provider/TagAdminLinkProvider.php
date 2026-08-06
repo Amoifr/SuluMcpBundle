@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\AdminLink\Provider;
+namespace Sulu\Bundle\McpBundle\AdminLink\Provider;
 
 use Sulu\Bundle\AdminBundle\Admin\View\ViewRegistry;
+use Sulu\Bundle\McpBundle\AdminLink\AdminLinkContextTrait;
+use Sulu\Bundle\McpBundle\AdminLink\AdminLinkProviderInterface;
 use Sulu\Bundle\TagBundle\Admin\TagAdmin;
-use Sulu\McpServerBundle\AdminLink\AdminLinkContextTrait;
-use Sulu\McpServerBundle\AdminLink\AdminLinkProviderInterface;
 
 /**
  * @internal

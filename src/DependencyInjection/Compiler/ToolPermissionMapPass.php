@@ -2,18 +2,20 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\DependencyInjection\Compiler;
+namespace Sulu\Bundle\McpBundle\DependencyInjection\Compiler;
 
 use Mcp\Capability\Attribute\McpTool;
-use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
+use Sulu\Bundle\McpBundle\Security\Attribute\RequiresPermission;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 /**
  * Extracts #[RequiresPermission] declarations from every mcp.tool-tagged service
- * class at compile time into the `sulu_mcp_server.tool_permissions` parameter.
+ * class at compile time into the `sulu_mcp.tool_permissions` parameter.
  * Compile-time (not runtime) because tools are absent from the MCP registry until
  * Builder::build().
+ *
+ * @internal
  */
 final class ToolPermissionMapPass implements CompilerPassInterface
 {
@@ -32,7 +34,7 @@ final class ToolPermissionMapPass implements CompilerPassInterface
             }
         }
 
-        $container->setParameter('sulu_mcp_server.tool_permissions', $map);
+        $container->setParameter('sulu_mcp.tool_permissions', $map);
     }
 
     /**

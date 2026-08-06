@@ -47,6 +47,6 @@ return [
     CmsIg\Seal\Integration\Symfony\SealBundle::class => ['all' => true],
     Symfony\AI\McpBundle\McpBundle::class => ['all' => true],
     League\Bundle\OAuth2ServerBundle\LeagueOAuth2ServerBundle::class => ['all' => true],
-    Sulu\McpServerBundle\SuluMcpServerBundle::class => ['all' => true],
+    Sulu\Bundle\McpBundle\SuluMcpBundle::class => ['all' => true],
     Doctrine\Bundle\MigrationsBundle\DoctrineMigrationsBundle::class => ['all' => true],
 ];

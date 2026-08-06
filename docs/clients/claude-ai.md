@@ -30,5 +30,5 @@ Paste the contents of [`CONTENT_ASSISTANT_PROMPT.md`](../CONTENT_ASSISTANT_PROMP
 ## Troubleshooting
 
 - **OAuth redirect mismatch** — confirm the connector's redirect URI matches what `sulu:mcp:create-client` registered. Re-run the command with `--redirect-uri=...` if Claude.ai shows a different one.
-- **Tools missing after connecting** — check `dangerous_tools.*` in `config/packages/sulu_mcp_server.yaml`; delete/publish/block-remove tools are off by default.
+- **Tools missing after connecting** — check `dangerous_tools.*` in `config/packages/sulu_mcp.yaml`; delete/publish/block-remove tools are off by default.
 - **403 on every call** — the authenticated Sulu user lacks permission for that operation. Adjust roles in the Sulu admin.

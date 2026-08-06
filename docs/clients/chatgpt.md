@@ -51,5 +51,5 @@ ChatGPT increasingly prefers **Client ID Metadata Documents (CIMD)** — the cli
 ## Troubleshooting
 
 - **OAuth redirect mismatch** — confirm the redirect URI you pasted exactly matches the callback ChatGPT shows (the `<connector-id>` must match). Re-run `sulu:mcp:create-client` with the correct callback and update the connector credentials.
-- **Tools missing after connecting** — check `dangerous_tools.*` in `config/packages/sulu_mcp_server.yaml`; delete/publish/block-remove tools are off by default.
+- **Tools missing after connecting** — check `dangerous_tools.*` in `config/packages/sulu_mcp.yaml`; delete/publish/block-remove tools are off by default.
 - **403 on every call** — the authenticated Sulu user lacks permission for that operation. Adjust roles in the Sulu admin.

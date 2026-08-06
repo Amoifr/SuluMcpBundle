@@ -2,26 +2,26 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\DependencyInjection;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\DependencyInjection;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Sulu\McpServerBundle\DependencyInjection\Configuration;
-use Sulu\McpServerBundle\DependencyInjection\SuluMcpServerExtension;
+use Sulu\Bundle\McpBundle\DependencyInjection\Configuration;
+use Sulu\Bundle\McpBundle\DependencyInjection\SuluMcpExtension;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\Extension;
 
-#[CoversClass(SuluMcpServerExtension::class)]
+#[CoversClass(SuluMcpExtension::class)]
 #[CoversClass(Configuration::class)]
-final class SuluMcpServerExtensionTest extends TestCase
+final class SuluMcpExtensionTest extends TestCase
 {
     public function testPrependWiresMcpAndLeagueOAuthConfiguration(): void
     {
         $container = new ContainerBuilder();
         $container->registerExtension($this->extension('mcp'));
         $container->registerExtension($this->extension('league_oauth2_server'));
-        $container->registerExtension(new SuluMcpServerExtension());
-        $container->loadFromExtension('sulu_mcp_server', [
+        $container->registerExtension(new SuluMcpExtension());
+        $container->loadFromExtension('sulu_mcp', [
             'server_url' => 'https://sulu.example.com',
             'mcp_path' => '/admin/custom-mcp',
             'oauth' => [
@@ -31,14 +31,14 @@ final class SuluMcpServerExtensionTest extends TestCase
             ],
         ]);
 
-        (new SuluMcpServerExtension())->prepend($container);
+        (new SuluMcpExtension())->prepend($container);
 
         self::assertSame(
             [
                 [
                     'client_transports' => ['http' => true],
                     'http' => ['path' => '/admin/custom-mcp'],
-                    'discovery' => ['scan_dirs' => ['src', 'vendor/sulu/mcp-server-bundle/src']],
+                    'discovery' => ['scan_dirs' => ['src', 'vendor/sulu/mcp-bundle/src']],
                 ],
             ],
             $container->getExtensionConfig('mcp'),

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capabilities\Tool;
+namespace Sulu\Bundle\McpBundle\Capabilities\Tool;
 
 use Sulu\Article\Application\Message\ApplyWorkflowTransitionArticleMessage;
 use Sulu\Article\Application\Message\ModifyArticleMessage;
@@ -25,6 +25,8 @@ use Sulu\Snippet\Domain\Repository\SnippetRepositoryInterface;
  *
  * Everything else (content resolve/normalize, block-tree manipulation) is already
  * type-agnostic and stays in the tools.
+ *
+ * @internal
  */
 final readonly class ContentTypeResolver
 {

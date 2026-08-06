@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Security\EventListener;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Security\EventListener;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Sulu\McpServerBundle\Security\EventListener\McpLoginSuccessListener;
+use Sulu\Bundle\McpBundle\Security\EventListener\McpLoginSuccessListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;

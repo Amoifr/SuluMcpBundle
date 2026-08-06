@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Article;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Tool\Article;
 
 use Mcp\Capability\Attribute\McpTool;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -11,13 +11,13 @@ use PHPUnit\Framework\TestCase;
 use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormGroup;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Article\ArticleListTool;
+use Sulu\Bundle\McpBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionCheckerInterface;
+use Sulu\Bundle\McpBundle\Tests\Support\StubGroupProvider;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\Content\Domain\Model\TemplateInterface;
-use Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleListTool;
-use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
-use Sulu\McpServerBundle\Tests\Support\StubGroupProvider;
 
 #[CoversClass(ArticleListTool::class)]
 final class ArticleListToolTest extends TestCase

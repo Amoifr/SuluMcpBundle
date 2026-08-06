@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capabilities\Tool\Contact;
+namespace Sulu\Bundle\McpBundle\Capabilities\Tool\Contact;
 
 use Mcp\Capability\Attribute\McpTool;
 use Sulu\Bundle\ContactBundle\Entity\AccountRepositoryInterface;
 use Sulu\Bundle\ContactBundle\Entity\ContactRepositoryInterface;
+use Sulu\Bundle\McpBundle\Security\Attribute\RequiresPermission;
+use Sulu\Bundle\McpBundle\Security\Permission\PermissionRequirement;
 use Sulu\Component\Security\Authorization\PermissionTypes;
-use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
-use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
 
 /**
  * @internal
@@ -31,7 +31,7 @@ class ContactListTool
     )]
     #[RequiresPermission(
         requirements: [new PermissionRequirement('#context#', PermissionTypes::VIEW)],
-        contextResolver: 'sulu_mcp_server.contact_context_resolver',
+        contextResolver: 'sulu_mcp.contact_context_resolver',
     )]
     public function listContacts(string $type = 'contact', int $page = 1, int $limit = 20): array
     {

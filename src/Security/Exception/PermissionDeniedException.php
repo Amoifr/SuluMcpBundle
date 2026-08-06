@@ -2,13 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\Exception;
+namespace Sulu\Bundle\McpBundle\Security\Exception;
 
 /**
  * Thrown when a Sulu user lacks the required permission for an MCP operation.
  *
  * Carries structured data (security context, permission type, locale) that
  * McpExceptionListener converts into a JSON-RPC error response.
+ *
+ * @internal
  */
 class PermissionDeniedException extends \RuntimeException
 {

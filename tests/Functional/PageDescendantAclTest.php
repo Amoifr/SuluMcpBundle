@@ -2,15 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Functional;
+namespace Sulu\Bundle\McpBundle\Tests\Functional;
 
 use Doctrine\ORM\Query\AST\Node;
 use Doctrine\ORM\Query\SqlWalker;
 use Oro\ORM\Query\AST\Functions\Cast as OroCastFunction;
+use PHPUnit\Framework\Attributes\CoversClass;
+use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
+use Sulu\Bundle\McpBundle\Security\Permission\PageDescendantPermissionChecker;
 use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
-use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
-use Sulu\McpServerBundle\Security\Permission\PageDescendantPermissionChecker;
 use Sulu\Page\Domain\Model\Page;
 
 /**
@@ -38,6 +39,7 @@ final class SqliteCastFunction extends OroCastFunction
  * persisted page tree and the real AccessControlRepository -- not a
  * repository double, so tree traversal is genuinely exercised.
  */
+#[CoversClass(PageDescendantPermissionChecker::class)]
 final class PageDescendantAclTest extends FunctionalTestCase
 {
     private const ALL_GRANTED = [

@@ -2,25 +2,25 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capabilities\Tool\Page;
+namespace Sulu\Bundle\McpBundle\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
+use Sulu\Bundle\McpBundle\AdminLink\AdminLinkGeneratorInterface;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Block\BlockDataValidator;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\BlockDataNormalizerTrait;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentMetadataMapper;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentNormalizerTrait;
+use Sulu\Bundle\McpBundle\Security\Attribute\RequiresPermission;
+use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
+use Sulu\Bundle\McpBundle\Security\Permission\PermissionRequirement;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionCheckerInterface;
+use Sulu\Bundle\McpBundle\Security\Permission\WebspacePermissionResolver;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
-use Sulu\McpServerBundle\AdminLink\AdminLinkGeneratorInterface;
-use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
-use Sulu\McpServerBundle\Capabilities\Tool\BlockDataNormalizerTrait;
-use Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper;
-use Sulu\McpServerBundle\Capabilities\Tool\ContentNormalizerTrait;
-use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
-use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
-use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
-use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Sulu\Page\Application\Message\ModifyPageMessage;
 use Sulu\Page\Domain\Model\Page;

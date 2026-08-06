@@ -2,7 +2,7 @@
 
 ## Identity
 
-Sulu MCP Server — a Symfony bundle for Sulu CMS 3.x that exposes content management as MCP tools over Streamable HTTP. AI assistants (Claude.ai, Claude Code, Claude Cowork, …) read, create, edit, and publish Sulu content using the authenticated user's existing roles and permissions.
+Sulu MCP Bundle — a Symfony bundle for Sulu CMS 3.x that exposes content management as MCP tools over Streamable HTTP. AI assistants (Claude.ai, Claude Code, Claude Cowork, …) read, create, edit, and publish Sulu content using the authenticated user's existing roles and permissions.
 
 This is a library, not an application — no Docker local dev setup.
 
@@ -98,7 +98,7 @@ When proposing changes:
 
 ## Architecture discipline
 
-- Tool classes must not access Doctrine or persistence directly — delegate to Sulu services (`ContentManager`, `MessageBusInterface`, `MediaManagerInterface`, `TagManagerInterface`, `CategoryManagerInterface`, …).
+- Tool classes must not access Doctrine or persistence directly — delegate to Sulu services (`ContentManagerInterface`, `MessageBusInterface`, `MediaManagerInterface`, `TagManagerInterface`, `CategoryManagerInterface`, …).
 - Follow `rules/` without exception.
 
 ## Commit messages

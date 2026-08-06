@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capabilities\Resource;
+namespace Sulu\Bundle\McpBundle\Capabilities\Resource;
 
 use Mcp\Capability\Attribute\McpResource;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FieldMetadata;

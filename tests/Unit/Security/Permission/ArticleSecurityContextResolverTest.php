@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Security\Permission;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Security\Permission;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormGroup;
 use Sulu\Bundle\AdminBundle\Metadata\GroupProviderInterface;
-use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\ArticleSecurityContextResolver;
 
 #[CoversClass(ArticleSecurityContextResolver::class)]
 final class ArticleSecurityContextResolverTest extends TestCase

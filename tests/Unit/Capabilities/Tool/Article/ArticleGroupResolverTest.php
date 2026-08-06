@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Article;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Tool\Article;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -10,9 +10,9 @@ use PHPUnit\Framework\TestCase;
 use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormGroup;
 use Sulu\Bundle\AdminBundle\Metadata\GroupProviderInterface;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Article\ArticleGroupResolver;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
-use Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleGroupResolver;
 
 #[CoversClass(ArticleGroupResolver::class)]
 final class ArticleGroupResolverTest extends TestCase

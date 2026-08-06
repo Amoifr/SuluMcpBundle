@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Command;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Command;
 
 use League\Bundle\OAuth2ServerBundle\Manager\ClientManagerInterface;
 use League\Bundle\OAuth2ServerBundle\Model\ClientInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Sulu\McpServerBundle\Command\CreateMcpClientCommand;
+use Sulu\Bundle\McpBundle\Command\CreateMcpClientCommand;
 use Symfony\Component\Console\Tester\CommandTester;
 
 #[CoversClass(CreateMcpClientCommand::class)]

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\EventListener;
+namespace Sulu\Bundle\McpBundle\Security\EventListener;
 
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 
@@ -13,6 +13,8 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
  * runs HtmlMarkupParser on the response. `<sulu:...>` snippets in JSON-RPC output
  * (e.g. sulu_get_context) make the parser recurse until the stack exhausts (500).
  * "json" has no markup parser, so the response is left untouched.
+ *
+ * @internal
  */
 class McpRequestFormatListener
 {

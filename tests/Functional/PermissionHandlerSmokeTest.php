@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Functional;
+namespace Sulu\Bundle\McpBundle\Tests\Functional;
 
 use Mcp\Schema\Content\TextContent;
 use Mcp\Schema\JsonRpc\Error;
@@ -10,11 +10,12 @@ use Mcp\Schema\JsonRpc\Response;
 use Mcp\Schema\Request\CallToolRequest;
 use Mcp\Schema\Result\CallToolResult;
 use Mcp\Server\Session\SessionInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\Stub;
+use Sulu\Bundle\McpBundle\Capability\PermissionAwareCallToolHandler;
 use Sulu\Bundle\MediaBundle\Entity\Collection;
 use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
-use Sulu\McpServerBundle\Capability\PermissionAwareCallToolHandler;
 
 /**
  * Tier A: vertical smoke over the real compiled permission map and
@@ -22,6 +23,7 @@ use Sulu\McpServerBundle\Capability\PermissionAwareCallToolHandler;
  * cannot reach. Each floor denial is paired with a positive control, so the
  * deny is attributable to the missing permission, not a dead fixture (Task 4).
  */
+#[CoversClass(PermissionAwareCallToolHandler::class)]
 final class PermissionHandlerSmokeTest extends FunctionalTestCase
 {
     private function handler(): PermissionAwareCallToolHandler

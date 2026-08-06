@@ -7,7 +7,7 @@ $reset = "\e[0m";
 
 echo <<<OUTPUT
 
-  {$yellow}sulu/mcp-server-bundle{$reset} setup:
+  {$yellow}sulu/mcp-bundle{$reset} setup:
 
   1. {$green}Generate OAuth keypair{$reset}
      bin/adminconsole league:oauth2-server:generate-keypair

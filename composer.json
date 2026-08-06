@@ -1,6 +1,6 @@
 {
-    "name": "sulu/mcp-server-bundle",
-    "description": "Sulu CMS MCP Server - Exposes content management as MCP tools for AI assistants",
+    "name": "sulu/mcp-bundle",
+    "description": "Sulu CMS MCP Bundle - Exposes content management as MCP tools for AI assistants",
     "type": "symfony-bundle",
     "license": "MIT",
     "require": {
@@ -30,12 +30,12 @@
     },
     "autoload": {
         "psr-4": {
-            "Sulu\\McpServerBundle\\": "src/"
+            "Sulu\\Bundle\\McpBundle\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Sulu\\McpServerBundle\\Tests\\": "tests/",
+            "Sulu\\Bundle\\McpBundle\\Tests\\": "tests/",
             "App\\Mate\\": "mate/src/"
         }
     },
@@ -84,5 +84,8 @@
             "phpstan/extension-installer": true,
             "symfony/ai-mate-composer-plugin": true
         }
+    },
+    "conflict": {
+        "symfony/doctrine-bridge": "<6.4.2"
     }
 }

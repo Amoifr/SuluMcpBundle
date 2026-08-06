@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Page;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
@@ -15,17 +15,17 @@ use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\TypedFormMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataInterface;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
+use Sulu\Bundle\McpBundle\AdminLink\AdminLinkGenerator;
+use Sulu\Bundle\McpBundle\AdminLink\Provider\PageAdminLinkProvider;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Block\BlockDataValidator;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentMetadataMapper;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\PageCreateTool;
+use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionCheckerInterface;
+use Sulu\Bundle\McpBundle\Tests\Support\StubViewRegistry;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
-use Sulu\McpServerBundle\AdminLink\AdminLinkGenerator;
-use Sulu\McpServerBundle\AdminLink\Provider\PageAdminLinkProvider;
-use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
-use Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper;
-use Sulu\McpServerBundle\Capabilities\Tool\Page\PageCreateTool;
-use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
-use Sulu\McpServerBundle\Tests\Support\StubViewRegistry;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Sulu\Page\Application\Message\CreatePageMessage;
 use Sulu\Page\Domain\Model\Page;

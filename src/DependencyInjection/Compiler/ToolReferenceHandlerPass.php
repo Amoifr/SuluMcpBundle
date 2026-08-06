@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\DependencyInjection\Compiler;
+namespace Sulu\Bundle\McpBundle\DependencyInjection\Compiler;
 
 use Mcp\Capability\Registry\ReferenceHandler;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
@@ -16,6 +16,8 @@ use Symfony\Component\DependencyInjection\Reference;
  * ReferenceHandler::getClassInstance() looks the container up by class name, and
  * injects it into a ReferenceHandler so PermissionAwareCallToolHandler can delegate
  * to a fully-wired inner handler. Mirrors mcp-bundle's McpPass.
+ *
+ * @internal
  */
 final class ToolReferenceHandlerPass implements CompilerPassInterface
 {
@@ -33,7 +35,7 @@ final class ToolReferenceHandlerPass implements CompilerPassInterface
         $locator = ServiceLocatorTagPass::register($container, $references);
 
         $container->setDefinition(
-            'sulu_mcp_server.reference_handler',
+            'sulu_mcp.reference_handler',
             (new Definition(ReferenceHandler::class))->setArguments([$locator]),
         );
     }

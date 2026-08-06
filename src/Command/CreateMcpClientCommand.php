@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Command;
+namespace Sulu\Bundle\McpBundle\Command;
 
 use League\Bundle\OAuth2ServerBundle\Manager\ClientManagerInterface;
 use League\Bundle\OAuth2ServerBundle\Model\Client;
@@ -17,6 +17,9 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
+/**
+ * @internal
+ */
 #[AsCommand(
     name: 'sulu:mcp:create-client',
     description: 'Create an OAuth2 client for MCP connections (Claude.ai, ChatGPT, etc.)',

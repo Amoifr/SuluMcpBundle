@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\AdminLink;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\AdminLink;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Sulu\Bundle\AdminBundle\Admin\View\View;
 use Sulu\Bundle\AdminBundle\Admin\View\ViewRegistry;
-use Sulu\McpServerBundle\AdminLink\AdminLinkGenerator;
-use Sulu\McpServerBundle\AdminLink\Provider\SnippetAdminLinkProvider;
+use Sulu\Bundle\McpBundle\AdminLink\AdminLinkGenerator;
+use Sulu\Bundle\McpBundle\AdminLink\Provider\SnippetAdminLinkProvider;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Routing\RouterInterface;
 

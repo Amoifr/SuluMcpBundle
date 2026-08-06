@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capabilities\Resource;
+namespace Sulu\Bundle\McpBundle\Capabilities\Resource;
 
 /**
  * Supplies a value-shape example (and an optional hint) per Sulu field type so

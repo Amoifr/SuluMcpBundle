@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Resource;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Resource;
 
 use Mcp\Capability\Attribute\McpResource;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Sulu\Bundle\McpBundle\Capabilities\Resource\WebspacesResource;
 use Sulu\Component\Localization\Localization;
 use Sulu\Component\Webspace\Environment;
 use Sulu\Component\Webspace\Exception\EnvironmentNotFoundException;
@@ -15,9 +17,9 @@ use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
 use Sulu\Component\Webspace\Portal;
 use Sulu\Component\Webspace\Url;
 use Sulu\Component\Webspace\Webspace;
-use Sulu\McpServerBundle\Capabilities\Resource\WebspacesResource;
 
-class WebspaceResourceTest extends TestCase
+#[CoversClass(WebspacesResource::class)]
+final class WebspaceResourceTest extends TestCase
 {
     private WebspaceManagerInterface&MockObject $webspaceManager;
     private WebspacesResource $resource;

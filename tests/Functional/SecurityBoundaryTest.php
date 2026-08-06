@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Functional;
+namespace Sulu\Bundle\McpBundle\Tests\Functional;
 
+use PHPUnit\Framework\Attributes\CoversNothing;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\Bundle\SecurityBundle\Entity\UserRole;
 use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
 
 /**
  * Tier B: two targeted rows verifying our layer supplies the correct locale and
@@ -15,6 +16,7 @@ use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
  * permissions across multiple roles is Sulu's responsibility (already covered
  * by Sulu's own test suite) and is deliberately NOT re-tested here.
  */
+#[CoversNothing]
 final class SecurityBoundaryTest extends FunctionalTestCase
 {
     public function testRoleValidForDifferentLocaleIsNotApplied(): void

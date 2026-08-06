@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capability;
+namespace Sulu\Bundle\McpBundle\Capability;
 
 use Mcp\Capability\Registry\ReferenceHandler;
 use Mcp\Capability\RegistryInterface;
@@ -17,11 +17,11 @@ use Mcp\Server\Handler\Request\RequestHandlerInterface;
 use Mcp\Server\Session\SessionInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
-use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
-use Sulu\McpServerBundle\Security\Permission\ToolContextResolverInterface;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
-use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
+use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
+use Sulu\Bundle\McpBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolContextResolverInterface;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionCheckerInterface;
+use Sulu\Bundle\McpBundle\Security\Permission\WebspacePermissionResolver;
 
 /**
  * Preflight-checks the compile-time permission map, then delegates to the SDK's
@@ -29,6 +29,8 @@ use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
  * and returns an isError result rather than throwing.
  *
  * @implements RequestHandlerInterface<CallToolResult>
+ *
+ * @internal
  */
 final readonly class PermissionAwareCallToolHandler implements RequestHandlerInterface
 {

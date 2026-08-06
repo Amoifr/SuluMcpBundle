@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Taxonomy;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Tool\Taxonomy;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
@@ -11,10 +11,10 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Sulu\Bundle\CategoryBundle\Category\CategoryManagerInterface;
 use Sulu\Bundle\CategoryBundle\Entity\CategoryInterface;
-use Sulu\McpServerBundle\AdminLink\AdminLinkGenerator;
-use Sulu\McpServerBundle\AdminLink\Provider\CategoryAdminLinkProvider;
-use Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\CategoryCreateTool;
-use Sulu\McpServerBundle\Tests\Support\StubViewRegistry;
+use Sulu\Bundle\McpBundle\AdminLink\AdminLinkGenerator;
+use Sulu\Bundle\McpBundle\AdminLink\Provider\CategoryAdminLinkProvider;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\CategoryCreateTool;
+use Sulu\Bundle\McpBundle\Tests\Support\StubViewRegistry;
 use Symfony\Component\Routing\RouterInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capabilities\Tool\Article;
+namespace Sulu\Bundle\McpBundle\Capabilities\Tool\Article;
 
 /**
  * Validates the URL routing fields passed in article create/update content.
@@ -15,6 +15,8 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Article;
  *
  * This validator runs on the MCP side so the LLM gets an actionable message
  * before the message hits Sulu's RoutableDataMapper.
+ *
+ * @internal
  */
 final class ArticleRouteValidator
 {

@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capabilities\Tool\Media;
+namespace Sulu\Bundle\McpBundle\Capabilities\Tool\Media;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
+use Sulu\Bundle\McpBundle\Security\Attribute\RequiresPermission;
+use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
+use Sulu\Bundle\McpBundle\Security\Permission\PermissionRequirement;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\Bundle\MediaBundle\Entity\Collection;
 use Sulu\Bundle\MediaBundle\Media\Manager\MediaManagerInterface;
 use Sulu\Component\Media\SystemCollections\SystemCollectionManagerInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
-use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
-use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
-use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
 
 /**
  * @internal

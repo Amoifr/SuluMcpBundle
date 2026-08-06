@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Resource;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Resource;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Sulu\McpServerBundle\Capabilities\Resource\FieldValueExampleProvider;
+use Sulu\Bundle\McpBundle\Capabilities\Resource\FieldValueExampleProvider;
 
 #[CoversClass(FieldValueExampleProvider::class)]
 final class FieldValueExampleProviderTest extends TestCase

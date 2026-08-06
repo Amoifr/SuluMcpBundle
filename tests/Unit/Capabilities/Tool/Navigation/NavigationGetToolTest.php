@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Navigation;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Tool\Navigation;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Sulu\McpServerBundle\Capabilities\Tool\Navigation\NavigationGetTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Navigation\NavigationGetTool;
 use Sulu\Page\Domain\Repository\NavigationRepositoryInterface;
 
 #[CoversClass(NavigationGetTool::class)]

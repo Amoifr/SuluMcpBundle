@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capabilities\Tool;
+namespace Sulu\Bundle\McpBundle\Capabilities\Tool;
 
 use Mcp\Capability\Attribute\McpTool;
+use Sulu\Bundle\McpBundle\Security\Permission\WebspacePermissionResolver;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
-use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
 /**

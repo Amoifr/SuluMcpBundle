@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capabilities\Tool\Taxonomy;
+namespace Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy;
 
 use Mcp\Capability\Attribute\McpTool;
 use Sulu\Bundle\CategoryBundle\Category\CategoryManagerInterface;
+use Sulu\Bundle\McpBundle\Security\Attribute\RequiresPermission;
+use Sulu\Bundle\McpBundle\Security\Permission\PermissionRequirement;
 use Sulu\Component\Security\Authorization\PermissionTypes;
-use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
-use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
 
 /**
  * @internal

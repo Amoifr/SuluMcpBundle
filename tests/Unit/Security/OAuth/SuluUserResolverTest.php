@@ -2,17 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Security\OAuth;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Security\OAuth;
 
 use League\OAuth2\Server\Entities\UserEntityInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Sulu\Bundle\McpBundle\Security\OAuth\SuluOAuthUser;
+use Sulu\Bundle\McpBundle\Security\OAuth\SuluUserResolver;
 use Sulu\Bundle\SecurityBundle\Entity\User;
-use Sulu\McpServerBundle\Security\OAuth\SuluOAuthUser;
-use Sulu\McpServerBundle\Security\OAuth\SuluUserResolver;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
-class SuluUserResolverTest extends TestCase
+#[CoversClass(SuluUserResolver::class)]
+final class SuluUserResolverTest extends TestCase
 {
     private SuluUserResolver $resolver;
 

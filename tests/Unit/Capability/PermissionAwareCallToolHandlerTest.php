@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Capability;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capability;
 
 use Mcp\Capability\Registry\ReferenceHandler;
 use Mcp\Capability\RegistryInterface;
@@ -15,18 +15,18 @@ use Mcp\Server\Session\SessionInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Sulu\Bundle\McpBundle\Capability\PermissionAwareCallToolHandler;
+use Sulu\Bundle\McpBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionChecker;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionCheckerInterface;
+use Sulu\Bundle\McpBundle\Security\Permission\WebspacePermissionResolver;
+use Sulu\Bundle\McpBundle\Tests\Support\StubGroupProvider;
 use Sulu\Component\Security\Authentication\UserInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Component\Security\Authorization\SecurityCheckerInterface;
 use Sulu\Component\Webspace\Manager\WebspaceCollection;
 use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
 use Sulu\Component\Webspace\Webspace;
-use Sulu\McpServerBundle\Capability\PermissionAwareCallToolHandler;
-use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionChecker;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
-use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
-use Sulu\McpServerBundle\Tests\Support\StubGroupProvider;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 

@@ -2,12 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Page;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\PageListTool;
+use Sulu\Bundle\McpBundle\Security\Permission\AccessControlFilterFactory;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionChecker;
+use Sulu\Bundle\McpBundle\Security\Permission\WebspacePermissionResolver;
 use Sulu\Component\Security\Authentication\UserInterface;
 use Sulu\Component\Security\Authorization\SecurityCheckerInterface;
 use Sulu\Component\Webspace\Manager\WebspaceCollection;
@@ -15,16 +20,13 @@ use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
 use Sulu\Component\Webspace\Webspace;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
-use Sulu\McpServerBundle\Capabilities\Tool\Page\PageListTool;
-use Sulu\McpServerBundle\Security\Permission\AccessControlFilterFactory;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionChecker;
-use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
 use Sulu\Page\Domain\Model\PageInterface;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 
-class PageListToolTest extends TestCase
+#[CoversClass(PageListTool::class)]
+final class PageListToolTest extends TestCase
 {
     private PageRepositoryInterface&MockObject $pageRepository;
     private ContentManagerInterface&MockObject $contentManager;

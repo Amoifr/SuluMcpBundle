@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Support;
+namespace Sulu\Bundle\McpBundle\Tests\Support;
 
-use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
+use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionCheckerInterface;
 
 /**
  * Stub driven by explicit (context, permission) pairs, so tests can control

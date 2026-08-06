@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\OAuth;
+namespace Sulu\Bundle\McpBundle\Security\OAuth;
 
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use Sulu\Bundle\SecurityBundle\Entity\User;
@@ -14,6 +14,8 @@ use Symfony\Component\Security\Core\User\UserInterface;
  *
  * The username is used as the OAuth identifier so that Sulu's user provider
  * can reload the user from the JWT sub claim via loadUserByIdentifier().
+ *
+ * @internal
  */
 class SuluUserResolver
 {

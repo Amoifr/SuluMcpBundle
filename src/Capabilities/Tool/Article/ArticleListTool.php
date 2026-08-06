@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capabilities\Tool\Article;
+namespace Sulu\Bundle\McpBundle\Capabilities\Tool\Article;
 
 use Mcp\Capability\Attribute\McpTool;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
+use Sulu\Bundle\McpBundle\Security\Attribute\RequiresPermission;
+use Sulu\Bundle\McpBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\PermissionRequirement;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
-use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
-use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
-use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
 
 /**
  * @internal

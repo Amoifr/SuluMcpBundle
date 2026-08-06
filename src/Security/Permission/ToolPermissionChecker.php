@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\Permission;
+namespace Sulu\Bundle\McpBundle\Security\Permission;
 
+use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
 use Sulu\Component\Security\Authentication\UserInterface;
 use Sulu\Component\Security\Authorization\SecurityCheckerInterface;
 use Sulu\Component\Security\Authorization\SecurityCondition;
-use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 
@@ -16,6 +16,8 @@ use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
  * grants access for an empty subject or an inactive firewall; this
  * class denies in those cases and only delegates once a real context and an
  * authenticated Sulu user are present.
+ *
+ * @internal
  */
 final readonly class ToolPermissionChecker implements ToolPermissionCheckerInterface
 {

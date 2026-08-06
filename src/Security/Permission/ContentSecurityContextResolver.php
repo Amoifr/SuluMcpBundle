@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\Permission;
+namespace Sulu\Bundle\McpBundle\Security\Permission;
 
 use Sulu\Content\Domain\Model\TemplateInterface;
 use Sulu\Page\Domain\Model\PageInterface;
@@ -12,6 +12,8 @@ use Sulu\Page\Domain\Model\PageInterface;
  * page → sulu.webspaces.<key> (from the aggregate), article → per-group (from the
  * RESOLVED dimension content's template key — NOT the aggregate),
  * snippet → sulu.snippet.snippets.
+ *
+ * @internal
  */
 final readonly class ContentSecurityContextResolver
 {

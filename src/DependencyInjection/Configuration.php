@@ -2,16 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\DependencyInjection;
+namespace Sulu\Bundle\McpBundle\DependencyInjection;
 
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 
+/**
+ * @internal
+ */
 class Configuration implements ConfigurationInterface
 {
     public function getConfigTreeBuilder(): TreeBuilder
     {
-        $treeBuilder = new TreeBuilder('sulu_mcp_server');
+        $treeBuilder = new TreeBuilder('sulu_mcp');
 
         $treeBuilder->getRootNode()
             ->children()

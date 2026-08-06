@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\Permission;
+namespace Sulu\Bundle\McpBundle\Security\Permission;
 
 /**
  * One AND-combined permission requirement: a security-context template (which may
  * contain the `#context#` placeholder) and the PermissionTypes constant required.
+ *
+ * @internal
  */
 final readonly class PermissionRequirement
 {

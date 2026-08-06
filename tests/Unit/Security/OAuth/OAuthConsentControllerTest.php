@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Security\OAuth;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Security\OAuth;
 
 use League\Bundle\OAuth2ServerBundle\Event\AuthorizationRequestResolveEvent;
 use League\Bundle\OAuth2ServerBundle\Model\Client;
@@ -10,9 +10,9 @@ use League\Bundle\OAuth2ServerBundle\ValueObject\Scope;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Sulu\McpServerBundle\Security\OAuth\OAuthConsentController;
-use Sulu\McpServerBundle\Security\OAuth\OAuthConsentRequest;
-use Sulu\McpServerBundle\Security\OAuth\OAuthConsentStore;
+use Sulu\Bundle\McpBundle\Security\OAuth\OAuthConsentController;
+use Sulu\Bundle\McpBundle\Security\OAuth\OAuthConsentRequest;
+use Sulu\Bundle\McpBundle\Security\OAuth\OAuthConsentStore;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;

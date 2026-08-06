@@ -2,25 +2,25 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Security\Permission;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Security\Permission;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Sulu\Bundle\McpBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\ContactSecurityContextResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolContextResolverInterface;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionChecker;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionCheckerInterface;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolVisibilityResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\WebspacePermissionResolver;
+use Sulu\Bundle\McpBundle\Tests\Support\StubGroupProvider;
 use Sulu\Component\Security\Authentication\UserInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Component\Security\Authorization\SecurityCheckerInterface;
 use Sulu\Component\Webspace\Manager\WebspaceCollection;
 use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
 use Sulu\Component\Webspace\Webspace;
-use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
-use Sulu\McpServerBundle\Security\Permission\ContactSecurityContextResolver;
-use Sulu\McpServerBundle\Security\Permission\ToolContextResolverInterface;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionChecker;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
-use Sulu\McpServerBundle\Security\Permission\ToolVisibilityResolver;
-use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
-use Sulu\McpServerBundle\Tests\Support\StubGroupProvider;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 
@@ -162,11 +162,11 @@ final class ToolVisibilityResolverTest extends TestCase
                 'sulu_contact_list' => [
                     'name' => 'sulu_contact_list',
                     'requirements' => [['context' => 'sulu.contact.#context#', 'permission' => PermissionTypes::VIEW]],
-                    'contextArgument' => null, 'contextResolver' => 'sulu_mcp_server.contact_context_resolver',
+                    'contextArgument' => null, 'contextResolver' => 'sulu_mcp.contact_context_resolver',
                     'objectResolved' => false, 'discoveryContexts' => [],
                 ],
             ],
-            contextResolvers: ['sulu_mcp_server.contact_context_resolver' => new ContactSecurityContextResolver()],
+            contextResolvers: ['sulu_mcp.contact_context_resolver' => new ContactSecurityContextResolver()],
         );
 
         self::assertTrue($resolver->isVisible('sulu_contact_list'));
@@ -180,11 +180,11 @@ final class ToolVisibilityResolverTest extends TestCase
                 'sulu_contact_list' => [
                     'name' => 'sulu_contact_list',
                     'requirements' => [['context' => 'sulu.contact.#context#', 'permission' => PermissionTypes::VIEW]],
-                    'contextArgument' => null, 'contextResolver' => 'sulu_mcp_server.contact_context_resolver',
+                    'contextArgument' => null, 'contextResolver' => 'sulu_mcp.contact_context_resolver',
                     'objectResolved' => false, 'discoveryContexts' => [],
                 ],
             ],
-            contextResolvers: ['sulu_mcp_server.contact_context_resolver' => new ContactSecurityContextResolver()],
+            contextResolvers: ['sulu_mcp.contact_context_resolver' => new ContactSecurityContextResolver()],
         );
 
         self::assertFalse($resolver->isVisible('sulu_contact_list'));

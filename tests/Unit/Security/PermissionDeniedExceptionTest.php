@@ -2,13 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Security;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Security;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
 use Sulu\Component\Security\Authorization\PermissionTypes;
-use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
 
-class PermissionDeniedExceptionTest extends TestCase
+#[CoversClass(PermissionDeniedException::class)]
+final class PermissionDeniedExceptionTest extends TestCase
 {
     public function testGetSecurityContextReturnsContext(): void
     {

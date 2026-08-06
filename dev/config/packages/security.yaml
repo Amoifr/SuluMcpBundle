@@ -26,7 +26,7 @@ security:
             pattern: ^/admin/_mcp
             provider: sulu
             stateless: true
-            entry_point: Sulu\McpServerBundle\Security\EventListener\McpAuthenticationListener
+            entry_point: sulu_mcp.authentication_entry_point
             oauth2: true
         admin:
             pattern: ^/admin(\/|$)

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Content;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Tool\Content;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
@@ -12,16 +12,16 @@ use PHPUnit\Framework\TestCase;
 use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Bundle\AdminBundle\Metadata\GroupProviderInterface;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Content\ContentPublishTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentTypeResolver;
+use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
+use Sulu\Bundle\McpBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\ContentSecurityContextResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\Content\Domain\Model\TemplateInterface;
-use Sulu\McpServerBundle\Capabilities\Tool\Content\ContentPublishTool;
-use Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver;
-use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
-use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
-use Sulu\McpServerBundle\Security\Permission\ContentSecurityContextResolver;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Sulu\Page\Application\Message\ApplyWorkflowTransitionPageMessage;
 use Sulu\Page\Domain\Model\PageInterface;

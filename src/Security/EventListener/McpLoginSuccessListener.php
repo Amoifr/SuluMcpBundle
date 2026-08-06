@@ -2,13 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\EventListener;
+namespace Sulu\Bundle\McpBundle\Security\EventListener;
 
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\Security\Http\Event\LoginSuccessEvent;
 
+/**
+ * @internal
+ */
 #[AsEventListener(event: LoginSuccessEvent::class)]
 final class McpLoginSuccessListener
 {

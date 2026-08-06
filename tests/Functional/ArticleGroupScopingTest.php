@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Functional;
+namespace Sulu\Bundle\McpBundle\Tests\Functional;
 
+use PHPUnit\Framework\Attributes\CoversNothing;
+use Sulu\Bundle\McpBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolVisibilityResolver;
 use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
-use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
-use Sulu\McpServerBundle\Security\Permission\ToolVisibilityResolver;
 
 /**
  * Regression guard for per-group article permissions on a MULTI-GROUP install
@@ -15,6 +16,7 @@ use Sulu\McpServerBundle\Security\Permission\ToolVisibilityResolver;
  * coarse candidate check ran off `discoveryContexts`, which only held the
  * literal `sulu.article.articles`, refusing a role granted only `..._blog`.
  */
+#[CoversNothing]
 final class ArticleGroupScopingTest extends FunctionalTestCase
 {
     /**

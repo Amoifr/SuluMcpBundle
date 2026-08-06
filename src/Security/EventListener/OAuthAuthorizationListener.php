@@ -2,17 +2,20 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\EventListener;
+namespace Sulu\Bundle\McpBundle\Security\EventListener;
 
 use League\Bundle\OAuth2ServerBundle\Event\AuthorizationRequestResolveEvent;
 use League\Bundle\OAuth2ServerBundle\OAuth2Events;
-use Sulu\McpServerBundle\Security\OAuth\OAuthConsentRequest;
-use Sulu\McpServerBundle\Security\OAuth\OAuthConsentStore;
+use Sulu\Bundle\McpBundle\Security\OAuth\OAuthConsentRequest;
+use Sulu\Bundle\McpBundle\Security\OAuth\OAuthConsentStore;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
+/**
+ * @internal
+ */
 #[AsEventListener(event: OAuth2Events::AUTHORIZATION_REQUEST_RESOLVE)]
 final readonly class OAuthAuthorizationListener
 {

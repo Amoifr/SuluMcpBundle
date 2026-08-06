@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\AdminLink;
+namespace Sulu\Bundle\McpBundle\AdminLink;
 
 use Sulu\Bundle\AdminBundle\Admin\View\ViewRegistry;
 

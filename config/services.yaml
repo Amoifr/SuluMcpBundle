@@ -4,44 +4,44 @@ services:
         autoconfigure: true
 
     _instanceof:
-        Sulu\McpServerBundle\AdminLink\AdminLinkProviderInterface:
-            tags: ['sulu_mcp_server.admin_link_provider']
+        Sulu\Bundle\McpBundle\AdminLink\AdminLinkProviderInterface:
+            tags: ['sulu_mcp.admin_link_provider']
 
     # Admin deeplink registry. Providers need sulu_admin.view_registry, which
     # only exists in the admin container, so they carry the sulu.context: admin
     # tag to be dropped from the website/preview container. The generator is
     # context-agnostic and just gets an empty iterator there.
-    Sulu\McpServerBundle\AdminLink\AdminLinkGenerator:
+    Sulu\Bundle\McpBundle\AdminLink\AdminLinkGenerator:
         arguments:
-            $providers: !tagged_iterator sulu_mcp_server.admin_link_provider
-    Sulu\McpServerBundle\AdminLink\AdminLinkGeneratorInterface: '@Sulu\McpServerBundle\AdminLink\AdminLinkGenerator'
+            $providers: !tagged_iterator sulu_mcp.admin_link_provider
+    Sulu\Bundle\McpBundle\AdminLink\AdminLinkGeneratorInterface: '@Sulu\Bundle\McpBundle\AdminLink\AdminLinkGenerator'
 
-    Sulu\McpServerBundle\AdminLink\Provider\PageAdminLinkProvider:
+    Sulu\Bundle\McpBundle\AdminLink\Provider\PageAdminLinkProvider:
         arguments:
             $viewRegistry: '@sulu_admin.view_registry'
         tags:
             - { name: sulu.context, context: admin }
-    Sulu\McpServerBundle\AdminLink\Provider\ArticleAdminLinkProvider:
+    Sulu\Bundle\McpBundle\AdminLink\Provider\ArticleAdminLinkProvider:
         arguments:
             $viewRegistry: '@sulu_admin.view_registry'
         tags:
             - { name: sulu.context, context: admin }
-    Sulu\McpServerBundle\AdminLink\Provider\SnippetAdminLinkProvider:
+    Sulu\Bundle\McpBundle\AdminLink\Provider\SnippetAdminLinkProvider:
         arguments:
             $viewRegistry: '@sulu_admin.view_registry'
         tags:
             - { name: sulu.context, context: admin }
-    Sulu\McpServerBundle\AdminLink\Provider\MediaAdminLinkProvider:
+    Sulu\Bundle\McpBundle\AdminLink\Provider\MediaAdminLinkProvider:
         arguments:
             $viewRegistry: '@sulu_admin.view_registry'
         tags:
             - { name: sulu.context, context: admin }
-    Sulu\McpServerBundle\AdminLink\Provider\TagAdminLinkProvider:
+    Sulu\Bundle\McpBundle\AdminLink\Provider\TagAdminLinkProvider:
         arguments:
             $viewRegistry: '@sulu_admin.view_registry'
         tags:
             - { name: sulu.context, context: admin }
-    Sulu\McpServerBundle\AdminLink\Provider\CategoryAdminLinkProvider:
+    Sulu\Bundle\McpBundle\AdminLink\Provider\CategoryAdminLinkProvider:
         arguments:
             $viewRegistry: '@sulu_admin.view_registry'
         tags:
@@ -50,35 +50,35 @@ services:
     # Decorates mcp.registry to drop tools disabled via `dangerous_tools.*`.
     # Attribute discovery would otherwise re-add them after DangerousToolsPass
     # removed the services, and calls would fall through to `new $class()`.
-    Sulu\McpServerBundle\Capability\FilteredRegistry:
+    Sulu\Bundle\McpBundle\Capability\FilteredRegistry:
         decorates: mcp.registry
         arguments:
             $inner: '@.inner'
-            $visibilityResolver: '@Sulu\McpServerBundle\Security\Permission\ToolVisibilityResolver'
-            $disabledToolNames: '%sulu_mcp_server.disabled_tool_names%'
+            $visibilityResolver: '@Sulu\Bundle\McpBundle\Security\Permission\ToolVisibilityResolver'
+            $disabledToolNames: '%sulu_mcp.disabled_tool_names%'
 
-    Sulu\McpServerBundle\Security\Permission\ToolPermissionChecker: ~
-    Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface: '@Sulu\McpServerBundle\Security\Permission\ToolPermissionChecker'
-    Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver: ~
+    Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionChecker: ~
+    Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionCheckerInterface: '@Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionChecker'
+    Sulu\Bundle\McpBundle\Security\Permission\WebspacePermissionResolver: ~
 
-    Sulu\McpServerBundle\Security\Permission\AccessControlFilterFactory:
+    Sulu\Bundle\McpBundle\Security\Permission\AccessControlFilterFactory:
         arguments:
             $security: '@security.helper'
             $permissions: '%sulu_security.permissions%'
 
     # Discovery-layer filtering for tools/list; $contextResolvers is keyed the same
     # way as PermissionAwareCallToolHandler's.
-    Sulu\McpServerBundle\Security\Permission\ToolVisibilityResolver:
+    Sulu\Bundle\McpBundle\Security\Permission\ToolVisibilityResolver:
         arguments:
-            $permissionMap: '%sulu_mcp_server.tool_permissions%'
+            $permissionMap: '%sulu_mcp.tool_permissions%'
             $contextResolvers:
-                sulu_mcp_server.contact_context_resolver: '@sulu_mcp_server.contact_context_resolver'
-                sulu_mcp_server.article_context_resolver: '@sulu_mcp_server.article_context_resolver'
+                sulu_mcp.contact_context_resolver: '@sulu_mcp.contact_context_resolver'
+                sulu_mcp.article_context_resolver: '@sulu_mcp.article_context_resolver'
             $allowlist: ['sulu_ping', 'sulu_get_context']
 
     # Reproduces PageDescendantSecurityListener (spec F10) for the MCP delete tool,
     # which dispatches RemovePageMessage directly and bypasses that route listener.
-    Sulu\McpServerBundle\Security\Permission\PageDescendantPermissionChecker:
+    Sulu\Bundle\McpBundle\Security\Permission\PageDescendantPermissionChecker:
         arguments:
             $pageRepository: '@sulu_page.page_repository'
             $accessControlRepository: '@sulu.repository.access_control'
@@ -86,145 +86,151 @@ services:
             $security: '@security.helper'
             $permissions: '%sulu_security.permissions%'
 
-    sulu_mcp_server.contact_context_resolver:
-        class: Sulu\McpServerBundle\Security\Permission\ContactSecurityContextResolver
+    sulu_mcp.contact_context_resolver:
+        class: Sulu\Bundle\McpBundle\Security\Permission\ContactSecurityContextResolver
 
-    sulu_mcp_server.article_context_resolver:
-        class: Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver
+    sulu_mcp.article_context_resolver:
+        class: Sulu\Bundle\McpBundle\Security\Permission\ArticleSecurityContextResolver
         arguments:
             $groupProvider: '@sulu_admin.metadata_group_provider'
-    Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver: '@sulu_mcp_server.article_context_resolver'
-    Sulu\McpServerBundle\Security\Permission\ContentSecurityContextResolver: ~
+    Sulu\Bundle\McpBundle\Security\Permission\ArticleSecurityContextResolver: '@sulu_mcp.article_context_resolver'
+    Sulu\Bundle\McpBundle\Security\Permission\ContentSecurityContextResolver: ~
 
     # Central fail-closed permission gate: preflight-checks the compile-time
     # permission map before delegating to the SDK's built-in CallToolHandler.
-    Sulu\McpServerBundle\Capability\PermissionAwareCallToolHandler:
+    Sulu\Bundle\McpBundle\Capability\PermissionAwareCallToolHandler:
         arguments:
             $registry: '@mcp.registry'
-            $referenceHandler: '@sulu_mcp_server.reference_handler'
-            $webspacePermissionResolver: '@Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver'
-            $permissionMap: '%sulu_mcp_server.tool_permissions%'
+            $referenceHandler: '@sulu_mcp.reference_handler'
+            $webspacePermissionResolver: '@Sulu\Bundle\McpBundle\Security\Permission\WebspacePermissionResolver'
+            $permissionMap: '%sulu_mcp.tool_permissions%'
             $contextResolvers:
-                sulu_mcp_server.contact_context_resolver: '@sulu_mcp_server.contact_context_resolver'
-                sulu_mcp_server.article_context_resolver: '@sulu_mcp_server.article_context_resolver'
+                sulu_mcp.contact_context_resolver: '@sulu_mcp.contact_context_resolver'
+                sulu_mcp.article_context_resolver: '@sulu_mcp.article_context_resolver'
             $allowlist: ['sulu_ping', 'sulu_get_context']
         tags:
             - { name: mcp.request_handler, priority: 100 }
 
-    Sulu\McpServerBundle\Capabilities\Tool\PingTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\GetContextTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\ContentSearchTool:
+    Sulu\Bundle\McpBundle\Capabilities\Tool\PingTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\GetContextTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\ContentSearchTool:
         arguments:
             $engine: '@cmsig_seal.engine.default'
 
     # MCP Resources: discovery layer for AI clients
-    Sulu\McpServerBundle\Capabilities\Resource\FieldValueExampleProvider: ~
-    Sulu\McpServerBundle\Capabilities\Resource\TemplatesResource:
+    Sulu\Bundle\McpBundle\Capabilities\Resource\FieldValueExampleProvider: ~
+    Sulu\Bundle\McpBundle\Capabilities\Resource\TemplatesResource:
         arguments:
             $formMetadataProvider: '@sulu_admin.form_metadata_provider'
-    Sulu\McpServerBundle\Capabilities\Resource\BlocksResource:
+    Sulu\Bundle\McpBundle\Capabilities\Resource\BlocksResource:
         arguments:
             $formMetadataProvider: '@sulu_admin.form_metadata_provider'
-    Sulu\McpServerBundle\Capabilities\Resource\WebspacesResource: ~
-    Sulu\McpServerBundle\Capabilities\Resource\ExtensionFieldsResource:
+    Sulu\Bundle\McpBundle\Capabilities\Resource\WebspacesResource: ~
+    Sulu\Bundle\McpBundle\Capabilities\Resource\ExtensionFieldsResource:
         arguments:
             $formMetadataProvider: '@sulu_admin.form_metadata_provider'
 # OAuth well-known controller
-    Sulu\McpServerBundle\Security\OAuth\WellKnownController:
+    Sulu\Bundle\McpBundle\Security\OAuth\WellKnownController:
         arguments:
-            $serverUrl: '%sulu_mcp_server.server_url%'
-            $mcpPath: '%sulu_mcp_server.mcp_path%'
-            $scopes: '%sulu_mcp_server.oauth.scopes%'
+            $serverUrl: '%sulu_mcp.server_url%'
+            $mcpPath: '%sulu_mcp.mcp_path%'
+            $scopes: '%sulu_mcp.oauth.scopes%'
         tags: ['controller.service_arguments']
 
-    Sulu\McpServerBundle\Security\OAuth\DynamicClientRegistrationController:
+    Sulu\Bundle\McpBundle\Security\OAuth\DynamicClientRegistrationController:
         arguments:
-            $serverUrl: '%sulu_mcp_server.server_url%'
-            $allowedScopes: '%sulu_mcp_server.oauth.scopes%'
+            $serverUrl: '%sulu_mcp.server_url%'
+            $allowedScopes: '%sulu_mcp.oauth.scopes%'
         tags: ['controller.service_arguments']
 
-    Sulu\McpServerBundle\Security\OAuth\OAuthConsentStore: ~
+    Sulu\Bundle\McpBundle\Security\OAuth\OAuthConsentStore: ~
 
-    Sulu\McpServerBundle\Security\OAuth\OAuthConsentController:
+    Sulu\Bundle\McpBundle\Security\OAuth\OAuthConsentController:
         tags: ['controller.service_arguments']
 
-    Sulu\McpServerBundle\Security\OAuth\SuluUserResolver: ~
+    Sulu\Bundle\McpBundle\Security\OAuth\SuluUserResolver: ~
 
-    Sulu\McpServerBundle\Admin\OAuthConsentAdmin:
+    Sulu\Bundle\McpBundle\Admin\OAuthConsentAdmin:
         tags:
             - { name: sulu.context, context: admin }
 
     # OAuth authorization
-    Sulu\McpServerBundle\Security\EventListener\OAuthAuthorizationListener: ~
+    Sulu\Bundle\McpBundle\Security\EventListener\OAuthAuthorizationListener: ~
 
     # Redirect unauthenticated OAuth-authorize hits to the Sulu admin login
-    Sulu\McpServerBundle\Security\McpAuthenticationEntryPoint:
+    Sulu\Bundle\McpBundle\Security\McpAuthenticationEntryPoint:
         decorates: sulu_security.authentication_entry_point
         arguments:
             $inner: '@.inner'
 
     # After admin login, resume a pending /admin/mcp/authorize OAuth request.
-    Sulu\McpServerBundle\Security\EventListener\McpLoginSuccessListener: ~
+    Sulu\Bundle\McpBundle\Security\EventListener\McpLoginSuccessListener: ~
 
     # MCP event listeners
-    Sulu\McpServerBundle\Security\EventListener\McpAuthenticationListener:
+    Sulu\Bundle\McpBundle\Security\EventListener\McpAuthenticationListener:
         arguments:
-            $serverUrl: '%sulu_mcp_server.server_url%'
-            $mcpPath: '%sulu_mcp_server.mcp_path%'
+            $serverUrl: '%sulu_mcp.server_url%'
+            $mcpPath: '%sulu_mcp.mcp_path%'
 
-    Sulu\McpServerBundle\Security\EventListener\McpExceptionListener:
+    # Stable id for the firewall entry_point, so security.yaml never references
+    # an internal class name.
+    sulu_mcp.authentication_entry_point:
+        alias: Sulu\Bundle\McpBundle\Security\EventListener\McpAuthenticationListener
+        public: true
+
+    Sulu\Bundle\McpBundle\Security\EventListener\McpExceptionListener:
         arguments:
-            $mcpPath: '%sulu_mcp_server.mcp_path%'
+            $mcpPath: '%sulu_mcp.mcp_path%'
 
     # Forces request format to "json" for MCP requests so Sulu's MarkupBundle
     # response listener does not run the HtmlMarkupParser on JSON-RPC responses
-    Sulu\McpServerBundle\Security\EventListener\McpRequestFormatListener:
+    Sulu\Bundle\McpBundle\Security\EventListener\McpRequestFormatListener:
         arguments:
-            $mcpPath: '%sulu_mcp_server.mcp_path%'
+            $mcpPath: '%sulu_mcp.mcp_path%'
         tags:
             - { name: kernel.event_listener, event: kernel.request, method: onKernelRequest, priority: 64 }
 
     # Sets Sulu system context for MCP requests so the UserProvider can authenticate OAuth users
-    Sulu\McpServerBundle\Security\EventListener\OAuthSystemStoreListener:
+    Sulu\Bundle\McpBundle\Security\EventListener\OAuthSystemStoreListener:
         arguments:
-            $mcpPath: '%sulu_mcp_server.mcp_path%'
+            $mcpPath: '%sulu_mcp.mcp_path%'
             $defaultSystem: 'Sulu'
         tags:
             - { name: kernel.event_listener, event: kernel.request, method: onKernelRequest, priority: 64 }
 
     # Commands
-    Sulu\McpServerBundle\Command\CreateMcpClientCommand:
+    Sulu\Bundle\McpBundle\Command\CreateMcpClientCommand:
         arguments:
-            $serverUrl: '%sulu_mcp_server.server_url%'
-            $mcpPath: '%sulu_mcp_server.mcp_path%'
+            $serverUrl: '%sulu_mcp.server_url%'
+            $mcpPath: '%sulu_mcp.mcp_path%'
 
     # Page read tools
-    Sulu\McpServerBundle\Capabilities\Tool\Page\PageGetTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Page\PageListTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Page\PageTreeTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Page\PageGetTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Page\PageListTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Page\PageTreeTool: ~
 
     # Page write tools
-    Sulu\McpServerBundle\Capabilities\Tool\Page\PageCreateTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Page\PageUpdateTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Page\PageCreateTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Page\PageUpdateTool: ~
 
     # Unified content tools (page | article | snippet via `type`)
-    Sulu\McpServerBundle\Capabilities\Tool\Content\ContentDeleteTool: ~  # gated by dangerous_tools.delete
-    Sulu\McpServerBundle\Capabilities\Tool\Content\ContentPublishTool: ~  # gated by dangerous_tools.publish
-    Sulu\McpServerBundle\Capabilities\Tool\Content\ContentUnpublishTool: ~  # gated by dangerous_tools.publish
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Content\ContentDeleteTool: ~  # gated by dangerous_tools.delete
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Content\ContentPublishTool: ~  # gated by dangerous_tools.publish
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Content\ContentUnpublishTool: ~  # gated by dangerous_tools.publish
 
     # Block management tools
-    Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver: ~
-    Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper:
+    Sulu\Bundle\McpBundle\Capabilities\Tool\ContentTypeResolver: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\ContentMetadataMapper:
         arguments:
             $formMetadataProvider: '@sulu_admin.form_metadata_provider'
-    Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator:
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Block\BlockDataValidator:
         arguments:
             $formMetadataProvider: '@sulu_admin.form_metadata_provider'
-    Sulu\McpServerBundle\Capabilities\Tool\Page\BlockListTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Page\BlockAddTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Page\BlockUpdateTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Page\BlockRemoveTool: ~  # gated by dangerous_tools.block_remove
-    Sulu\McpServerBundle\Capabilities\Tool\Page\BlockReorderTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockListTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockAddTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockUpdateTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockRemoveTool: ~  # gated by dangerous_tools.block_remove
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockReorderTool: ~
 
     Sulu\Page\Domain\Repository\NavigationRepositoryInterface:
         alias: sulu_page.navigation_repository
@@ -233,39 +239,39 @@ services:
         alias: sulu_preview.preview_link_manager
 
     # Phase 04: Article tools
-    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleGroupResolver:
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Article\ArticleGroupResolver:
         arguments:
             $groupProvider: '@sulu_admin.metadata_group_provider'
-    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleGetTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleListTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleCreateTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleUpdateTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Article\ArticleGetTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Article\ArticleListTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Article\ArticleCreateTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Article\ArticleUpdateTool: ~
 
     # Phase 04: Taxonomy tools
-    Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\TagCreateTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\TagListTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\TagDeleteTool: ~  # gated by dangerous_tools.delete
-    Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\CategoryCreateTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\CategoryListTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\CategoryDeleteTool: ~  # gated by dangerous_tools.delete
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\TagCreateTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\TagListTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\TagDeleteTool: ~  # gated by dangerous_tools.delete
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\CategoryCreateTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\CategoryListTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\CategoryDeleteTool: ~  # gated by dangerous_tools.delete
 
     # Phase 04: Media tools
-    Sulu\McpServerBundle\Capabilities\Tool\Media\MediaListTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Media\MediaGetTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Media\MediaUpdateTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Media\MediaListTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Media\MediaGetTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Media\MediaUpdateTool: ~
 
     # Phase 04: Snippet tools
-    Sulu\McpServerBundle\Capabilities\Tool\Snippet\SnippetGetTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Snippet\SnippetListTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Snippet\SnippetCreateTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Snippet\SnippetUpdateTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Snippet\SnippetGetTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Snippet\SnippetListTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Snippet\SnippetCreateTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Snippet\SnippetUpdateTool: ~
 
     # Phase 04: Contact tools
-    Sulu\McpServerBundle\Capabilities\Tool\Contact\ContactListTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Contact\ContactListTool: ~
 
     # Phase 04: Navigation tools
-    Sulu\McpServerBundle\Capabilities\Tool\Navigation\NavigationGetTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Navigation\NavigationGetTool: ~
 
     # Preview link tools
-    Sulu\McpServerBundle\Capabilities\Tool\Preview\PreviewLinkGenerateTool: ~
-    Sulu\McpServerBundle\Capabilities\Tool\Preview\PreviewLinkRevokeTool: ~  # gated by dangerous_tools.publish
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Preview\PreviewLinkGenerateTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Preview\PreviewLinkRevokeTool: ~  # gated by dangerous_tools.publish

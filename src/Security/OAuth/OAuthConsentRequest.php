@@ -2,8 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\OAuth;
+namespace Sulu\Bundle\McpBundle\Security\OAuth;
 
+/**
+ * @internal
+ */
 final readonly class OAuthConsentRequest
 {
     /**

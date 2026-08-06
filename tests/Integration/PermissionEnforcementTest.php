@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Integration;
+namespace Sulu\Bundle\McpBundle\Tests\Integration;
 
 use Mcp\Capability\Registry;
 use Mcp\Capability\Registry\ReferenceHandler;
@@ -14,22 +14,23 @@ use Mcp\Schema\Tool;
 use Mcp\Server\Handler\Request\CallToolHandler;
 use Mcp\Server\Handler\Request\RequestHandlerInterface;
 use Mcp\Server\Session\SessionInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Sulu\Bundle\McpBundle\Capability\FilteredRegistry;
+use Sulu\Bundle\McpBundle\Capability\PermissionAwareCallToolHandler;
+use Sulu\Bundle\McpBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionChecker;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolVisibilityResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\WebspacePermissionResolver;
+use Sulu\Bundle\McpBundle\Tests\Support\StubGroupProvider;
+use Sulu\Bundle\McpBundle\Tests\Support\StubToolPermissionChecker;
 use Sulu\Component\Security\Authentication\UserInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Component\Security\Authorization\SecurityCheckerInterface;
 use Sulu\Component\Webspace\Manager\WebspaceCollection;
 use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
 use Sulu\Component\Webspace\Webspace;
-use Sulu\McpServerBundle\Capability\FilteredRegistry;
-use Sulu\McpServerBundle\Capability\PermissionAwareCallToolHandler;
-use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionChecker;
-use Sulu\McpServerBundle\Security\Permission\ToolVisibilityResolver;
-use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
-use Sulu\McpServerBundle\Tests\Support\StubGroupProvider;
-use Sulu\McpServerBundle\Tests\Support\StubToolPermissionChecker;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
@@ -42,6 +43,9 @@ use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
  * real Registry, guarding against a past bug where this logic was unit-tested
  * green but never actually wired into the real call path.
  */
+#[CoversClass(PermissionAwareCallToolHandler::class)]
+#[CoversClass(FilteredRegistry::class)]
+#[CoversClass(ToolVisibilityResolver::class)]
 final class PermissionEnforcementTest extends TestCase
 {
     private const ALLOWLIST = ['sulu_ping', 'sulu_get_context'];

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Article;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Tool\Article;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
@@ -19,15 +19,15 @@ use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\TypedFormMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\GroupProviderInterface;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataInterface;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
+use Sulu\Bundle\McpBundle\AdminLink\AdminLinkGenerator;
+use Sulu\Bundle\McpBundle\AdminLink\Provider\ArticleAdminLinkProvider;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Article\ArticleCreateTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Article\ArticleGroupResolver;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Block\BlockDataValidator;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentMetadataMapper;
+use Sulu\Bundle\McpBundle\Tests\Support\StubViewRegistry;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
-use Sulu\McpServerBundle\AdminLink\AdminLinkGenerator;
-use Sulu\McpServerBundle\AdminLink\Provider\ArticleAdminLinkProvider;
-use Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleCreateTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleGroupResolver;
-use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
-use Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper;
-use Sulu\McpServerBundle\Tests\Support\StubViewRegistry;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;

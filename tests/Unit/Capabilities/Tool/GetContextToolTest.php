@@ -2,30 +2,32 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Tool;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Sulu\Bundle\McpBundle\Capabilities\Resource\BlocksResource;
+use Sulu\Bundle\McpBundle\Capabilities\Resource\ExtensionFieldsResource;
+use Sulu\Bundle\McpBundle\Capabilities\Resource\FieldValueExampleProvider;
+use Sulu\Bundle\McpBundle\Capabilities\Resource\TemplatesResource;
+use Sulu\Bundle\McpBundle\Capabilities\Resource\WebspacesResource;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\GetContextTool;
+use Sulu\Bundle\McpBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionChecker;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionCheckerInterface;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolVisibilityResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\WebspacePermissionResolver;
+use Sulu\Bundle\McpBundle\Tests\Support\StubGroupProvider;
 use Sulu\Component\Security\Authentication\UserInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Component\Security\Authorization\SecurityCheckerInterface;
 use Sulu\Component\Webspace\Manager\WebspaceCollection;
 use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
 use Sulu\Component\Webspace\Webspace;
-use Sulu\McpServerBundle\Capabilities\Resource\BlocksResource;
-use Sulu\McpServerBundle\Capabilities\Resource\ExtensionFieldsResource;
-use Sulu\McpServerBundle\Capabilities\Resource\FieldValueExampleProvider;
-use Sulu\McpServerBundle\Capabilities\Resource\TemplatesResource;
-use Sulu\McpServerBundle\Capabilities\Resource\WebspacesResource;
-use Sulu\McpServerBundle\Capabilities\Tool\GetContextTool;
-use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionChecker;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
-use Sulu\McpServerBundle\Security\Permission\ToolVisibilityResolver;
-use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
-use Sulu\McpServerBundle\Tests\Support\StubGroupProvider;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 
+#[CoversClass(GetContextTool::class)]
 final class GetContextToolTest extends TestCase
 {
     /**

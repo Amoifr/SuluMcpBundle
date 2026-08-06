@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle;
+namespace Sulu\Bundle\McpBundle;
 
-use Sulu\McpServerBundle\DependencyInjection\Compiler\DangerousToolsPass;
-use Sulu\McpServerBundle\DependencyInjection\Compiler\ToolPermissionMapPass;
-use Sulu\McpServerBundle\DependencyInjection\Compiler\ToolReferenceHandlerPass;
+use Sulu\Bundle\McpBundle\DependencyInjection\Compiler\DangerousToolsPass;
+use Sulu\Bundle\McpBundle\DependencyInjection\Compiler\ToolPermissionMapPass;
+use Sulu\Bundle\McpBundle\DependencyInjection\Compiler\ToolReferenceHandlerPass;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 
-class SuluMcpServerBundle extends Bundle
+class SuluMcpBundle extends Bundle
 {
     public function getPath(): string
     {

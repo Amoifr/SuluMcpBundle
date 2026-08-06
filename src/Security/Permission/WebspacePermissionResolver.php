@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\Permission;
+namespace Sulu\Bundle\McpBundle\Security\Permission;
 
 use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
 
@@ -10,6 +10,8 @@ use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
  * Resolves the webspace keys the current user holds a given permission on, over
  * the per-webspace security context `sulu.webspaces.<key>`. Mirrors
  * PageAdmin::getFirstWebspaceWithPermissions but returns every match.
+ *
+ * @internal
  */
 final readonly class WebspacePermissionResolver
 {

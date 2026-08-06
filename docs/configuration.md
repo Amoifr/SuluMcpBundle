@@ -1,11 +1,11 @@
 # Configuration
 
-All bundle configuration lives under the `sulu_mcp_server` key in `config/packages/sulu_mcp_server.yaml`. Only `server_url` is required.
+All bundle configuration lives under the `sulu_mcp` key in `config/packages/sulu_mcp.yaml`. Only `server_url` is required.
 
 ## Full reference
 
 ```yaml
-sulu_mcp_server:
+sulu_mcp:
     # REQUIRED. Public base URL of the Sulu installation. Used for OAuth issuer
     # metadata and generating absolute callback URLs.
     server_url: '%env(SULU_MCP_SERVER_URL)%'
@@ -62,7 +62,7 @@ security:
             pattern: ^/admin/_mcp
             provider: sulu                 # or whichever provider authenticates Sulu users
             stateless: true
-            entry_point: Sulu\McpServerBundle\Security\EventListener\McpAuthenticationListener
+            entry_point: sulu_mcp.authentication_entry_point
             oauth2: true
         admin:
             pattern: ^/admin(\/|$)
@@ -113,14 +113,14 @@ When a flag is `false`, the corresponding tool services are removed from the con
 **Read-only / staging** — leave `dangerous_tools` at defaults. The AI can read everything and create drafts, but cannot publish or delete.
 
 ```yaml
-sulu_mcp_server:
+sulu_mcp:
     server_url: '%env(SULU_MCP_SERVER_URL)%'
 ```
 
 **Editorial workflow** — let the AI publish but not delete:
 
 ```yaml
-sulu_mcp_server:
+sulu_mcp:
     server_url: '%env(SULU_MCP_SERVER_URL)%'
     dangerous_tools:
         publish: true
@@ -129,7 +129,7 @@ sulu_mcp_server:
 **Full agent control** — only on accounts you trust to act autonomously:
 
 ```yaml
-sulu_mcp_server:
+sulu_mcp:
     server_url: '%env(SULU_MCP_SERVER_URL)%'
     dangerous_tools:
         delete: true

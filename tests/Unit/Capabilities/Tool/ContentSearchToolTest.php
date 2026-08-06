@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Tool;
 
 use CmsIg\Seal\Adapter\SearcherInterface;
 use CmsIg\Seal\EngineInterface;
@@ -15,20 +15,22 @@ use CmsIg\Seal\Search\Result;
 use CmsIg\Seal\Search\Search;
 use CmsIg\Seal\Search\SearchBuilder;
 use Mcp\Capability\Attribute\McpTool;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentSearchTool;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionChecker;
+use Sulu\Bundle\McpBundle\Security\Permission\WebspacePermissionResolver;
 use Sulu\Component\Security\Authentication\UserInterface;
 use Sulu\Component\Security\Authorization\SecurityCheckerInterface;
 use Sulu\Component\Webspace\Manager\WebspaceCollection;
 use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
 use Sulu\Component\Webspace\Webspace;
-use Sulu\McpServerBundle\Capabilities\Tool\ContentSearchTool;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionChecker;
-use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 
-class ContentSearchToolTest extends TestCase
+#[CoversClass(ContentSearchTool::class)]
+final class ContentSearchToolTest extends TestCase
 {
     private EngineInterface&MockObject $engine;
     private SearcherInterface&MockObject $searcher;

@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\DependencyInjection\Compiler;
+namespace Sulu\Bundle\McpBundle\DependencyInjection\Compiler;
 
-use Sulu\McpServerBundle\Capabilities\Tool\Content\ContentDeleteTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Content\ContentPublishTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Content\ContentUnpublishTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Page\BlockRemoveTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Preview\PreviewLinkRevokeTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\CategoryDeleteTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\TagDeleteTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Content\ContentDeleteTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Content\ContentPublishTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Content\ContentUnpublishTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockRemoveTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Preview\PreviewLinkRevokeTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\CategoryDeleteTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\TagDeleteTool;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
@@ -24,6 +24,8 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
  * not enough. The pass therefore also publishes the disabled tool NAMES as a
  * container parameter, consumed by `FilteredRegistry` to drop the same tools
  * from the discovery state at runtime.
+ *
+ * @internal
  */
 final class DangerousToolsPass implements CompilerPassInterface
 {
@@ -52,7 +54,7 @@ final class DangerousToolsPass implements CompilerPassInterface
     public function process(ContainerBuilder $container): void
     {
         foreach (self::TOOLS_BY_CATEGORY as $category => $tools) {
-            $parameter = \sprintf('sulu_mcp_server.dangerous_tools.%s', $category);
+            $parameter = \sprintf('sulu_mcp.dangerous_tools.%s', $category);
             if (!$container->hasParameter($parameter) || true === $container->getParameter($parameter)) {
                 continue;
             }
@@ -68,7 +70,7 @@ final class DangerousToolsPass implements CompilerPassInterface
     /**
      * Resolve the list of MCP tool names that must be hidden given the bundle's
      * `dangerous_tools` configuration. Called from the bundle extension to
-     * populate the `sulu_mcp_server.disabled_tool_names` parameter used by
+     * populate the `sulu_mcp.disabled_tool_names` parameter used by
      * `FilteredRegistry`.
      *
      * @param array<string, bool> $dangerousToolsConfig

@@ -2,22 +2,23 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Page;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Tool\Page;
 
 use Doctrine\Common\Collections\ArrayCollection;
 use Mcp\Capability\Attribute\McpTool;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\PageTreeTool;
+use Sulu\Bundle\McpBundle\Security\Permission\AccessControlFilterFactory;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionChecker;
+use Sulu\Bundle\McpBundle\Security\Permission\WebspacePermissionResolver;
 use Sulu\Component\Security\Authentication\UserInterface;
 use Sulu\Component\Security\Authorization\SecurityCheckerInterface;
 use Sulu\Component\Webspace\Manager\WebspaceCollection;
 use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
 use Sulu\Component\Webspace\Webspace;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
-use Sulu\McpServerBundle\Capabilities\Tool\Page\PageTreeTool;
-use Sulu\McpServerBundle\Security\Permission\AccessControlFilterFactory;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionChecker;
-use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
 use Sulu\Page\Domain\Model\PageDimensionContentInterface;
 use Sulu\Page\Domain\Model\PageInterface;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
@@ -25,7 +26,8 @@ use Sulu\Route\Domain\Model\Route;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 
-class PageTreeToolTest extends TestCase
+#[CoversClass(PageTreeTool::class)]
+final class PageTreeToolTest extends TestCase
 {
     private PageRepositoryInterface&MockObject $pageRepository;
     private ContentManagerInterface&MockObject $contentManager;

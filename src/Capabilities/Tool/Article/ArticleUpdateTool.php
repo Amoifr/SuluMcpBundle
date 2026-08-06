@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capabilities\Tool\Article;
+namespace Sulu\Bundle\McpBundle\Capabilities\Tool\Article;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
@@ -11,19 +11,19 @@ use Sulu\Article\Application\Message\ModifyArticleMessage;
 use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
+use Sulu\Bundle\McpBundle\AdminLink\AdminLinkGeneratorInterface;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Block\BlockDataValidator;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\BlockDataNormalizerTrait;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentMetadataMapper;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentNormalizerTrait;
+use Sulu\Bundle\McpBundle\Security\Attribute\RequiresPermission;
+use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
+use Sulu\Bundle\McpBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\PermissionRequirement;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
-use Sulu\McpServerBundle\AdminLink\AdminLinkGeneratorInterface;
-use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
-use Sulu\McpServerBundle\Capabilities\Tool\BlockDataNormalizerTrait;
-use Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper;
-use Sulu\McpServerBundle\Capabilities\Tool\ContentNormalizerTrait;
-use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
-use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
-use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
-use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\HandleTrait;

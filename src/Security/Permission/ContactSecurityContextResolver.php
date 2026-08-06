@@ -2,8 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\Permission;
+namespace Sulu\Bundle\McpBundle\Security\Permission;
 
+/**
+ * @internal
+ */
 final readonly class ContactSecurityContextResolver implements ToolContextResolverInterface
 {
     public function resolve(array $arguments): string

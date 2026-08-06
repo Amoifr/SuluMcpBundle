@@ -8,7 +8,7 @@ twig:
     paths:
         - '%kernel.project_dir%/templates'
 
-sulu_mcp_server:
+sulu_mcp:
     server_url: 'https://sulu-mcp-server.test'
     oauth:
         access_token_ttl: 3600

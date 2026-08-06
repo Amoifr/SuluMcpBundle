@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Security\EventListener;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Security\EventListener;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Sulu\McpServerBundle\Security\EventListener\McpRequestFormatListener;
+use Sulu\Bundle\McpBundle\Security\EventListener\McpRequestFormatListener;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;

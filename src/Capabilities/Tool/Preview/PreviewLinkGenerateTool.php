@@ -2,24 +2,24 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capabilities\Tool\Preview;
+namespace Sulu\Bundle\McpBundle\Capabilities\Tool\Preview;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentTypeResolver;
+use Sulu\Bundle\McpBundle\Security\Attribute\RequiresPermission;
+use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
+use Sulu\Bundle\McpBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\ContentSecurityContextResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\PermissionRequirement;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionCheckerInterface;
+use Sulu\Bundle\McpBundle\Security\Permission\WebspacePermissionResolver;
 use Sulu\Bundle\PreviewBundle\Application\Manager\PreviewLinkManagerInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\Content\Domain\Model\TemplateInterface;
-use Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver;
-use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
-use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
-use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
-use Sulu\McpServerBundle\Security\Permission\ContentSecurityContextResolver;
-use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
-use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
 use Sulu\Page\Domain\Model\Page;
 use Sulu\Page\Domain\Model\PageInterface;
 use Symfony\Component\Routing\Exception\RouteNotFoundException;
@@ -125,7 +125,7 @@ class PreviewLinkGenerateTool
             throw new ToolCallException($e->getMessage(), 0, $e);
         } catch (RouteNotFoundException) {
             return [
-                'error' => 'Public preview route `sulu_preview.public_preview` is not registered. Import this bundle\'s config/routes.yaml in the host project\'s routing (it pulls in @SuluPreviewBundle/Resources/config/routing_public.yaml under /admin/p).',
+                'error' => 'Public preview route `sulu_preview.public_preview` is not registered. Import "@SuluPreviewBundle/Resources/config/routing_public.yaml" with prefix /admin/p in the project routing (part of the standard Sulu skeleton, config/routes/sulu_admin.yaml).',
                 'hint' => 'Without the public preview route, only admin-only preview is available -- which cannot be shared via MCP.',
             ];
         } catch (\Throwable $e) {

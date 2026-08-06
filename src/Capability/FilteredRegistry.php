@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capability;
+namespace Sulu\Bundle\McpBundle\Capability;
 
 use Mcp\Capability\Discovery\DiscoveryState;
 use Mcp\Capability\Registry\PromptReference;
@@ -16,7 +16,7 @@ use Mcp\Schema\Prompt;
 use Mcp\Schema\Resource;
 use Mcp\Schema\ResourceTemplate;
 use Mcp\Schema\Tool;
-use Sulu\McpServerBundle\Security\Permission\ToolVisibilityResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolVisibilityResolver;
 
 /**
  * Hides tools disabled via `dangerous_tools.*`, and (in `getTools()`) tools the
@@ -26,6 +26,8 @@ use Sulu\McpServerBundle\Security\Permission\ToolVisibilityResolver;
  *
  * `getTool()` stays unfiltered by permission, so calling a hidden tool yields a
  * permission denial rather than a fabricated "not found".
+ *
+ * @internal
  */
 final readonly class FilteredRegistry implements RegistryInterface
 {
