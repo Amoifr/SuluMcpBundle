@@ -6,6 +6,7 @@ namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
+use Mcp\Exception\ToolCallException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -13,13 +14,19 @@ use Sulu\Article\Application\Message\ModifyArticleMessage;
 use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
+use Sulu\Bundle\AdminBundle\Metadata\GroupProviderInterface;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataInterface;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver;
 use Sulu\McpServerBundle\Capabilities\Tool\Page\BlockUpdateTool;
+use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
+use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\McpServerBundle\Security\Permission\ContentSecurityContextResolver;
+use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\Page\Application\Message\ModifyPageMessage;
 use Sulu\Page\Domain\Model\PageInterface;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
@@ -41,6 +48,8 @@ final class BlockUpdateToolTest extends TestCase
     private MessageBusInterface&MockObject $messageBus;
     private BlockIdGeneratorInterface&MockObject $blockIdGenerator;
     private MetadataProviderInterface&MockObject $formMetadataProvider;
+    private ToolPermissionCheckerInterface&MockObject $permissionChecker;
+    private ContentSecurityContextResolver $contentSecurityContextResolver;
     private BlockUpdateTool $tool;
 
     protected function setUp(): void
@@ -54,12 +63,18 @@ final class BlockUpdateToolTest extends TestCase
         $this->blockIdGenerator->method('generateId')->willReturn('generated-id');
         $this->formMetadataProvider = $this->createMock(MetadataProviderInterface::class);
         $this->formMetadataProvider->method('getMetadata')->willReturn($this->createMock(MetadataInterface::class));
+        $this->permissionChecker = $this->createMock(ToolPermissionCheckerInterface::class);
+        $groupProvider = $this->createMock(GroupProviderInterface::class);
+        $groupProvider->method('getGroups')->willReturn([]);
+        $this->contentSecurityContextResolver = new ContentSecurityContextResolver(new ArticleSecurityContextResolver($groupProvider));
         $this->tool = new BlockUpdateTool(
             $this->messageBus,
             new ContentTypeResolver($this->pageRepository, $this->articleRepository, $this->snippetRepository),
             $this->contentManager,
             $this->blockIdGenerator,
             new BlockDataValidator($this->formMetadataProvider),
+            $this->permissionChecker,
+            $this->contentSecurityContextResolver,
         );
     }
 
@@ -283,5 +298,24 @@ final class BlockUpdateToolTest extends TestCase
         $schema = $attributes[0]->newInstance();
         $this->assertSame('object', $schema->type);
         $this->assertTrue($schema->additionalProperties);
+    }
+
+    public function testUpdateBlockThrowsToolCallExceptionWhenPermissionDenied(): void
+    {
+        $page = $this->createMock(PageInterface::class);
+        $this->pageRepository->method('getOneBy')->willReturn($page);
+
+        $dimensionContent = $this->createMock(DimensionContentInterface::class);
+        $this->contentManager->method('resolve')->willReturn($dimensionContent);
+
+        $this->permissionChecker
+            ->method('check')
+            ->willThrowException(new PermissionDeniedException('sulu.webspaces.example', PermissionTypes::EDIT, 'en'));
+
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $this->expectException(ToolCallException::class);
+
+        $this->tool->updateBlock('page', 'page-uuid', 'en', 'block-1', ['title' => 'New']);
     }
 }

@@ -1,0 +1,72 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Sulu\McpServerBundle\Tests\Functional;
+
+use Mcp\Capability\RegistryInterface;
+use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
+use Sulu\McpServerBundle\Capabilities\Tool\GetContextTool;
+
+/**
+ * Tier A: discovery visibility against the real compiled map, for a real
+ * view-only role. Requires mcp.server initialized first, else
+ * getTools() assertions are meaningless-green. Also grants a real,
+ * non-allowlisted permission to prove availability tracks real grants.
+ */
+final class ToolDiscoverySmokeTest extends FunctionalTestCase
+{
+    public function testViewOnlyRoleSeesDeniedToolsMarkedUnavailableWithReason(): void
+    {
+        $container = self::getContainer();
+        $container->get('mcp.server'); // populates the registry -- must run first
+
+        $builder = new PermissionFixtureBuilder(
+            $this->entityManager,
+            $container->get('sulu_security.mask_converter'),
+            $container->get('security.token_storage'),
+            $container->get(SystemStoreInterface::class),
+        );
+        $role = $builder->role('ViewOnlyDiscovery', [
+            'sulu.webspaces.website' => [PermissionTypes::VIEW => true, PermissionTypes::EDIT => false],
+            // sulu_category_list requires only VIEW on sulu.settings.categories and is
+            // NOT allowlisted, isolating "tracks a real grant" from "allowlist always wins".
+            'sulu.settings.categories' => [PermissionTypes::VIEW => true],
+        ]);
+        $user = $builder->user('view-only-discovery', $role);
+        $builder->authenticate($user);
+
+        /** @var GetContextTool $getContextTool */
+        $getContextTool = $container->get(GetContextTool::class);
+        $context = $getContextTool->getContext();
+
+        self::assertArrayHasKey('tools', $context);
+        $byName = \array_column($context['tools'], null, 'name');
+
+        self::assertFalse($byName['sulu_page_create']['available']);
+        self::assertNotEmpty($byName['sulu_page_create']['reason']);
+        self::assertTrue($byName['sulu_ping']['available']);
+        self::assertTrue($byName['sulu_get_context']['available']);
+        self::assertTrue(
+            $byName['sulu_category_list']['available'],
+            'sulu_category_list requires only VIEW on sulu.settings.categories, which this role has -- '
+            .'must be available, proving availability tracks real grants, not just the allowlist.',
+        );
+
+        /** @var RegistryInterface $registry */
+        $registry = $container->get('mcp.registry');
+        // Page::$references is the public readonly property FilteredRegistry reads
+        // off the inner registry to build the filtered set (FilteredRegistry.php:124)
+        // -- same name=>Tool map as getArrayCopy(), without the extra call.
+        $filteredNames = \array_keys($registry->getTools(null, null)->references);
+
+        self::assertNotContains('sulu_page_create', $filteredNames, 'Denied tool must be omitted from tools/list.');
+        self::assertContains('sulu_ping', $filteredNames, 'Allowlisted tool must be present.');
+        self::assertContains(
+            'sulu_category_list',
+            $filteredNames,
+            'Genuinely granted, non-allowlisted tool must be present in the filtered tools/list.',
+        );
+    }
+}

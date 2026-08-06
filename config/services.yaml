@@ -54,7 +54,62 @@ services:
         decorates: mcp.registry
         arguments:
             $inner: '@.inner'
+            $visibilityResolver: '@Sulu\McpServerBundle\Security\Permission\ToolVisibilityResolver'
             $disabledToolNames: '%sulu_mcp_server.disabled_tool_names%'
+
+    Sulu\McpServerBundle\Security\Permission\ToolPermissionChecker: ~
+    Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface: '@Sulu\McpServerBundle\Security\Permission\ToolPermissionChecker'
+    Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver: ~
+
+    Sulu\McpServerBundle\Security\Permission\AccessControlFilterFactory:
+        arguments:
+            $security: '@security.helper'
+            $permissions: '%sulu_security.permissions%'
+
+    # Discovery-layer filtering for tools/list; $contextResolvers is keyed the same
+    # way as PermissionAwareCallToolHandler's.
+    Sulu\McpServerBundle\Security\Permission\ToolVisibilityResolver:
+        arguments:
+            $permissionMap: '%sulu_mcp_server.tool_permissions%'
+            $contextResolvers:
+                sulu_mcp_server.contact_context_resolver: '@sulu_mcp_server.contact_context_resolver'
+                sulu_mcp_server.article_context_resolver: '@sulu_mcp_server.article_context_resolver'
+            $allowlist: ['sulu_ping', 'sulu_get_context']
+
+    # Reproduces PageDescendantSecurityListener (spec F10) for the MCP delete tool,
+    # which dispatches RemovePageMessage directly and bypasses that route listener.
+    Sulu\McpServerBundle\Security\Permission\PageDescendantPermissionChecker:
+        arguments:
+            $pageRepository: '@sulu_page.page_repository'
+            $accessControlRepository: '@sulu.repository.access_control'
+            $systemStore: '@sulu_security.system_store'
+            $security: '@security.helper'
+            $permissions: '%sulu_security.permissions%'
+
+    sulu_mcp_server.contact_context_resolver:
+        class: Sulu\McpServerBundle\Security\Permission\ContactSecurityContextResolver
+
+    sulu_mcp_server.article_context_resolver:
+        class: Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver
+        arguments:
+            $groupProvider: '@sulu_admin.metadata_group_provider'
+    Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver: '@sulu_mcp_server.article_context_resolver'
+    Sulu\McpServerBundle\Security\Permission\ContentSecurityContextResolver: ~
+
+    # Central fail-closed permission gate: preflight-checks the compile-time
+    # permission map before delegating to the SDK's built-in CallToolHandler.
+    Sulu\McpServerBundle\Capability\PermissionAwareCallToolHandler:
+        arguments:
+            $registry: '@mcp.registry'
+            $referenceHandler: '@sulu_mcp_server.reference_handler'
+            $webspacePermissionResolver: '@Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver'
+            $permissionMap: '%sulu_mcp_server.tool_permissions%'
+            $contextResolvers:
+                sulu_mcp_server.contact_context_resolver: '@sulu_mcp_server.contact_context_resolver'
+                sulu_mcp_server.article_context_resolver: '@sulu_mcp_server.article_context_resolver'
+            $allowlist: ['sulu_ping', 'sulu_get_context']
+        tags:
+            - { name: mcp.request_handler, priority: 100 }
 
     Sulu\McpServerBundle\Capabilities\Tool\PingTool: ~
     Sulu\McpServerBundle\Capabilities\Tool\GetContextTool: ~

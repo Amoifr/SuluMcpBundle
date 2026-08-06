@@ -364,6 +364,29 @@ final class SnippetUpdateToolTest extends TestCase
         $this->assertArrayNotHasKey('content', $result['data']['blocks'][0]);
     }
 
+    public function testUpdateSnippetForcesAuthorizedLocaleOverContentSmuggling(): void
+    {
+        $this->setUpReadModifyWrite('uuid-1', 'en', ['template' => 'default', 'title' => 'Old Title']);
+
+        $mockSnippet = $this->createMock(SnippetInterface::class);
+        $mockSnippet->method('getUuid')->willReturn('uuid-1');
+
+        $capturedData = null;
+        $this->messageBus->expects($this->once())
+            ->method('dispatch')
+            ->willReturnCallback(function (Envelope $envelope) use ($mockSnippet, &$capturedData) {
+                $capturedData = $envelope->getMessage()->getData();
+
+                return $envelope->with(new HandledStamp($mockSnippet, 'handler'));
+            });
+
+        // Caller is authorized for locale 'en' only; content.locale attempts to smuggle 'de'.
+        $result = $this->tool->updateSnippet('uuid-1', 'en', null, null, ['locale' => 'de', 'body' => '<p>New</p>']);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('en', $capturedData['locale']);
+    }
+
     public function testUpdateSnippetHasNoWebspaceOrUrlParameter(): void
     {
         $reflection = new \ReflectionMethod(SnippetUpdateTool::class, 'updateSnippet');

@@ -5,26 +5,57 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Media;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Exception\ToolCallException;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Sulu\Bundle\MediaBundle\Api\Media;
+use Sulu\Bundle\MediaBundle\Entity\Collection;
+use Sulu\Bundle\MediaBundle\Entity\CollectionType;
+use Sulu\Bundle\MediaBundle\Entity\Media as MediaEntity;
 use Sulu\Bundle\MediaBundle\Media\Manager\MediaManagerInterface;
+use Sulu\Component\Media\SystemCollections\SystemCollectionManagerInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\McpServerBundle\Capabilities\Tool\Media\MediaGetTool;
+use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
+use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
 
 class MediaGetToolTest extends TestCase
 {
     private MediaManagerInterface&MockObject $mediaManager;
+    private ToolPermissionCheckerInterface&MockObject $permissionChecker;
     private MediaGetTool $tool;
 
     protected function setUp(): void
     {
         $this->mediaManager = $this->createMock(MediaManagerInterface::class);
-        $this->tool = new MediaGetTool($this->mediaManager);
+        $this->permissionChecker = $this->createMock(ToolPermissionCheckerInterface::class);
+        $this->tool = new MediaGetTool($this->mediaManager, $this->permissionChecker);
+    }
+
+    /**
+     * @param non-empty-string|null $typeKey
+     */
+    private function mediaWithCollection(int $collectionId, ?string $typeKey = null): Media&MockObject
+    {
+        $collectionType = $this->createMock(CollectionType::class);
+        $collectionType->method('getKey')->willReturn($typeKey);
+
+        $collection = $this->createMock(Collection::class);
+        $collection->method('getId')->willReturn($collectionId);
+        $collection->method('getType')->willReturn($collectionType);
+
+        $mediaEntity = $this->createMock(MediaEntity::class);
+        $mediaEntity->method('getCollection')->willReturn($collection);
+
+        $media = $this->createMock(Media::class);
+        $media->method('getEntity')->willReturn($mediaEntity);
+
+        return $media;
     }
 
     public function testGetMediaReturnsFullDetails(): void
     {
-        $media = $this->createMock(Media::class);
+        $media = $this->mediaWithCollection(5);
         $media->method('getId')->willReturn(42);
         $media->method('getTitle')->willReturn('Hero Image');
         $media->method('getDescription')->willReturn('A beautiful hero image');
@@ -62,6 +93,57 @@ class MediaGetToolTest extends TestCase
         $this->assertTrue(\array_key_exists('hint', $result));
         $this->assertIsString($result['hint']);
         $this->assertNotEmpty($result['hint']);
+    }
+
+    public function testGetMediaChecksCollectionPermission(): void
+    {
+        $media = $this->mediaWithCollection(7);
+        $this->mediaManager->method('getById')->willReturn($media);
+
+        $this->permissionChecker
+            ->expects($this->once())
+            ->method('check')
+            ->with('sulu.media.collections', PermissionTypes::VIEW, 'en', Collection::class, 7);
+
+        $this->tool->getMedia(42, 'en');
+    }
+
+    public function testGetMediaAlsoChecksSystemCollectionPermission(): void
+    {
+        $media = $this->mediaWithCollection(1, SystemCollectionManagerInterface::COLLECTION_TYPE);
+        $this->mediaManager->method('getById')->willReturn($media);
+
+        $calls = [];
+        $this->permissionChecker
+            ->expects($this->exactly(2))
+            ->method('check')
+            ->willReturnCallback(function (string $context, string $permission) use (&$calls): void {
+                $calls[] = [$context, $permission];
+            });
+
+        $this->tool->getMedia(42, 'en');
+
+        $this->assertSame(
+            [
+                ['sulu.media.system_collections', PermissionTypes::VIEW],
+                ['sulu.media.collections', PermissionTypes::VIEW],
+            ],
+            $calls,
+        );
+    }
+
+    public function testGetMediaThrowsToolCallExceptionWhenPermissionDenied(): void
+    {
+        $media = $this->mediaWithCollection(7);
+        $this->mediaManager->method('getById')->willReturn($media);
+
+        $this->permissionChecker
+            ->method('check')
+            ->willThrowException(new PermissionDeniedException('sulu.media.collections', PermissionTypes::VIEW, 'en'));
+
+        $this->expectException(ToolCallException::class);
+
+        $this->tool->getMedia(42, 'en');
     }
 
     public function testGetMediaMethodHasMcpToolAttribute(): void

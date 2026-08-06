@@ -463,8 +463,6 @@ final class ArticleCreateToolTest extends TestCase
 
     public function testCreateArticleRejectsInvalidBlocksBeforeWrite(): void
     {
-        // Build a TypedFormMetadata fixture: template "blog" with a "blocks" block field
-        // exposing block type "text" with field [title].
         $titleField = new FieldMetadata('title');
         $titleField->setType('text_line');
 
@@ -546,5 +544,59 @@ final class ArticleCreateToolTest extends TestCase
         $this->assertSame(['id' => 5], $data['excerpt']['image']);
         $this->assertSame('S', $data['seo']['title']);
         $this->assertTrue($data['seoNoIndex']);
+    }
+
+    public function testCreateArticleForcesTrustedTemplateOverMetadataClobbering(): void
+    {
+        // Regression guard: a custom excerpt field literally named "template" makes
+        // ContentMetadataMapper::place() write $data['template'] directly, clobbering the
+        // trusted `template` arg that already passed the EDIT+ADD preflight.
+        $mockArticle = $this->createMock(ArticleInterface::class);
+        $mockArticle->method('getUuid')->willReturn('uuid-1');
+
+        $mapperMetadataProvider = $this->createMock(MetadataProviderInterface::class);
+        $mapperMetadataProvider->method('getMetadata')->willReturnCallback(
+            fn (string $key) => match ($key) {
+                'content_excerpt_metadata' => $this->makeFormMeta(['template']),
+                default => $this->makeFormMeta([]),
+            },
+        );
+
+        $router = $this->createMock(RouterInterface::class);
+        $router->method('generate')->willReturn('https://example.com/admin/');
+        $tool = new ArticleCreateTool(
+            $this->messageBus,
+            $this->contentManager,
+            new BlockDataValidator($this->formMetadataProvider),
+            $this->blockIdGenerator,
+            new ContentMetadataMapper($mapperMetadataProvider),
+            new AdminLinkGenerator($router, [new ArticleAdminLinkProvider(new StubViewRegistry())]),
+            $this->articleGroupResolver,
+        );
+
+        $capturedData = null;
+        $this->messageBus->expects($this->once())
+            ->method('dispatch')
+            ->willReturnCallback(function (Envelope $envelope) use ($mockArticle, &$capturedData) {
+                $capturedData = $envelope->getMessage()->getData();
+
+                return $envelope->with(new HandledStamp($mockArticle, 'handler'));
+            });
+
+        $mockDimensionContent = $this->createMock(DimensionContentInterface::class);
+        $this->contentManager->method('resolve')->willReturn($mockDimensionContent);
+        $this->contentManager->method('normalize')->willReturn(['url' => '/my-article']);
+
+        $result = $tool->createArticle(
+            'en',
+            'blog',
+            'Test',
+            null,
+            ['url' => '/my-article'],
+            ['template' => 'malicious_template'],
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('blog', $capturedData['template']);
     }
 }

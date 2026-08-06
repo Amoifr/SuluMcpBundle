@@ -34,6 +34,7 @@ final class SnippetListToolTest extends TestCase
         $snippet->method('getUuid')->willReturn('s-uuid');
         $dimensionContent = $this->createMock(DimensionContentInterface::class);
 
+        $this->snippetRepository->method('findIdentifiersBy')->willReturn(['s-uuid']);
         $this->snippetRepository->method('findBy')->willReturn([$snippet]);
         $this->snippetRepository->method('countBy')->willReturn(1);
         $this->contentManager->method('resolve')->willReturn($dimensionContent);
@@ -54,6 +55,7 @@ final class SnippetListToolTest extends TestCase
         $snippet->method('getUuid')->willReturn('s-uuid');
         $dimensionContent = $this->createMock(DimensionContentInterface::class);
 
+        $this->snippetRepository->method('findIdentifiersBy')->willReturn(['s-uuid']);
         $this->snippetRepository->method('findBy')->willReturn([$snippet]);
         $this->snippetRepository->method('countBy')->willReturn(1);
         $this->contentManager->method('resolve')->willReturn($dimensionContent);

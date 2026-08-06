@@ -6,6 +6,7 @@ namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
+use Mcp\Exception\ToolCallException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -13,10 +14,16 @@ use PHPUnit\Framework\TestCase;
 use Sulu\Article\Application\Message\ModifyArticleMessage;
 use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
+use Sulu\Bundle\AdminBundle\Metadata\GroupProviderInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver;
 use Sulu\McpServerBundle\Capabilities\Tool\Page\BlockReorderTool;
+use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
+use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\McpServerBundle\Security\Permission\ContentSecurityContextResolver;
+use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\Page\Application\Message\ModifyPageMessage;
 use Sulu\Page\Domain\Model\PageInterface;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
@@ -36,6 +43,8 @@ final class BlockReorderToolTest extends TestCase
     private ArticleRepositoryInterface&MockObject $articleRepository;
     private SnippetRepositoryInterface&MockObject $snippetRepository;
     private ContentManagerInterface&MockObject $contentManager;
+    private ToolPermissionCheckerInterface&MockObject $permissionChecker;
+    private ContentSecurityContextResolver $contentSecurityContextResolver;
     private BlockReorderTool $tool;
 
     protected function setUp(): void
@@ -45,10 +54,16 @@ final class BlockReorderToolTest extends TestCase
         $this->articleRepository = $this->createMock(ArticleRepositoryInterface::class);
         $this->snippetRepository = $this->createMock(SnippetRepositoryInterface::class);
         $this->contentManager = $this->createMock(ContentManagerInterface::class);
+        $this->permissionChecker = $this->createMock(ToolPermissionCheckerInterface::class);
+        $groupProvider = $this->createMock(GroupProviderInterface::class);
+        $groupProvider->method('getGroups')->willReturn([]);
+        $this->contentSecurityContextResolver = new ContentSecurityContextResolver(new ArticleSecurityContextResolver($groupProvider));
         $this->tool = new BlockReorderTool(
             $this->messageBus,
             new ContentTypeResolver($this->pageRepository, $this->articleRepository, $this->snippetRepository),
             $this->contentManager,
+            $this->permissionChecker,
+            $this->contentSecurityContextResolver,
         );
     }
 
@@ -261,6 +276,23 @@ final class BlockReorderToolTest extends TestCase
 
         $this->assertArrayHasKey('error', $result);
         $this->assertStringContainsString('not both', $result['error']);
+    }
+
+    public function testReorderBlocksThrowsToolCallExceptionWhenPermissionDenied(): void
+    {
+        $this->setupEntityWithBlocks('page', [
+            ['type' => 'text', 'title' => 'First'],
+        ]);
+
+        $this->permissionChecker
+            ->method('check')
+            ->willThrowException(new PermissionDeniedException('sulu.webspaces.example', PermissionTypes::EDIT, 'en'));
+
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $this->expectException(ToolCallException::class);
+
+        $this->tool->reorderBlocks('page', 'test-uuid', 'en', 'blocks', [0]);
     }
 
     /**

@@ -7,6 +7,7 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Snippet;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\AdminLink\AdminLinkGeneratorInterface;
@@ -14,6 +15,8 @@ use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\BlockDataNormalizerTrait;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentNormalizerTrait;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver;
+use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
+use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Sulu\Snippet\Application\Message\ModifySnippetMessage;
 use Sulu\Snippet\Domain\Model\SnippetInterface;
@@ -50,6 +53,9 @@ class SnippetUpdateTool
         name: 'sulu_snippet_update',
         description: 'Update an existing snippet. Reads the current snippet state, merges your changes, and writes back — so you only need to pass the fields you want to change. Pass template-specific field values in "content" as a flat object: content={"body": "<p>Updated HTML</p>"}. Content may also include a full "blocks" tree (nested blocks allowed) to replace the block content in one call — block _ids are assigned automatically and unknown block fields are rejected before saving. You can update title and template as separate parameters. The snippet stays in draft state after updating — call sulu_content_publish (type: snippet) to make changes live.',
     )]
+    #[RequiresPermission(requirements: [
+        new PermissionRequirement('sulu.snippet.snippets', PermissionTypes::EDIT),
+    ])]
     public function updateSnippet(
         string $uuid,
         string $locale,
@@ -71,6 +77,11 @@ class SnippetUpdateTool
             ]);
             $currentData = $this->contentManager->normalize($currentDimensionContent);
 
+            // Trusted template: the `template` arg, else the current one. Snippets have no
+            // per-template security context, so this is data integrity, not a permission gate.
+            $currentTemplateKey = \is_string($currentData['template'] ?? null) ? $currentData['template'] : null;
+            $effectiveTemplate = $template ?? $currentTemplateKey;
+
             $data = \array_merge(
                 $currentData,
                 ['locale' => $locale],
@@ -79,13 +90,9 @@ class SnippetUpdateTool
             if (null !== $title) {
                 $data['title'] = $title;
             }
-            if (null !== $template) {
-                $data['template'] = $template;
-            }
             if (null !== $content) {
                 $normalizedContent = self::normalizeContent($content);
-                $templateKey = isset($data['template']) && \is_string($data['template']) ? $data['template'] : null;
-                if ($validationError = $this->blockDataValidator->validateContentTree($normalizedContent, 'snippet', $templateKey)) {
+                if ($validationError = $this->blockDataValidator->validateContentTree($normalizedContent, 'snippet', $effectiveTemplate)) {
                     return $validationError;
                 }
                 $normalizedContent = $this->assignBlockIds($normalizedContent, $this->blockIdGenerator);
@@ -93,6 +100,10 @@ class SnippetUpdateTool
             }
 
             $data = $this->stringifyKeys($data);
+
+            // Force trusted values before dispatch: content must not smuggle a different locale.
+            $data['locale'] = $locale;
+            $data['template'] = $effectiveTemplate;
 
             $message = new ModifySnippetMessage(['uuid' => $uuid], $data);
 

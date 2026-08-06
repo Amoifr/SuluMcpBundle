@@ -25,7 +25,8 @@
         "symfony/ai-monolog-mate-extension": "^0.8.0",
         "matesofmate/composer-extension": "^0.3.0",
         "matesofmate/phpunit-extension": "^0.3.0",
-        "matesofmate/phpstan-extension": "^0.3.0"
+        "matesofmate/phpstan-extension": "^0.3.0",
+        "cmsig/seal-memory-adapter": "^0.12.2"
     },
     "autoload": {
         "psr-4": {

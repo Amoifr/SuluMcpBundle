@@ -6,6 +6,9 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Taxonomy;
 
 use Mcp\Capability\Attribute\McpTool;
 use Sulu\Bundle\TagBundle\Tag\TagManagerInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
+use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
+use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
 
 /**
  * @internal
@@ -24,6 +27,10 @@ class TagDeleteTool
         name: 'sulu_tag_delete',
         description: 'Delete a tag by ID. This removes the tag but does not affect content that was tagged with it.',
     )]
+    #[RequiresPermission(requirements: [
+        new PermissionRequirement('sulu.settings.tags', PermissionTypes::EDIT),
+        new PermissionRequirement('sulu.settings.tags', PermissionTypes::DELETE),
+    ])]
     public function deleteTag(int $id): array
     {
         try {

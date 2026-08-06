@@ -1,0 +1,42 @@
+framework:
+    messenger:
+        transports:
+            sync: 'sync://'
+        routing:
+
+twig:
+    paths:
+        - '%kernel.project_dir%/templates'
+
+sulu_mcp_server:
+    server_url: 'https://sulu-mcp-server.test'
+    oauth:
+        access_token_ttl: 3600
+        refresh_token_ttl: 2592000
+    dangerous_tools:
+        delete: true
+        publish: true
+        block_remove: true
+
+mcp:
+    pagination_limit: 100
+    discovery:
+        scan_dirs: ['../../src']
+
+league_oauth2_server:
+    authorization_server:
+        private_key: '%kernel.project_dir%/config/jwt/private.pem'
+        private_key_passphrase: ~
+        encryption_key: 'FunctionalTestSuiteEncryptionKeyNotASecret'
+        enable_auth_code_grant: true
+        enable_refresh_token_grant: true
+    resource_server:
+        public_key: '%kernel.project_dir%/config/jwt/public.pem'
+    scopes:
+        available: ['mcp:tools', 'mcp:resources']
+        default: ['mcp:tools', 'mcp:resources']
+    persistence:
+        in_memory: ~
+
+sulu_article:
+    default_main_webspace: website

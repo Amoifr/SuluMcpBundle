@@ -8,6 +8,9 @@ use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Sulu\Bundle\CategoryBundle\Api\Category as ApiCategory;
 use Sulu\Bundle\CategoryBundle\Category\CategoryManagerInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
+use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
+use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
 
 /**
  * @internal
@@ -26,6 +29,9 @@ class CategoryListTool
         name: 'sulu_category_list',
         description: 'List all categories as a tree structure. Returns hierarchical array with nested children. Each category has id, name, key, hasChildren, and children array. Accepts an optional maxDepth to limit response size on deep category trees; when a node has hasChildren:true but children:[] the branch was depth-truncated — request again with a higher maxDepth or fetch that branch separately.',
     )]
+    #[RequiresPermission(requirements: [
+        new PermissionRequirement('sulu.settings.categories', PermissionTypes::VIEW),
+    ])]
     public function listCategories(
         string $locale,
         #[Schema(description: 'Maximum category nesting depth (0 = top-level only). Omit for the full tree.')]

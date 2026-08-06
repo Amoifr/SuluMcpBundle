@@ -58,7 +58,7 @@ Test:
         - job: Install
           artifacts: true
     script:
-        - php composer.phar test
+        - php composer.phar test -- --testsuite Unit
 
 Lint:
     stage: test
@@ -68,6 +68,15 @@ Lint:
           artifacts: true
     script:
         - php composer.phar lint
+
+Functional:
+    stage: test
+    extends: .base_php
+    needs:
+        - job: Install
+          artifacts: true
+    script:
+        - php composer.phar test -- --testsuite Functional
 
 Security Check:
     stage: test

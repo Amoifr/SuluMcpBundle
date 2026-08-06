@@ -5,10 +5,21 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Exception\ToolCallException;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\Content\Domain\Model\TemplateInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentNormalizerTrait;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver;
+use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
+use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
+use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\McpServerBundle\Security\Permission\ContentSecurityContextResolver;
+use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
+use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
+use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
+use Sulu\Page\Domain\Model\Page;
 
 /**
  * @internal
@@ -20,6 +31,8 @@ class BlockListTool
     public function __construct(
         private readonly ContentTypeResolver $contentTypeResolver,
         private readonly ContentManagerInterface $contentManager,
+        private readonly ToolPermissionCheckerInterface $permissionChecker,
+        private readonly ContentSecurityContextResolver $contentSecurityContextResolver,
     ) {
     }
 
@@ -29,6 +42,11 @@ class BlockListTool
     #[McpTool(
         name: 'sulu_block_list',
         description: 'Get paginated block content for a page, article, or snippet. Use this after sulu_page_get / sulu_article_get / sulu_snippet_get which return block summaries (index, _id, type, title). Pass the "blockProperty" name (e.g. "blocks", "homeBlocks") and paginate with "page" and "limit". To list blocks inside a parent block (nested blocks), pass parentBlockId with the _id of the parent block — blockProperty is still required to locate the top-level blocks. Returns full block content including HTML for the requested range.',
+    )]
+    #[RequiresPermission(
+        requirements: [new PermissionRequirement('#context#', PermissionTypes::VIEW)],
+        objectResolved: true,
+        discoveryContexts: ['sulu.snippet.snippets', ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
     )]
     public function listBlocks(
         string $type,
@@ -49,6 +67,23 @@ class BlockListTool
             'locale' => $locale,
             'stage' => DimensionContentInterface::STAGE_DRAFT,
         ]);
+
+        try {
+            $context = $this->contentSecurityContextResolver->forEntity(
+                $type,
+                $entity,
+                $dimensionContent instanceof TemplateInterface ? $dimensionContent : null,
+            );
+            $this->permissionChecker->check(
+                $context,
+                PermissionTypes::VIEW,
+                $locale,
+                'page' === $type ? Page::class : null,
+                'page' === $type ? $uuid : null,
+            );
+        } catch (PermissionDeniedException $e) {
+            throw new ToolCallException($e->getMessage(), 0, $e);
+        }
 
         $normalized = $this->contentManager->normalize($dimensionContent);
 

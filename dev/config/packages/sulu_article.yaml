@@ -1,1 +1,2 @@
-sulu_article: {}
+sulu_article:
+    default_main_webspace: website

@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Capabilities\Tool\Snippet;
 
 use Mcp\Capability\Attribute\McpTool;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentNormalizerTrait;
+use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
+use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
 use Sulu\Snippet\Domain\Exception\SnippetNotFoundException;
 use Sulu\Snippet\Domain\Repository\SnippetRepositoryInterface;
 
@@ -31,6 +34,9 @@ class SnippetGetTool
         name: 'sulu_snippet_get',
         description: 'Get a snippet by UUID. Snippets are reusable content blocks (e.g., contact info, footer content) shared across pages. Returns full content data. Snippets are global — not scoped to a webspace.',
     )]
+    #[RequiresPermission(requirements: [
+        new PermissionRequirement('sulu.snippet.snippets', PermissionTypes::VIEW),
+    ])]
     public function getSnippet(string $locale, string $uuid): array
     {
         try {

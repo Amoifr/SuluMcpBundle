@@ -10,24 +10,22 @@ use Mcp\Capability\Registry\ResourceReference;
 use Mcp\Capability\Registry\ResourceTemplateReference;
 use Mcp\Capability\Registry\ToolReference;
 use Mcp\Capability\RegistryInterface;
+use Mcp\Exception\InvalidCursorException;
 use Mcp\Schema\Page;
 use Mcp\Schema\Prompt;
 use Mcp\Schema\Resource;
 use Mcp\Schema\ResourceTemplate;
 use Mcp\Schema\Tool;
+use Sulu\McpServerBundle\Security\Permission\ToolVisibilityResolver;
 
 /**
- * Decorates Mcp's Registry to hide tools that have been disabled via
- * `dangerous_tools.*` configuration.
+ * Hides tools disabled via `dangerous_tools.*`, and (in `getTools()`) tools the
+ * current user's role does not grant. Needed because Mcp also registers tools by
+ * runtime attribute discovery, which re-adds anything DangerousToolsPass pruned
+ * from the service locator -- those then fail with ArgumentCountError on call.
  *
- * Mcp has two parallel registration paths -- the Symfony DI service locator
- * (which `DangerousToolsPass` already prunes by removing service definitions)
- * and runtime attribute discovery (which scans `mcp.discovery.scan_dirs` and
- * registers every `#[McpTool]`-tagged class regardless of DI). Without this
- * decorator, discovery re-adds the dangerous tools to the registry; they then
- * show up in `tools/list` and, when called, fail with `ArgumentCountError`
- * because `ReferenceHandler` falls back to `new $class()` (no constructor
- * args) when the service locator can't resolve them.
+ * `getTool()` stays unfiltered by permission, so calling a hidden tool yields a
+ * permission denial rather than a fabricated "not found".
  */
 final readonly class FilteredRegistry implements RegistryInterface
 {
@@ -36,6 +34,7 @@ final readonly class FilteredRegistry implements RegistryInterface
      */
     public function __construct(
         private RegistryInterface $inner,
+        private ToolVisibilityResolver $visibilityResolver,
         private array $disabledToolNames = [],
     ) {
     }
@@ -111,7 +110,22 @@ final readonly class FilteredRegistry implements RegistryInterface
 
     public function getTools(?int $limit = null, ?string $cursor = null): Page
     {
-        return $this->inner->getTools($limit, $cursor);
+        /** @var array<string, Tool> $tools */
+        $tools = [];
+        foreach ($this->inner->getTools(null, null)->references as $name => $tool) {
+            if ($this->visibilityResolver->isVisible((string) $name)) {
+                $tools[$name] = $tool;
+            }
+        }
+
+        if (null === $limit) {
+            return new Page($tools, null);
+        }
+
+        $paginatedTools = $this->paginateResults($tools, $limit, $cursor);
+        $nextCursor = $this->calculateNextCursor(\count($tools), $cursor, $limit);
+
+        return new Page($paginatedTools, $nextCursor);
     }
 
     public function getTool(string $name): ToolReference
@@ -162,5 +176,59 @@ final readonly class FilteredRegistry implements RegistryInterface
     public function getPrompt(string $name): PromptReference
     {
         return $this->inner->getPrompt($name);
+    }
+
+    /**
+     * Replicates {@see \Mcp\Capability\Registry::paginateResults()}, since the
+     * inner registry only paginates its own unfiltered set.
+     *
+     * @param array<int|string, Tool> $items
+     *
+     * @return array<int|string, Tool>
+     *
+     * @throws InvalidCursorException When cursor is invalid (MCP error code -32602)
+     */
+    private function paginateResults(array $items, int $limit, ?string $cursor = null): array
+    {
+        $offset = 0;
+        if (null !== $cursor) {
+            $decodedCursor = base64_decode($cursor, true);
+
+            if (false === $decodedCursor || !is_numeric($decodedCursor)) {
+                throw new InvalidCursorException($cursor);
+            }
+
+            $offset = (int) $decodedCursor;
+
+            if ($offset < 0 || $offset > \count($items)) {
+                throw new InvalidCursorException($cursor);
+            }
+        }
+
+        return array_values(\array_slice($items, $offset, $limit));
+    }
+
+    /**
+     * Replicates {@see \Mcp\Capability\Registry::calculateNextCursor()} over the
+     * filtered item count.
+     */
+    private function calculateNextCursor(int $totalItems, ?string $currentCursor, int $limit): ?string
+    {
+        $currentOffset = 0;
+
+        if (null !== $currentCursor) {
+            $decodedCursor = base64_decode($currentCursor, true);
+            if (false !== $decodedCursor && is_numeric($decodedCursor)) {
+                $currentOffset = (int) $decodedCursor;
+            }
+        }
+
+        $nextOffset = $currentOffset + $limit;
+
+        if ($nextOffset < $totalItems) {
+            return base64_encode((string) $nextOffset);
+        }
+
+        return null;
     }
 }

@@ -9,6 +9,10 @@ return RectorConfig::configure()
         __DIR__ . '/src',
         __DIR__ . '/tests',
     ])
+    ->withSkip([
+        // Generated container/cache artifacts from booting the functional test kernel.
+        __DIR__ . '/tests/Application/var',
+    ])
     ->withImportNames(importShortClasses: false)
     ->withPreparedSets(codeQuality: true)
     ->withPhpSets(php82: true);

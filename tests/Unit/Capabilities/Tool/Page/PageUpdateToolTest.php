@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Exception\ToolCallException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -14,6 +15,7 @@ use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\TypedFormMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataInterface;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\AdminLink\AdminLinkGenerator;
@@ -21,9 +23,12 @@ use Sulu\McpServerBundle\AdminLink\Provider\PageAdminLinkProvider;
 use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper;
 use Sulu\McpServerBundle\Capabilities\Tool\Page\PageUpdateTool;
+use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
+use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\McpServerBundle\Tests\Support\StubViewRegistry;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Sulu\Page\Application\Message\ModifyPageMessage;
+use Sulu\Page\Domain\Model\Page;
 use Sulu\Page\Domain\Model\PageInterface;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Symfony\Component\Messenger\Envelope;
@@ -41,6 +46,7 @@ final class PageUpdateToolTest extends TestCase
     private MetadataProviderInterface&MockObject $mapperMetadataProvider;
     private BlockIdGeneratorInterface&MockObject $blockIdGenerator;
     private AdminLinkGenerator $adminLinkGenerator;
+    private ToolPermissionCheckerInterface&MockObject $permissionChecker;
     private PageUpdateTool $tool;
 
     protected function setUp(): void
@@ -67,6 +73,7 @@ final class PageUpdateToolTest extends TestCase
         $router = $this->createMock(RouterInterface::class);
         $router->method('generate')->willReturn('https://example.com/admin/');
         $this->adminLinkGenerator = new AdminLinkGenerator($router, [new PageAdminLinkProvider(new StubViewRegistry())]);
+        $this->permissionChecker = $this->createMock(ToolPermissionCheckerInterface::class);
 
         $this->tool = new PageUpdateTool(
             $this->messageBus,
@@ -76,6 +83,7 @@ final class PageUpdateToolTest extends TestCase
             $this->blockIdGenerator,
             new ContentMetadataMapper($this->mapperMetadataProvider),
             $this->adminLinkGenerator,
+            $this->permissionChecker,
         );
     }
 
@@ -165,7 +173,6 @@ final class PageUpdateToolTest extends TestCase
                 return $envelope->with(new HandledStamp($mockPage, 'handler'));
             });
 
-        // Update only content, no template provided — should use current template
         $this->tool->updatePage('uuid-1', 'en', null, null, null, ['article' => '<p>Updated</p>']);
 
         $this->assertSame('default', $capturedData['template']);
@@ -241,6 +248,54 @@ final class PageUpdateToolTest extends TestCase
 
         $instance = $attributes[0]->newInstance();
         $this->assertSame('sulu_page_update', $instance->name);
+    }
+
+    public function testUpdatePageThrowsToolCallExceptionWhenPermissionDenied(): void
+    {
+        $this->setUpReadModifyWrite('uuid-1', 'en', ['template' => 'default']);
+
+        $this->permissionChecker
+            ->method('check')
+            ->willThrowException(new PermissionDeniedException('sulu.webspaces.example', PermissionTypes::EDIT, 'en'));
+
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $this->expectException(ToolCallException::class);
+
+        $this->tool->updatePage('uuid-1', 'en', 'New Title');
+    }
+
+    public function testUpdatePagePassesConcretePageClassAsObjectType(): void
+    {
+        // Regression guard: Sulu ACLs key off the concrete Page class (getSecuredClass()),
+        // not PageInterface -- using the interface silently falls back to the webspace grant.
+        $existingPage = $this->createMock(PageInterface::class);
+        $existingPage->method('getUuid')->willReturn('uuid-1');
+        $existingPage->method('getWebspaceKey')->willReturn('example');
+
+        $this->pageRepository->method('getOneBy')->willReturn($existingPage);
+
+        $currentDimensionContent = $this->createMock(DimensionContentInterface::class);
+        $this->contentManager->method('resolve')->willReturn($currentDimensionContent);
+        $this->contentManager->method('normalize')->willReturn(['template' => 'default']);
+
+        $this->permissionChecker
+            ->expects($this->once())
+            ->method('check')
+            ->with(
+                'sulu.webspaces.example',
+                PermissionTypes::EDIT,
+                'en',
+                Page::class,
+                'uuid-1',
+            )
+            ->willThrowException(new PermissionDeniedException('sulu.webspaces.example', PermissionTypes::EDIT, 'en'));
+
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $this->expectException(ToolCallException::class);
+
+        $this->tool->updatePage('uuid-1', 'en', 'New Title');
     }
 
     public function testNormalizeContentPassesThroughFlatMap(): void
@@ -352,6 +407,7 @@ final class PageUpdateToolTest extends TestCase
             $this->blockIdGenerator,
             new ContentMetadataMapper($this->mapperMetadataProvider),
             $this->adminLinkGenerator,
+            $this->permissionChecker,
         );
 
         // Set up the read side so we reach the content branch
@@ -399,6 +455,29 @@ final class PageUpdateToolTest extends TestCase
         // Blocks are summarized to index/type, not full content
         $this->assertSame('text', $result['data']['blocks'][0]['type']);
         $this->assertArrayNotHasKey('content', $result['data']['blocks'][0]);
+    }
+
+    public function testUpdatePageForcesAuthorizedLocaleOverContentSmuggling(): void
+    {
+        $this->setUpReadModifyWrite('uuid-1', 'en', ['template' => 'default', 'title' => 'Old Title']);
+
+        $mockPage = $this->createMock(PageInterface::class);
+        $mockPage->method('getUuid')->willReturn('uuid-1');
+
+        $capturedData = null;
+        $this->messageBus->expects($this->once())
+            ->method('dispatch')
+            ->willReturnCallback(function (Envelope $envelope) use ($mockPage, &$capturedData) {
+                $capturedData = $envelope->getMessage()->getData();
+
+                return $envelope->with(new HandledStamp($mockPage, 'handler'));
+            });
+
+        // Caller is authorized for locale 'en' only; content.locale attempts to smuggle 'de'.
+        $result = $this->tool->updatePage('uuid-1', 'en', null, null, null, ['locale' => 'de', 'article' => '<p>New</p>']);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('en', $capturedData['locale']);
     }
 
     public function testUpdatePageAppliesExcerptAndSeoToDispatchedMessage(): void

@@ -6,10 +6,12 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Article;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
+use Mcp\Exception\ToolCallException;
 use Sulu\Article\Application\Message\ModifyArticleMessage;
 use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\AdminLink\AdminLinkGeneratorInterface;
@@ -17,6 +19,11 @@ use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\BlockDataNormalizerTrait;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentNormalizerTrait;
+use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
+use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
+use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
+use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\HandleTrait;
@@ -40,6 +47,8 @@ class ArticleUpdateTool
         private readonly ContentMetadataMapper $contentMetadataMapper,
         private readonly AdminLinkGeneratorInterface $adminLinkGenerator,
         private readonly ArticleGroupResolver $articleGroupResolver,
+        private readonly ToolPermissionCheckerInterface $permissionChecker,
+        private readonly ArticleSecurityContextResolver $articleContextResolver,
     ) {
         $this->messageBus = $messageBus;
     }
@@ -54,6 +63,11 @@ class ArticleUpdateTool
     #[McpTool(
         name: 'sulu_article_update',
         description: 'Update an existing article. Reads the current article state, merges your changes, and writes back -- so you only need to pass the fields you want to change. Pass template-specific field values in "content" as a flat object: content={"article": "<p>Updated HTML</p>"}. Content may also include a full "blocks" tree (nested blocks allowed) to replace the block content in one call — block _ids are assigned automatically and unknown block fields are rejected before saving. To change routing, pass either content={"url": "/path"} (simple route templates) or content={"page": {"path": "/blog", "uuid": "<parent-uuid>", "suffix": "slug"}} (page_tree_route templates) -- the wrong form is rejected here instead of failing inside Sulu. You can update title and template as separate parameters. The article stays in draft state after updating -- call sulu_content_publish (type: article) to make changes live.',
+    )]
+    #[RequiresPermission(
+        requirements: [new PermissionRequirement('sulu.article.articles', PermissionTypes::EDIT)],
+        objectResolved: true,
+        discoveryContexts: [ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT],
     )]
     public function updateArticle(
         string $uuid,
@@ -84,6 +98,31 @@ class ArticleUpdateTool
                 'locale' => $locale,
                 'stage' => DimensionContentInterface::STAGE_DRAFT,
             ]);
+
+            $currentTemplateKey = $currentDimensionContent->getTemplateKey() ?? '';
+            $sourceContext = $this->articleContextResolver->forTemplateKey($currentTemplateKey);
+            $this->permissionChecker->check(
+                $sourceContext,
+                PermissionTypes::EDIT,
+                $locale,
+            );
+
+            // Trusted template: the `template` arg, else the current one. content/excerpt/seo
+            // below must not smuggle a different value past this point (not even content.template).
+            $effectiveTemplate = $template ?? $currentTemplateKey;
+            if ('' === $effectiveTemplate) {
+                return ['error' => \sprintf('Failed to update article %s: could not resolve its current template.', $uuid)];
+            }
+
+            $targetContext = $this->articleContextResolver->forTemplateKey($effectiveTemplate);
+            if ($targetContext !== $sourceContext) {
+                $this->permissionChecker->check(
+                    $targetContext,
+                    PermissionTypes::EDIT,
+                    $locale,
+                );
+            }
+
             $currentData = $this->contentManager->normalize($currentDimensionContent);
 
             // Build update data: start with current state, overlay user changes
@@ -95,17 +134,13 @@ class ArticleUpdateTool
             if (null !== $title) {
                 $data['title'] = $title;
             }
-            if (null !== $template) {
-                $data['template'] = $template;
-            }
             if (null !== $content) {
                 $normalizedContent = self::normalizeContent($content);
                 if ($validationError = ArticleRouteValidator::validate($normalizedContent, required: false)) {
                     return $validationError;
                 }
                 $suluContent = ArticleRouteValidator::normalizeForSulu($normalizedContent);
-                $templateKey = isset($data['template']) && \is_string($data['template']) ? $data['template'] : null;
-                if ($blockError = $this->blockDataValidator->validateContentTree($suluContent, 'article', $templateKey)) {
+                if ($blockError = $this->blockDataValidator->validateContentTree($suluContent, 'article', $effectiveTemplate)) {
                     return $blockError;
                 }
                 $suluContent = $this->assignBlockIds($suluContent, $this->blockIdGenerator);
@@ -123,6 +158,11 @@ class ArticleUpdateTool
 
             // Ensure all array keys are strings (Sulu's MetadataResolver requires string keys)
             $data = $this->stringifyKeys($data);
+
+            // Force trusted values before dispatch: content/excerpt/seo must not smuggle
+            // a different locale or template past the checks above.
+            $data['locale'] = $locale;
+            $data['template'] = $effectiveTemplate;
 
             $message = new ModifyArticleMessage(['uuid' => $uuid], $data);
 
@@ -153,6 +193,8 @@ class ArticleUpdateTool
             }
 
             return $result;
+        } catch (PermissionDeniedException $e) {
+            throw new ToolCallException($e->getMessage(), 0, $e);
         } catch (\Throwable $e) {
             return [
                 'error' => \sprintf('Failed to update article %s: %s', $uuid, $e->getMessage()),

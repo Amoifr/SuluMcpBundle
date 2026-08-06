@@ -6,7 +6,10 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Taxonomy;
 
 use Mcp\Capability\Attribute\McpTool;
 use Sulu\Bundle\TagBundle\Tag\TagManagerInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\McpServerBundle\AdminLink\AdminLinkGeneratorInterface;
+use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
+use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
 
 /**
  * @internal
@@ -26,6 +29,10 @@ class TagCreateTool
         name: 'sulu_tag_create',
         description: 'Create a new tag. Tags are flat labels used to classify content (pages, articles, media). Pass just the tag name.',
     )]
+    #[RequiresPermission(requirements: [
+        new PermissionRequirement('sulu.settings.tags', PermissionTypes::EDIT),
+        new PermissionRequirement('sulu.settings.tags', PermissionTypes::ADD),
+    ])]
     public function createTag(string $name): array
     {
         try {

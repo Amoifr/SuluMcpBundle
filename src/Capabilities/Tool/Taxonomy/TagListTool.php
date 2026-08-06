@@ -6,6 +6,9 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Taxonomy;
 
 use Mcp\Capability\Attribute\McpTool;
 use Sulu\Bundle\TagBundle\Tag\TagRepositoryInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
+use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
+use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
 
 /**
  * @internal
@@ -24,6 +27,9 @@ class TagListTool
         name: 'sulu_tag_list',
         description: 'List tags with pagination. Returns a page of tag objects (each with id and name), plus total tag count so you know how many pages exist. Use page and limit to navigate large tag collections.',
     )]
+    #[RequiresPermission(requirements: [
+        new PermissionRequirement('sulu.settings.tags', PermissionTypes::VIEW),
+    ])]
     public function listTags(int $page = 1, int $limit = 20): array
     {
         try {
