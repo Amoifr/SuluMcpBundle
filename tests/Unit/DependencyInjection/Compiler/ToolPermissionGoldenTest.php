@@ -21,6 +21,7 @@ use Sulu\Bundle\McpBundle\Capabilities\Tool\GetContextTool;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Media\MediaGetTool;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Media\MediaListTool;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Media\MediaUpdateTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Navigation\NavigationGetTool;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockAddTool;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockListTool;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockRemoveTool;
@@ -73,6 +74,7 @@ final class ToolPermissionGoldenTest extends TestCase
         MediaGetTool::class => ['sulu_media_get', [['sulu.media.collections', PermissionTypes::VIEW]]],
         MediaListTool::class => ['sulu_media_list', [['sulu.media.collections', PermissionTypes::VIEW]]],
         MediaUpdateTool::class => ['sulu_media_update', [['sulu.media.collections', PermissionTypes::EDIT]]],
+        NavigationGetTool::class => ['sulu_navigation_get', [['sulu.webspaces.#context#', PermissionTypes::VIEW]]],
         BlockAddTool::class => ['sulu_block_add', [['#context#', PermissionTypes::EDIT]]],
         BlockListTool::class => ['sulu_block_list', [['#context#', PermissionTypes::VIEW]]],
         BlockRemoveTool::class => ['sulu_block_remove', [['#context#', PermissionTypes::EDIT]]],
