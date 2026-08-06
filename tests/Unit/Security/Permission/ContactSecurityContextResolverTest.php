@@ -1,0 +1,35 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Sulu\McpServerBundle\Tests\Unit\Security\Permission;
+
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\TestCase;
+use Sulu\McpServerBundle\Security\Permission\ContactSecurityContextResolver;
+
+#[CoversClass(ContactSecurityContextResolver::class)]
+final class ContactSecurityContextResolverTest extends TestCase
+{
+    private ContactSecurityContextResolver $resolver;
+
+    protected function setUp(): void
+    {
+        $this->resolver = new ContactSecurityContextResolver();
+    }
+
+    public function testResolvesAccountToOrganizations(): void
+    {
+        self::assertSame('sulu.contact.organizations', $this->resolver->resolve(['type' => 'account']));
+    }
+
+    public function testResolvesContactToPeople(): void
+    {
+        self::assertSame('sulu.contact.people', $this->resolver->resolve(['type' => 'contact']));
+    }
+
+    public function testDefaultsToPeopleWhenTypeMissing(): void
+    {
+        self::assertSame('sulu.contact.people', $this->resolver->resolve([]));
+    }
+}

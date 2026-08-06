@@ -10,22 +10,41 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
+use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormGroup;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\Content\Domain\Model\TemplateInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleListTool;
+use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
+use Sulu\McpServerBundle\Tests\Support\StubGroupProvider;
 
 #[CoversClass(ArticleListTool::class)]
 final class ArticleListToolTest extends TestCase
 {
     private ArticleRepositoryInterface&MockObject $articleRepository;
     private ContentManagerInterface&MockObject $contentManager;
+    private ToolPermissionCheckerInterface&MockObject $permissionChecker;
+    private ArticleSecurityContextResolver $articleContextResolver;
     private ArticleListTool $tool;
 
     protected function setUp(): void
     {
         $this->articleRepository = $this->createMock(ArticleRepositoryInterface::class);
         $this->contentManager = $this->createMock(ContentManagerInterface::class);
-        $this->tool = new ArticleListTool($this->articleRepository, $this->contentManager);
+        $this->permissionChecker = $this->createMock(ToolPermissionCheckerInterface::class);
+        // Default: grant, so existing happy-path tests are unaffected by the new filter.
+        $this->permissionChecker->method('has')->willReturn(true);
+        // Single-group install owning both template keys used across these tests.
+        $this->articleContextResolver = new ArticleSecurityContextResolver(
+            new StubGroupProvider(['default' => new FormGroup('default', 'Default', ['article', 'blog'])]),
+        );
+        $this->tool = new ArticleListTool(
+            $this->articleRepository,
+            $this->contentManager,
+            $this->permissionChecker,
+            $this->articleContextResolver,
+        );
     }
 
     public function testListArticlesReturnsPaginatedResults(): void
@@ -35,10 +54,11 @@ final class ArticleListToolTest extends TestCase
         $article2 = $this->createMock(ArticleInterface::class);
         $article2->method('getUuid')->willReturn('uuid-2');
 
+        $this->articleRepository->method('findIdentifiersBy')->willReturn(['uuid-1', 'uuid-2']);
         $this->articleRepository->method('findBy')->willReturn([$article1, $article2]);
         $this->articleRepository->method('countBy')->willReturn(5);
 
-        $dimensionContent = $this->createMock(DimensionContentInterface::class);
+        $dimensionContent = $this->createMockForIntersectionOfInterfaces([TemplateInterface::class, DimensionContentInterface::class]);
         $this->contentManager->method('resolve')->willReturn($dimensionContent);
         $this->contentManager->method('normalize')->willReturn(['title' => 'Test']);
 
@@ -56,11 +76,10 @@ final class ArticleListToolTest extends TestCase
     {
         $this->articleRepository
             ->expects($this->once())
-            ->method('findBy')
+            ->method('findIdentifiersBy')
             ->with(
                 $this->callback(fn (array $filters): bool => isset($filters['templateKeys'])
                     && $filters['templateKeys'] === ['blog']),
-                $this->anything(),
                 $this->anything(),
             )
             ->willReturn([]);
@@ -73,10 +92,9 @@ final class ArticleListToolTest extends TestCase
     {
         $this->articleRepository
             ->expects($this->once())
-            ->method('findBy')
+            ->method('findIdentifiersBy')
             ->with(
                 $this->callback(fn (array $filters): bool => 1 === $filters['page'] && 20 === $filters['limit']),
-                $this->anything(),
                 $this->anything(),
             )
             ->willReturn([]);
@@ -94,10 +112,11 @@ final class ArticleListToolTest extends TestCase
         $article3 = $this->createMock(ArticleInterface::class);
         $article3->method('getUuid')->willReturn('uuid-3');
 
+        $this->articleRepository->method('findIdentifiersBy')->willReturn(['uuid-1', 'uuid-2', 'uuid-3']);
         $this->articleRepository->method('findBy')->willReturn([$article1, $article2, $article3]);
         $this->articleRepository->method('countBy')->willReturn(3);
 
-        $dimensionContent = $this->createMock(DimensionContentInterface::class);
+        $dimensionContent = $this->createMockForIntersectionOfInterfaces([TemplateInterface::class, DimensionContentInterface::class]);
         $this->contentManager
             ->expects($this->exactly(3))
             ->method('resolve')
@@ -119,5 +138,65 @@ final class ArticleListToolTest extends TestCase
 
         $instance = $attributes[0]->newInstance();
         $this->assertSame('sulu_article_list', $instance->name);
+    }
+
+    /**
+     * Group scoping must reach the query, not filter rows afterwards, or `total`
+     * (COUNT DISTINCT) could count articles from a group the user can't read.
+     */
+    public function testListArticlesScopesQueryToPermittedGroupTemplates(): void
+    {
+        // Two groups so "default" and "blog" resolve to distinct security contexts.
+        $contextResolver = new ArticleSecurityContextResolver(new StubGroupProvider([
+            'default' => (new FormGroup('default', 'Default'))->withTemplate('default'),
+            'blog' => (new FormGroup('blog', 'Blog'))->withTemplate('blog'),
+        ]));
+
+        $permissionChecker = $this->createMock(ToolPermissionCheckerInterface::class);
+        $permissionChecker
+            ->method('has')
+            ->willReturnCallback(static fn (string $context): bool => 'sulu.article.articles' === $context);
+
+        $onlyDefaultTemplate = static fn (array $filters): bool => ['default'] === ($filters['templateKeys'] ?? null);
+
+        $this->articleRepository
+            ->expects($this->once())
+            ->method('findIdentifiersBy')
+            ->with($this->callback($onlyDefaultTemplate), $this->anything())
+            ->willReturn([]);
+        $this->articleRepository
+            ->expects($this->once())
+            ->method('countBy')
+            ->with($this->callback($onlyDefaultTemplate))
+            ->willReturn(0);
+
+        $tool = new ArticleListTool(
+            $this->articleRepository,
+            $this->contentManager,
+            $permissionChecker,
+            $contextResolver,
+        );
+
+        $tool->listArticles('en');
+    }
+
+    public function testListArticlesReturnsEmptyWhenNoArticleGroupIsPermitted(): void
+    {
+        $permissionChecker = $this->createMock(ToolPermissionCheckerInterface::class);
+        $permissionChecker->method('has')->willReturn(false);
+
+        $this->articleRepository->expects($this->never())->method('findIdentifiersBy');
+
+        $tool = new ArticleListTool(
+            $this->articleRepository,
+            $this->contentManager,
+            $permissionChecker,
+            $this->articleContextResolver,
+        );
+
+        $result = $tool->listArticles('en');
+
+        $this->assertSame([], $result['articles']);
+        $this->assertSame(0, $result['total']);
     }
 }

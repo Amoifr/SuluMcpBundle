@@ -1,5 +1,6 @@
 /vendor/
 /var/
+/tests/Application/var/
 .php-cs-fixer.cache
 .phpunit.result.cache
 .claude

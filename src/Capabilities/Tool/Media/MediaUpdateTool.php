@@ -5,9 +5,17 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Capabilities\Tool\Media;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Exception\ToolCallException;
+use Sulu\Bundle\MediaBundle\Entity\Collection;
 use Sulu\Bundle\MediaBundle\Media\Manager\MediaManagerInterface;
 use Sulu\Bundle\SecurityBundle\Entity\User;
+use Sulu\Component\Media\SystemCollections\SystemCollectionManagerInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\McpServerBundle\AdminLink\AdminLinkGeneratorInterface;
+use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
+use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
+use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
+use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
 /**
@@ -19,6 +27,7 @@ class MediaUpdateTool
         private readonly MediaManagerInterface $mediaManager,
         private readonly TokenStorageInterface $tokenStorage,
         private readonly AdminLinkGeneratorInterface $adminLinkGenerator,
+        private readonly ToolPermissionCheckerInterface $permissionChecker,
     ) {
     }
 
@@ -28,6 +37,11 @@ class MediaUpdateTool
     #[McpTool(
         name: 'sulu_media_update',
         description: 'Update media metadata (title, description, copyright). Does not change the file itself — only metadata fields. Pass only the fields you want to change.',
+    )]
+    #[RequiresPermission(
+        requirements: [new PermissionRequirement('sulu.media.collections', PermissionTypes::EDIT)],
+        objectResolved: true,
+        discoveryContexts: ['sulu.media.collections'],
     )]
     public function updateMedia(
         int $id,
@@ -45,6 +59,20 @@ class MediaUpdateTool
                     'hint' => 'Authenticate as a Sulu user with permission to edit media before retrying.',
                 ];
             }
+
+            $media = $this->mediaManager->getById($id, $locale);
+
+            $collection = $media->getEntity()->getCollection();
+            if (SystemCollectionManagerInterface::COLLECTION_TYPE === $collection->getType()->getKey()) {
+                $this->permissionChecker->check('sulu.media.system_collections', PermissionTypes::VIEW, $locale);
+            }
+            $this->permissionChecker->check(
+                'sulu.media.collections',
+                PermissionTypes::EDIT,
+                $locale,
+                Collection::class,
+                $collection->getId(),
+            );
 
             $data = [
                 'id' => $id,
@@ -77,6 +105,8 @@ class MediaUpdateTool
             }
 
             return $result;
+        } catch (PermissionDeniedException $e) {
+            throw new ToolCallException($e->getMessage(), 0, $e);
         } catch (\Throwable $e) {
             return [
                 'error' => \sprintf('Failed to update media %d: %s', $id, $e->getMessage()),

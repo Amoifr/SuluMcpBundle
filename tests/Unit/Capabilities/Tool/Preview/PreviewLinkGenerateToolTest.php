@@ -6,29 +6,84 @@ namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Preview;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
+use Mcp\Exception\ToolCallException;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Sulu\Article\Domain\Model\ArticleInterface;
+use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
+use Sulu\Bundle\AdminBundle\Metadata\GroupProviderInterface;
 use Sulu\Bundle\PreviewBundle\Application\Manager\PreviewLinkManagerInterface;
 use Sulu\Bundle\PreviewBundle\Domain\Model\PreviewLinkInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
+use Sulu\Content\Application\ContentManager\ContentManagerInterface;
+use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\Content\Domain\Model\TemplateInterface;
+use Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver;
 use Sulu\McpServerBundle\Capabilities\Tool\Preview\PreviewLinkGenerateTool;
+use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
+use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\McpServerBundle\Security\Permission\ContentSecurityContextResolver;
+use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
+use Sulu\Page\Domain\Model\PageInterface;
+use Sulu\Page\Domain\Repository\PageRepositoryInterface;
+use Sulu\Snippet\Domain\Repository\SnippetRepositoryInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Routing\RouterInterface;
 
+#[CoversClass(PreviewLinkGenerateTool::class)]
 class PreviewLinkGenerateToolTest extends TestCase
 {
     private PreviewLinkManagerInterface&MockObject $previewLinkManager;
     private RouterInterface&MockObject $router;
+    private PageRepositoryInterface&MockObject $pageRepository;
+    private ArticleRepositoryInterface&MockObject $articleRepository;
+    private ContentManagerInterface&MockObject $contentManager;
+    private ToolPermissionCheckerInterface&MockObject $permissionChecker;
     private PreviewLinkGenerateTool $tool;
 
     protected function setUp(): void
     {
         $this->previewLinkManager = $this->createMock(PreviewLinkManagerInterface::class);
         $this->router = $this->createMock(RouterInterface::class);
-        $this->tool = new PreviewLinkGenerateTool($this->previewLinkManager, $this->router);
+        $this->pageRepository = $this->createMock(PageRepositoryInterface::class);
+        $this->articleRepository = $this->createMock(ArticleRepositoryInterface::class);
+        $this->contentManager = $this->createMock(ContentManagerInterface::class);
+        $this->permissionChecker = $this->createMock(ToolPermissionCheckerInterface::class);
+        $groupProvider = $this->createMock(GroupProviderInterface::class);
+        $groupProvider->method('getGroups')->willReturn([]);
+
+        $snippetRepository = $this->createMock(SnippetRepositoryInterface::class);
+
+        $this->tool = new PreviewLinkGenerateTool(
+            $this->previewLinkManager,
+            $this->router,
+            new ContentTypeResolver($this->pageRepository, $this->articleRepository, $snippetRepository),
+            $this->contentManager,
+            $this->permissionChecker,
+            new ContentSecurityContextResolver(new ArticleSecurityContextResolver($groupProvider)),
+        );
+    }
+
+    private function setupEntity(string $type): void
+    {
+        $entity = $this->createMock('page' === $type ? PageInterface::class : ArticleInterface::class);
+
+        if ('page' === $type) {
+            $entity->method('getWebspaceKey')->willReturn('example');
+            $this->pageRepository->method('getOneBy')->willReturn($entity);
+        } else {
+            $this->articleRepository->method('getOneBy')->willReturn($entity);
+            $dimensionContent = $this->createMockForIntersectionOfInterfaces([TemplateInterface::class, DimensionContentInterface::class]);
+            $dimensionContent->method('getTemplateKey')->willReturn('default');
+            $this->contentManager->method('resolve')->willReturn($dimensionContent);
+        }
     }
 
     public function testGeneratePreviewLinkForPage(): void
     {
+        $this->setupEntity('page');
+
         $previewLink = $this->createMock(PreviewLinkInterface::class);
         $previewLink->method('getToken')->willReturn('abc123');
         $previewLink->method('getResourceKey')->willReturn('pages');
@@ -59,6 +114,8 @@ class PreviewLinkGenerateToolTest extends TestCase
 
     public function testGeneratePreviewLinkForArticle(): void
     {
+        $this->setupEntity('article');
+
         $previewLink = $this->createMock(PreviewLinkInterface::class);
         $previewLink->method('getToken')->willReturn('def456');
         $previewLink->method('getResourceKey')->willReturn('articles');
@@ -89,6 +146,8 @@ class PreviewLinkGenerateToolTest extends TestCase
 
     public function testTypeIsMappedToResourceKeyForGenerate(): void
     {
+        $this->setupEntity('article');
+
         $previewLink = $this->createMock(PreviewLinkInterface::class);
         $previewLink->method('getToken')->willReturn('tok');
         $previewLink->method('getResourceKey')->willReturn('articles');
@@ -125,22 +184,41 @@ class PreviewLinkGenerateToolTest extends TestCase
 
     public function testGeneratePreviewLinkPassesWebspaceInOptions(): void
     {
+        $this->setupEntity('page');
+
         $previewLink = $this->createMock(PreviewLinkInterface::class);
         $previewLink->method('getToken')->willReturn('tok');
 
         $this->previewLinkManager
             ->expects($this->once())
             ->method('generate')
-            ->with('pages', 'uuid-1', 'en', ['webspaceKey' => 'my-webspace'])
+            ->with('pages', 'uuid-1', 'en', ['webspaceKey' => 'example'])
             ->willReturn($previewLink);
 
         $this->router->method('generate')->willReturn('https://example.com/preview/tok');
 
-        $this->tool->generatePreviewLink('page', 'uuid-1', 'en', 'my-webspace');
+        $this->tool->generatePreviewLink('page', 'uuid-1', 'en', 'example');
+    }
+
+    /**
+     * The stored token is rendered under this webspace's portal, theme and routes, so
+     * it must be the page's own -- not any webspace the caller cares to name.
+     */
+    public function testGeneratePreviewLinkRejectsForeignRenderingWebspace(): void
+    {
+        $this->setupEntity('page');
+
+        $this->previewLinkManager->expects($this->never())->method('generate');
+
+        $this->expectException(ToolCallException::class);
+
+        $this->tool->generatePreviewLink('page', 'uuid-1', 'en', 'other-webspace');
     }
 
     public function testGeneratePreviewLinkReturnsErrorOnException(): void
     {
+        $this->setupEntity('page');
+
         $this->previewLinkManager
             ->method('generate')
             ->willThrowException(new \RuntimeException('Resource not found'));
@@ -150,6 +228,31 @@ class PreviewLinkGenerateToolTest extends TestCase
         $this->assertArrayHasKey('error', $result);
         $this->assertStringContainsString('Resource not found', $result['error']);
         $this->assertArrayHasKey('hint', $result);
+    }
+
+    public function testEntityNotFoundReturnsErrorWithoutGenerate(): void
+    {
+        $this->pageRepository->method('getOneBy')->willThrowException(new \RuntimeException('not found'));
+        $this->previewLinkManager->expects($this->never())->method('generate');
+
+        $result = $this->tool->generatePreviewLink('page', 'missing-uuid', 'en', 'example');
+
+        $this->assertArrayHasKey('error', $result);
+    }
+
+    public function testGeneratePreviewLinkThrowsToolCallExceptionWhenPermissionDenied(): void
+    {
+        $this->setupEntity('page');
+
+        $this->permissionChecker
+            ->method('check')
+            ->willThrowException(new PermissionDeniedException('sulu.webspaces.example', PermissionTypes::EDIT, 'en'));
+
+        $this->previewLinkManager->expects($this->never())->method('generate');
+
+        $this->expectException(ToolCallException::class);
+
+        $this->tool->generatePreviewLink('page', 'page-uuid-1', 'en', 'example');
     }
 
     public function testMethodHasMcpToolAttribute(): void

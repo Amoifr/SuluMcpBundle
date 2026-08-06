@@ -10,13 +10,23 @@ use CmsIg\Seal\Schema\Field\IdentifierField;
 use CmsIg\Seal\Schema\Index;
 use CmsIg\Seal\Schema\Schema;
 use CmsIg\Seal\Search\Condition\EqualCondition;
+use CmsIg\Seal\Search\Condition\InCondition;
 use CmsIg\Seal\Search\Result;
 use CmsIg\Seal\Search\Search;
 use CmsIg\Seal\Search\SearchBuilder;
 use Mcp\Capability\Attribute\McpTool;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Sulu\Component\Security\Authentication\UserInterface;
+use Sulu\Component\Security\Authorization\SecurityCheckerInterface;
+use Sulu\Component\Webspace\Manager\WebspaceCollection;
+use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
+use Sulu\Component\Webspace\Webspace;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentSearchTool;
+use Sulu\McpServerBundle\Security\Permission\ToolPermissionChecker;
+use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 
 class ContentSearchToolTest extends TestCase
 {
@@ -28,7 +38,37 @@ class ContentSearchToolTest extends TestCase
     {
         $this->engine = $this->createMock(EngineInterface::class);
         $this->searcher = $this->createMock(SearcherInterface::class);
-        $this->tool = new ContentSearchTool($this->engine);
+        // Grants EDIT on 'example' so existing happy-path tests are unaffected by the webspace filter.
+        $this->tool = new ContentSearchTool($this->engine, $this->webspaceResolver(['example']));
+    }
+
+    /**
+     * Real WebspacePermissionResolver (final) over a mocked WebspaceManagerInterface
+     * and a real ToolPermissionChecker driven by a mocked SecurityCheckerInterface.
+     *
+     * @param list<string> $grantedWebspaceKeys webspace keys on which EDIT is granted
+     */
+    private function webspaceResolver(array $grantedWebspaceKeys): WebspacePermissionResolver
+    {
+        $webspaces = [];
+        foreach ($grantedWebspaceKeys as $key) {
+            $webspace = new Webspace();
+            $webspace->setKey($key);
+            $webspaces[$key] = $webspace;
+        }
+
+        $webspaceManager = $this->createMock(WebspaceManagerInterface::class);
+        $webspaceManager->method('getWebspaceCollection')->willReturn(new WebspaceCollection($webspaces));
+
+        $securityChecker = $this->createMock(SecurityCheckerInterface::class);
+        $securityChecker->method('hasPermission')->willReturn(true);
+
+        $tokenStorage = $this->createMock(TokenStorageInterface::class);
+        $token = $this->createMock(TokenInterface::class);
+        $token->method('getUser')->willReturn($this->createMock(UserInterface::class));
+        $tokenStorage->method('getToken')->willReturn($token);
+
+        return new WebspacePermissionResolver($webspaceManager, new ToolPermissionChecker($securityChecker, $tokenStorage));
     }
 
     private function createSearchBuilder(): SearchBuilder
@@ -184,5 +224,95 @@ class ContentSearchToolTest extends TestCase
             ->willReturn($this->createEmptyResult());
 
         $this->tool->search('hello', 'en');
+    }
+
+    public function testSearchReturnsEmptyResultsWhenNoWebspaceIsPermitted(): void
+    {
+        $tool = new ContentSearchTool($this->engine, $this->webspaceResolver([]));
+
+        $this->engine->expects($this->never())->method('createSearchBuilder');
+
+        $result = $tool->search('hello', 'en');
+
+        $this->assertSame(
+            ['items' => [], 'total' => 0, 'hint' => 'No webspaces are readable with your permissions.'],
+            $result,
+        );
+    }
+
+    public function testSearchReturnsEmptyResultsWhenRequestedWebspaceIsNotPermitted(): void
+    {
+        $tool = new ContentSearchTool($this->engine, $this->webspaceResolver(['example']));
+
+        $this->engine->expects($this->never())->method('createSearchBuilder');
+
+        $result = $tool->search('hello', 'en', 'other');
+
+        $this->assertSame(
+            ['items' => [], 'total' => 0, 'hint' => 'Webspace "other" is not readable with your permissions.'],
+            $result,
+        );
+    }
+
+    public function testSearchFiltersByPermittedWebspaces(): void
+    {
+        $builder = $this->createSearchBuilder();
+
+        $tool = new ContentSearchTool($this->engine, $this->webspaceResolver(['example', 'blog']));
+
+        $this->engine
+            ->method('createSearchBuilder')
+            ->with('website')
+            ->willReturn($builder);
+
+        $this->searcher
+            ->expects($this->once())
+            ->method('search')
+            ->with($this->callback(function (Search $search): bool {
+                foreach ($search->filters as $filter) {
+                    if ($filter instanceof InCondition
+                        && 'webspaces' === $filter->field
+                        && ['example', 'blog'] === $filter->values
+                    ) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }))
+            ->willReturn($this->createEmptyResult());
+
+        $tool->search('hello', 'en');
+    }
+
+    public function testSearchIntersectsRequestedWebspaceWithPermittedSet(): void
+    {
+        $builder = $this->createSearchBuilder();
+
+        $tool = new ContentSearchTool($this->engine, $this->webspaceResolver(['example', 'blog']));
+
+        $this->engine
+            ->method('createSearchBuilder')
+            ->with('website')
+            ->willReturn($builder);
+
+        $this->searcher
+            ->expects($this->once())
+            ->method('search')
+            ->with($this->callback(function (Search $search): bool {
+                foreach ($search->filters as $filter) {
+                    if ($filter instanceof InCondition
+                        && 'webspaces' === $filter->field
+                        && ['example'] === $filter->values
+                    ) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }))
+            ->willReturn($this->createEmptyResult());
+
+        $tool->search('hello', 'en', 'example');
     }
 }

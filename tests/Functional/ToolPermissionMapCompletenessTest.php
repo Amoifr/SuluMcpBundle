@@ -1,0 +1,49 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Sulu\McpServerBundle\Tests\Functional;
+
+use Mcp\Capability\RegistryInterface;
+
+/**
+ * Tier 0b: boots the real kernel and diffs the compiled tool_permissions
+ * map plus the actual MCP registry against ALLOWLIST -- dynamically, so a
+ * tool added with no declaration or silently dropped is caught here.
+ * sulu_ping/sulu_get_context are attribute-free, hence the allowlist.
+ */
+final class ToolPermissionMapCompletenessTest extends FunctionalTestCase
+{
+    private const ALLOWLIST = ['sulu_ping', 'sulu_get_context'];
+
+    public function testDiscoveredToolNamesEqualMapKeysUnionAllowlist(): void
+    {
+        $container = self::getContainer();
+
+        /** @var array<string, array{name: string, requirements: list<array{context: string, permission: string}>, contextArgument: ?string, contextResolver: ?string, objectResolved: bool, discoveryContexts: list<string>}> $map */
+        $map = $container->getParameter('sulu_mcp_server.tool_permissions');
+        self::assertNotEmpty($map, 'The compiled tool_permissions map is empty -- ToolPermissionMapPass did not run or found no tagged mcp.tool services.');
+
+        // Populate the shared registry: Builder::build() runs its loaders only
+        // when the mcp.server service is actually built.
+        $container->get('mcp.server');
+
+        /** @var RegistryInterface $registry */
+        $registry = $container->get('mcp.registry');
+        $discoveredNames = \array_keys($registry->getDiscoveryState()->getTools());
+
+        $expected = [...\array_keys($map), ...self::ALLOWLIST];
+        \sort($expected);
+        $actual = $discoveredNames;
+        \sort($actual);
+
+        self::assertSame(
+            $expected,
+            $actual,
+            'discovered mcp.tool names must equal {map keys} union {allowlist}. A mismatch means either '
+            .'a tool was added with no #[RequiresPermission] declaration and is not allowlisted (present in '
+            .'discovered, absent from expected), or a declared/allowlisted tool was silently dropped from '
+            .'discovery (present in expected, absent from discovered).',
+        );
+    }
+}

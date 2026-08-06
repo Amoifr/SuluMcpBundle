@@ -6,7 +6,9 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
+use Mcp\Exception\ToolCallException;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\AdminLink\AdminLinkGeneratorInterface;
@@ -14,8 +16,14 @@ use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\BlockDataNormalizerTrait;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentNormalizerTrait;
+use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
+use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
+use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
+use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
+use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Sulu\Page\Application\Message\ModifyPageMessage;
+use Sulu\Page\Domain\Model\Page;
 use Sulu\Page\Domain\Model\PageInterface;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Symfony\Component\Messenger\Envelope;
@@ -39,6 +47,7 @@ class PageUpdateTool
         private readonly BlockIdGeneratorInterface $blockIdGenerator,
         private readonly ContentMetadataMapper $contentMetadataMapper,
         private readonly AdminLinkGeneratorInterface $adminLinkGenerator,
+        private readonly ToolPermissionCheckerInterface $permissionChecker,
     ) {
         $this->messageBus = $messageBus;
     }
@@ -53,6 +62,11 @@ class PageUpdateTool
     #[McpTool(
         name: 'sulu_page_update',
         description: 'Update an existing page. Reads the current page state, merges your changes, and writes back — so you only need to pass the fields you want to change. Pass template-specific field values in "content" as a flat object: content={"article": "<p>Updated HTML</p>"}. Content may also include a full "blocks" tree (nested blocks allowed) to replace the block content in one call — block _ids are assigned automatically and unknown block fields are rejected before saving. You can update title, url, and template as separate parameters. The page stays in draft state after updating — call sulu_content_publish (type: page) to make changes live.',
+    )]
+    #[RequiresPermission(
+        requirements: [new PermissionRequirement('sulu.webspaces.#context#', PermissionTypes::EDIT)],
+        objectResolved: true,
+        discoveryContexts: [WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
     )]
     public function updatePage(
         string $uuid,
@@ -80,11 +94,25 @@ class PageUpdateTool
                 ],
             );
 
+            // Context comes from the loaded entity; the page ACL is checked object-level.
+            $this->permissionChecker->check(
+                'sulu.webspaces.'.$page->getWebspaceKey(),
+                PermissionTypes::EDIT,
+                $locale,
+                Page::class,
+                $uuid,
+            );
+
             $currentDimensionContent = $this->contentManager->resolve($page, [
                 'locale' => $locale,
                 'stage' => DimensionContentInterface::STAGE_DRAFT,
             ]);
             $currentData = $this->contentManager->normalize($currentDimensionContent);
+
+            // Trusted template: the `template` arg, else the current one. content/excerpt/seo
+            // below must not smuggle a different value past this point.
+            $currentTemplateKey = \is_string($currentData['template'] ?? null) ? $currentData['template'] : null;
+            $effectiveTemplate = $template ?? $currentTemplateKey;
 
             // Build update data: start with current state, overlay user changes
             $data = \array_merge(
@@ -98,13 +126,9 @@ class PageUpdateTool
             if (null !== $url) {
                 $data['url'] = $url;
             }
-            if (null !== $template) {
-                $data['template'] = $template;
-            }
             if (null !== $content) {
                 $normalizedContent = self::normalizeContent($content);
-                $templateKey = isset($data['template']) && \is_string($data['template']) ? $data['template'] : null;
-                if ($validationError = $this->blockDataValidator->validateContentTree($normalizedContent, 'page', $templateKey)) {
+                if ($validationError = $this->blockDataValidator->validateContentTree($normalizedContent, 'page', $effectiveTemplate)) {
                     return $validationError;
                 }
                 $normalizedContent = $this->assignBlockIds($normalizedContent, $this->blockIdGenerator);
@@ -122,6 +146,11 @@ class PageUpdateTool
 
             // Ensure all array keys are strings (Sulu's MetadataResolver requires string keys)
             $data = $this->stringifyKeys($data);
+
+            // Force trusted values before dispatch: content/excerpt/seo must not smuggle
+            // a different locale or template.
+            $data['locale'] = $locale;
+            $data['template'] = $effectiveTemplate;
 
             $message = new ModifyPageMessage(['uuid' => $uuid], $data);
 
@@ -150,6 +179,8 @@ class PageUpdateTool
             }
 
             return $result;
+        } catch (PermissionDeniedException $e) {
+            throw new ToolCallException($e->getMessage(), 0, $e);
         } catch (\Throwable $e) {
             return [
                 'error' => \sprintf('Failed to update page %s: %s', $uuid, $e->getMessage()),

@@ -6,8 +6,13 @@
          failOnWarning="true"
 >
     <testsuites>
-        <testsuite name="Sulu MCP Server Bundle Test Suite">
-            <directory>tests</directory>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+            <directory>tests/Integration</directory>
+        </testsuite>
+
+        <testsuite name="Functional">
+            <directory>tests/Functional</directory>
         </testsuite>
     </testsuites>
 
@@ -16,4 +21,11 @@
             <directory>src</directory>
         </include>
     </source>
+
+    <php>
+        <server name="APP_ENV" value="test" force="true"/>
+        <server name="KERNEL_CLASS" value="Sulu\McpServerBundle\Tests\Application\Kernel"/>
+        <server name="DATABASE_URL" value="sqlite:///%kernel.project_dir%/var/data_test.db"/>
+        <server name="SEAL_DSN" value="memory://"/>
+    </php>
 </phpunit>

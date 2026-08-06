@@ -5,14 +5,22 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Media;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Exception\ToolCallException;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Sulu\Bundle\MediaBundle\Api\Media;
+use Sulu\Bundle\MediaBundle\Entity\Collection;
+use Sulu\Bundle\MediaBundle\Entity\CollectionType;
+use Sulu\Bundle\MediaBundle\Entity\Media as MediaEntity;
 use Sulu\Bundle\MediaBundle\Media\Manager\MediaManagerInterface;
 use Sulu\Bundle\SecurityBundle\Entity\User;
+use Sulu\Component\Media\SystemCollections\SystemCollectionManagerInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\McpServerBundle\AdminLink\AdminLinkGenerator;
 use Sulu\McpServerBundle\AdminLink\Provider\MediaAdminLinkProvider;
 use Sulu\McpServerBundle\Capabilities\Tool\Media\MediaUpdateTool;
+use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
+use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\McpServerBundle\Tests\Support\StubViewRegistry;
 use Symfony\Component\Routing\RouterInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
@@ -22,21 +30,23 @@ class MediaUpdateToolTest extends TestCase
 {
     private MediaManagerInterface&MockObject $mediaManager;
     private TokenStorageInterface&MockObject $tokenStorage;
+    private ToolPermissionCheckerInterface&MockObject $permissionChecker;
     private MediaUpdateTool $tool;
 
     protected function setUp(): void
     {
         $this->mediaManager = $this->createMock(MediaManagerInterface::class);
         $this->tokenStorage = $this->createMock(TokenStorageInterface::class);
+        $this->permissionChecker = $this->createMock(ToolPermissionCheckerInterface::class);
 
         $router = $this->createMock(RouterInterface::class);
         $router->method('generate')->willReturn('https://example.com/admin/');
         $adminLinkGenerator = new AdminLinkGenerator($router, [new MediaAdminLinkProvider(new StubViewRegistry())]);
 
-        $this->tool = new MediaUpdateTool($this->mediaManager, $this->tokenStorage, $adminLinkGenerator);
+        $this->tool = new MediaUpdateTool($this->mediaManager, $this->tokenStorage, $adminLinkGenerator, $this->permissionChecker);
     }
 
-    public function testUpdateMediaSuccessfully(): void
+    private function authenticateAsUser(): void
     {
         $user = $this->createMock(User::class);
         $user->method('getId')->willReturn(1);
@@ -45,6 +55,34 @@ class MediaUpdateToolTest extends TestCase
         $token->method('getUser')->willReturn($user);
 
         $this->tokenStorage->method('getToken')->willReturn($token);
+    }
+
+    /**
+     * @param non-empty-string|null $typeKey
+     */
+    private function loadedMedia(int $collectionId, ?string $typeKey = null): Media&MockObject
+    {
+        $collectionType = $this->createMock(CollectionType::class);
+        $collectionType->method('getKey')->willReturn($typeKey);
+
+        $collection = $this->createMock(Collection::class);
+        $collection->method('getId')->willReturn($collectionId);
+        $collection->method('getType')->willReturn($collectionType);
+
+        $mediaEntity = $this->createMock(MediaEntity::class);
+        $mediaEntity->method('getCollection')->willReturn($collection);
+
+        $media = $this->createMock(Media::class);
+        $media->method('getEntity')->willReturn($mediaEntity);
+
+        return $media;
+    }
+
+    public function testUpdateMediaSuccessfully(): void
+    {
+        $this->authenticateAsUser();
+
+        $this->mediaManager->method('getById')->willReturn($this->loadedMedia(5));
 
         $media = $this->createMock(Media::class);
         $media->method('getId')->willReturn(42);
@@ -85,11 +123,9 @@ class MediaUpdateToolTest extends TestCase
 
     public function testUpdateMediaPassesOnlyProvidedFields(): void
     {
-        $user = $this->createMock(User::class);
-        $user->method('getId')->willReturn(1);
-        $token = $this->createMock(TokenInterface::class);
-        $token->method('getUser')->willReturn($user);
-        $this->tokenStorage->method('getToken')->willReturn($token);
+        $this->authenticateAsUser();
+
+        $this->mediaManager->method('getById')->willReturn($this->loadedMedia(5));
 
         $media = $this->createMock(Media::class);
         $media->method('getId')->willReturn(42);
@@ -113,12 +149,9 @@ class MediaUpdateToolTest extends TestCase
 
     public function testUpdateMediaReturnsHintOnSaveFailure(): void
     {
-        $user = $this->createMock(User::class);
-        $user->method('getId')->willReturn(1);
-        $token = $this->createMock(TokenInterface::class);
-        $token->method('getUser')->willReturn($user);
-        $this->tokenStorage->method('getToken')->willReturn($token);
+        $this->authenticateAsUser();
 
+        $this->mediaManager->method('getById')->willReturn($this->loadedMedia(5));
         $this->mediaManager->method('save')->willThrowException(new \RuntimeException('Save failed'));
 
         $result = $this->tool->updateMedia(42, 'en', 'Title');
@@ -127,6 +160,89 @@ class MediaUpdateToolTest extends TestCase
         $this->assertTrue(\array_key_exists('hint', $result));
         $this->assertIsString($result['hint']);
         $this->assertNotEmpty($result['hint']);
+    }
+
+    public function testUpdateMediaChecksCollectionPermission(): void
+    {
+        $this->authenticateAsUser();
+
+        $this->mediaManager->method('getById')->willReturn($this->loadedMedia(9));
+
+        $media = $this->createMock(Media::class);
+        $media->method('getId')->willReturn(42);
+        $media->method('getTitle')->willReturn('Title');
+        $this->mediaManager->method('save')->willReturn($media);
+
+        $this->permissionChecker
+            ->expects($this->once())
+            ->method('check')
+            ->with('sulu.media.collections', PermissionTypes::EDIT, 'en', Collection::class, 9);
+
+        $this->tool->updateMedia(42, 'en', 'Title');
+    }
+
+    public function testUpdateMediaAlsoChecksSystemCollectionPermission(): void
+    {
+        $this->authenticateAsUser();
+
+        $this->mediaManager->method('getById')->willReturn($this->loadedMedia(1, SystemCollectionManagerInterface::COLLECTION_TYPE));
+
+        $media = $this->createMock(Media::class);
+        $media->method('getId')->willReturn(42);
+        $media->method('getTitle')->willReturn('Title');
+        $this->mediaManager->method('save')->willReturn($media);
+
+        $calls = [];
+        $this->permissionChecker
+            ->expects($this->exactly(2))
+            ->method('check')
+            ->willReturnCallback(function (string $context, string $permission) use (&$calls): void {
+                $calls[] = [$context, $permission];
+            });
+
+        $this->tool->updateMedia(42, 'en', 'Title');
+
+        $this->assertSame(
+            [
+                ['sulu.media.system_collections', PermissionTypes::VIEW],
+                ['sulu.media.collections', PermissionTypes::EDIT],
+            ],
+            $calls,
+        );
+    }
+
+    public function testUpdateMediaThrowsToolCallExceptionWhenSystemCollectionViewDenied(): void
+    {
+        $this->authenticateAsUser();
+
+        $this->mediaManager->method('getById')->willReturn($this->loadedMedia(1, SystemCollectionManagerInterface::COLLECTION_TYPE));
+
+        $this->permissionChecker
+            ->method('check')
+            ->willThrowException(new PermissionDeniedException('sulu.media.system_collections', PermissionTypes::VIEW, 'en'));
+
+        $this->mediaManager->expects($this->never())->method('save');
+
+        $this->expectException(ToolCallException::class);
+
+        $this->tool->updateMedia(42, 'en', 'Title');
+    }
+
+    public function testUpdateMediaThrowsToolCallExceptionWhenPermissionDenied(): void
+    {
+        $this->authenticateAsUser();
+
+        $this->mediaManager->method('getById')->willReturn($this->loadedMedia(9));
+
+        $this->permissionChecker
+            ->method('check')
+            ->willThrowException(new PermissionDeniedException('sulu.media.collections', PermissionTypes::EDIT, 'en'));
+
+        $this->mediaManager->expects($this->never())->method('save');
+
+        $this->expectException(ToolCallException::class);
+
+        $this->tool->updateMedia(42, 'en', 'Title');
     }
 
     public function testUpdateMediaMethodHasMcpToolAttribute(): void

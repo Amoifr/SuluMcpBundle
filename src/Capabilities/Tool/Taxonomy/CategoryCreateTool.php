@@ -7,7 +7,10 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Taxonomy;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Sulu\Bundle\CategoryBundle\Category\CategoryManagerInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\McpServerBundle\AdminLink\AdminLinkGeneratorInterface;
+use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
+use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
@@ -30,6 +33,10 @@ class CategoryCreateTool
         name: 'sulu_category_create',
         description: 'Create a new category. Categories are hierarchical (tree structure) used to classify content. Pass locale, name, optional key (slug), and optional parentId to nest under an existing category.',
     )]
+    #[RequiresPermission(requirements: [
+        new PermissionRequirement('sulu.settings.categories', PermissionTypes::VIEW),
+        new PermissionRequirement('sulu.settings.categories', PermissionTypes::ADD),
+    ])]
     public function createCategory(
         string $locale,
         string $name,

@@ -6,6 +6,9 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Taxonomy;
 
 use Mcp\Capability\Attribute\McpTool;
 use Sulu\Bundle\CategoryBundle\Category\CategoryManagerInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
+use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
+use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
 
 /**
  * @internal
@@ -24,6 +27,10 @@ class CategoryDeleteTool
         name: 'sulu_category_delete',
         description: 'Delete a category by ID. This removes the category and its children from the tree.',
     )]
+    #[RequiresPermission(requirements: [
+        new PermissionRequirement('sulu.settings.categories', PermissionTypes::VIEW),
+        new PermissionRequirement('sulu.settings.categories', PermissionTypes::DELETE),
+    ])]
     public function deleteCategory(int $id): array
     {
         try {

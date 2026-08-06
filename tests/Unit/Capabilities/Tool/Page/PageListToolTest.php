@@ -8,23 +8,66 @@ use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Sulu\Component\Security\Authentication\UserInterface;
+use Sulu\Component\Security\Authorization\SecurityCheckerInterface;
+use Sulu\Component\Webspace\Manager\WebspaceCollection;
+use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
+use Sulu\Component\Webspace\Webspace;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\Page\PageListTool;
+use Sulu\McpServerBundle\Security\Permission\AccessControlFilterFactory;
+use Sulu\McpServerBundle\Security\Permission\ToolPermissionChecker;
+use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
 use Sulu\Page\Domain\Model\PageInterface;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 
 class PageListToolTest extends TestCase
 {
     private PageRepositoryInterface&MockObject $pageRepository;
     private ContentManagerInterface&MockObject $contentManager;
+    private WebspacePermissionResolver $webspacePermissionResolver;
     private PageListTool $tool;
 
     protected function setUp(): void
     {
         $this->pageRepository = $this->createMock(PageRepositoryInterface::class);
         $this->contentManager = $this->createMock(ContentManagerInterface::class);
-        $this->tool = new PageListTool($this->pageRepository, $this->contentManager);
+        // Default grants the '' key from unstubbed PageInterface mocks, so existing
+        // happy-path tests are unaffected by the new filter.
+        $this->webspacePermissionResolver = $this->webspaceResolver(['example']);
+        $this->tool = new PageListTool($this->pageRepository, $this->contentManager, $this->webspacePermissionResolver, new AccessControlFilterFactory(null, ['view' => 64, 'add' => 32, 'edit' => 16, 'delete' => 8, 'archive' => 4, 'live' => 2, 'security' => 1]));
+    }
+
+    /**
+     * Builds a real WebspacePermissionResolver (it's final, can't be mocked) over
+     * mocked dependencies.
+     *
+     * @param list<string> $grantedWebspaceKeys webspace keys on which EDIT is granted
+     */
+    private function webspaceResolver(array $grantedWebspaceKeys): WebspacePermissionResolver
+    {
+        $webspaces = [];
+        foreach ($grantedWebspaceKeys as $key) {
+            $webspace = new Webspace();
+            $webspace->setKey($key);
+            $webspaces[$key] = $webspace;
+        }
+
+        $webspaceManager = $this->createMock(WebspaceManagerInterface::class);
+        $webspaceManager->method('getWebspaceCollection')->willReturn(new WebspaceCollection($webspaces));
+
+        $securityChecker = $this->createMock(SecurityCheckerInterface::class);
+        $securityChecker->method('hasPermission')->willReturn(true);
+
+        $tokenStorage = $this->createMock(TokenStorageInterface::class);
+        $token = $this->createMock(TokenInterface::class);
+        $token->method('getUser')->willReturn($this->createMock(UserInterface::class));
+        $tokenStorage->method('getToken')->willReturn($token);
+
+        return new WebspacePermissionResolver($webspaceManager, new ToolPermissionChecker($securityChecker, $tokenStorage));
     }
 
     public function testListPagesReturnsPaginatedResults(): void
@@ -34,6 +77,7 @@ class PageListToolTest extends TestCase
         $page2 = $this->createMock(PageInterface::class);
         $page2->method('getUuid')->willReturn('uuid-2');
 
+        $this->pageRepository->method('findIdentifiersBy')->willReturn(['uuid-1', 'uuid-2']);
         $this->pageRepository->method('findBy')->willReturn([$page1, $page2]);
         $this->pageRepository->method('countBy')->willReturn(5);
 
@@ -55,11 +99,10 @@ class PageListToolTest extends TestCase
     {
         $this->pageRepository
             ->expects($this->once())
-            ->method('findBy')
+            ->method('findIdentifiersBy')
             ->with(
                 $this->callback(fn (array $filters): bool => isset($filters['templateKeys'])
                     && $filters['templateKeys'] === ['default']),
-                $this->anything(),
                 $this->anything(),
             )
             ->willReturn([]);
@@ -72,11 +115,10 @@ class PageListToolTest extends TestCase
     {
         $this->pageRepository
             ->expects($this->once())
-            ->method('findBy')
+            ->method('findIdentifiersBy')
             ->with(
                 $this->callback(fn (array $filters): bool => isset($filters['parentId'])
                     && 'parent-uuid' === $filters['parentId']),
-                $this->anything(),
                 $this->anything(),
             )
             ->willReturn([]);
@@ -89,10 +131,9 @@ class PageListToolTest extends TestCase
     {
         $this->pageRepository
             ->expects($this->once())
-            ->method('findBy')
+            ->method('findIdentifiersBy')
             ->with(
                 $this->callback(fn (array $filters): bool => 1 === $filters['page'] && 20 === $filters['limit']),
-                $this->anything(),
                 $this->anything(),
             )
             ->willReturn([]);
@@ -110,6 +151,7 @@ class PageListToolTest extends TestCase
         $page3 = $this->createMock(PageInterface::class);
         $page3->method('getUuid')->willReturn('uuid-3');
 
+        $this->pageRepository->method('findIdentifiersBy')->willReturn(['uuid-1', 'uuid-2', 'uuid-3']);
         $this->pageRepository->method('findBy')->willReturn([$page1, $page2, $page3]);
         $this->pageRepository->method('countBy')->willReturn(3);
 
@@ -148,5 +190,54 @@ class PageListToolTest extends TestCase
 
         $schema = $attributes[0]->newInstance();
         $this->assertStringContainsString('UUID', $schema->description);
+    }
+
+    public function testListPagesReturnsEmptyListWhenNoWebspaceIsPermitted(): void
+    {
+        $tool = new PageListTool($this->pageRepository, $this->contentManager, $this->webspaceResolver([]), new AccessControlFilterFactory(null, ['view' => 64, 'add' => 32, 'edit' => 16, 'delete' => 8, 'archive' => 4, 'live' => 2, 'security' => 1]));
+
+        $this->pageRepository->expects($this->never())->method('findBy');
+
+        $result = $tool->listPages('example', 'en');
+
+        $this->assertSame([], $result['pages']);
+        $this->assertSame(0, $result['total']);
+        $this->assertArrayHasKey('hint', $result);
+    }
+
+    public function testListPagesReturnsEmptyListWhenRequestedWebspaceIsNotPermitted(): void
+    {
+        $tool = new PageListTool($this->pageRepository, $this->contentManager, $this->webspaceResolver(['other']), new AccessControlFilterFactory(null, ['view' => 64, 'add' => 32, 'edit' => 16, 'delete' => 8, 'archive' => 4, 'live' => 2, 'security' => 1]));
+
+        $this->pageRepository->expects($this->never())->method('findBy');
+
+        $result = $tool->listPages('example', 'en');
+
+        $this->assertSame([], $result['pages']);
+        $this->assertSame(0, $result['total']);
+        $this->assertStringContainsString('example', (string) $result['hint']);
+    }
+
+    /**
+     * Webspace scoping must happen in the query, not by discarding rows afterward,
+     * or `total` counts pages the caller cannot see.
+     */
+    public function testListPagesScopesQueryToRequestedWebspace(): void
+    {
+        $isScoped = static fn (array $filters): bool => 'example' === ($filters['webspaceKey'] ?? null);
+
+        $this->pageRepository
+            ->expects($this->once())
+            ->method('findIdentifiersBy')
+            ->with($this->callback($isScoped), $this->anything())
+            ->willReturn([]);
+
+        $this->pageRepository
+            ->expects($this->once())
+            ->method('countBy')
+            ->with($this->callback($isScoped))
+            ->willReturn(0);
+
+        $this->tool->listPages('example', 'en');
     }
 }

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f98aed7463f880179507ca7cfc1bcf4d",
+    "content-hash": "ff45dec039ba62a2176a2640f3cef3f5",
     "packages": [
         {
             "name": "clue/stream-filter",
@@ -11628,6 +11628,77 @@
         }
     ],
     "packages-dev": [
+        {
+            "name": "cmsig/seal-memory-adapter",
+            "version": "0.12.16",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/PHP-CMSIG/seal-memory-adapter.git",
+                "reference": "e6d807bf2f37d195551dff5cd9ad11fdd029fcec"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/PHP-CMSIG/seal-memory-adapter/zipball/e6d807bf2f37d195551dff5cd9ad11fdd029fcec",
+                "reference": "e6d807bf2f37d195551dff5cd9ad11fdd029fcec",
+                "shasum": ""
+            },
+            "require": {
+                "cmsig/seal": "^0.12",
+                "php": "^8.1"
+            },
+            "provide": {
+                "cmsig/seal-adapter-implementation": "self.version"
+            },
+            "replace": {
+                "schranz-search/seal-memory-adapter": "self.version"
+            },
+            "require-dev": {
+                "php-cs-fixer/shim": "^3.51",
+                "phpstan/extension-installer": "^1.0",
+                "phpstan/phpstan": "^2.0",
+                "phpstan/phpstan-phpunit": "^2.0",
+                "phpunit/phpunit": "^10.3",
+                "rector/rector": "^2.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "CmsIg\\Seal\\Adapter\\Memory\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Alexander Schranz",
+                    "email": "alexander@sulu.io"
+                }
+            ],
+            "description": "An adapter to support to write into memory for cmsig/seal search abstraction.",
+            "keywords": [
+                "cmsig",
+                "cmsig-seal-adapter",
+                "seal",
+                "seal-adapter",
+                "search-client"
+            ],
+            "support": {
+                "source": "https://github.com/PHP-CMSIG/seal-memory-adapter/tree/0.12.16"
+            },
+            "funding": [
+                {
+                    "url": "https://paypal.me/L91",
+                    "type": "custom"
+                },
+                {
+                    "url": "https://github.com/alexander-schranz",
+                    "type": "github"
+                }
+            ],
+            "time": "2026-07-22T15:39:52+00:00"
+        },
         {
             "name": "helgesverre/toon",
             "version": "v3.2.1",

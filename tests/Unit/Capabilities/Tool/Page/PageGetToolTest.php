@@ -5,12 +5,17 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Exception\ToolCallException;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\Page\PageGetTool;
+use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
+use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\Page\Domain\Exception\PageNotFoundException;
+use Sulu\Page\Domain\Model\Page;
 use Sulu\Page\Domain\Model\PageInterface;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 
@@ -18,19 +23,22 @@ class PageGetToolTest extends TestCase
 {
     private PageRepositoryInterface&MockObject $pageRepository;
     private ContentManagerInterface&MockObject $contentManager;
+    private ToolPermissionCheckerInterface&MockObject $permissionChecker;
     private PageGetTool $tool;
 
     protected function setUp(): void
     {
         $this->pageRepository = $this->createMock(PageRepositoryInterface::class);
         $this->contentManager = $this->createMock(ContentManagerInterface::class);
-        $this->tool = new PageGetTool($this->pageRepository, $this->contentManager);
+        $this->permissionChecker = $this->createMock(ToolPermissionCheckerInterface::class);
+        $this->tool = new PageGetTool($this->pageRepository, $this->contentManager, $this->permissionChecker);
     }
 
     public function testGetPageReturnsNormalizedContent(): void
     {
         $page = $this->createMock(PageInterface::class);
         $page->method('getUuid')->willReturn('test-uuid-123');
+        $page->method('getWebspaceKey')->willReturn('example');
 
         $dimensionContent = $this->createMock(DimensionContentInterface::class);
         $normalizedData = ['title' => 'Test Page', 'template' => 'default'];
@@ -148,5 +156,51 @@ class PageGetToolTest extends TestCase
 
         $instance = $attributes[0]->newInstance();
         $this->assertSame('sulu_page_get', $instance->name);
+    }
+
+    public function testGetPagePassesConcretePageClassAsObjectType(): void
+    {
+        // Regression guard: Sulu stores per-page ACLs under the concrete Page class
+        // (getSecuredClass()), not PageInterface — the interface matches no ACL row and
+        // silently falls back to the webspace-level grant.
+        $page = $this->createMock(PageInterface::class);
+        $page->method('getUuid')->willReturn('test-uuid-123');
+        $page->method('getWebspaceKey')->willReturn('example');
+
+        $this->pageRepository->method('getOneBy')->willReturn($page);
+
+        $dimensionContent = $this->createMock(DimensionContentInterface::class);
+        $this->contentManager->method('resolve')->willReturn($dimensionContent);
+        $this->contentManager->method('normalize')->willReturn([]);
+
+        $this->permissionChecker
+            ->expects($this->once())
+            ->method('check')
+            ->with(
+                'sulu.webspaces.example',
+                PermissionTypes::VIEW,
+                'en',
+                Page::class,
+                'test-uuid-123',
+            );
+
+        $this->tool->getPage('example', 'en', 'test-uuid-123');
+    }
+
+    public function testGetPageThrowsToolCallExceptionWhenPermissionDenied(): void
+    {
+        $page = $this->createMock(PageInterface::class);
+        $page->method('getUuid')->willReturn('test-uuid-123');
+        $page->method('getWebspaceKey')->willReturn('example');
+
+        $this->pageRepository->method('getOneBy')->willReturn($page);
+
+        $this->permissionChecker
+            ->method('check')
+            ->willThrowException(new PermissionDeniedException('sulu.webspaces.example', PermissionTypes::VIEW, 'en'));
+
+        $this->expectException(ToolCallException::class);
+
+        $this->tool->getPage('example', 'en', 'test-uuid-123');
     }
 }

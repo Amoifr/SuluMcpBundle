@@ -6,11 +6,22 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
+use Mcp\Exception\ToolCallException;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\Content\Domain\Model\TemplateInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\BlockDataNormalizerTrait;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver;
+use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
+use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
+use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\McpServerBundle\Security\Permission\ContentSecurityContextResolver;
+use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
+use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
+use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
+use Sulu\Page\Domain\Model\Page;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\HandleTrait;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -27,6 +38,8 @@ class BlockRemoveTool
         MessageBusInterface $messageBus,
         private readonly ContentTypeResolver $contentTypeResolver,
         private readonly ContentManagerInterface $contentManager,
+        private readonly ToolPermissionCheckerInterface $permissionChecker,
+        private readonly ContentSecurityContextResolver $contentSecurityContextResolver,
     ) {
         $this->messageBus = $messageBus;
     }
@@ -37,6 +50,11 @@ class BlockRemoveTool
     #[McpTool(
         name: 'sulu_block_remove',
         description: 'Remove a block from a page, article or snippet by its 0-based index OR its _id (blockId). Pass "type" ("page", "article" or "snippet") and the entity "uuid". Provide EITHER "blockIndex" (0-based) OR "blockId" (the block _id value). Prefer blockId — it is robust because ids do not shift as blocks are added/removed. Call sulu_block_list (or sulu_page_get / sulu_article_get / sulu_snippet_get) first to see the current blocks array and identify which block to remove. The blockProperty must match the template property name that holds blocks. Remaining blocks shift down to fill the gap. The entity must be re-published after removing blocks.',
+    )]
+    #[RequiresPermission(
+        requirements: [new PermissionRequirement('#context#', PermissionTypes::EDIT)],
+        objectResolved: true,
+        discoveryContexts: ['sulu.snippet.snippets', ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
     )]
     public function removeBlock(
         string $type,
@@ -72,6 +90,19 @@ class BlockRemoveTool
                 'locale' => $locale,
                 'stage' => DimensionContentInterface::STAGE_DRAFT,
             ]);
+
+            $context = $this->contentSecurityContextResolver->forEntity(
+                $type,
+                $entity,
+                $dimensionContent instanceof TemplateInterface ? $dimensionContent : null,
+            );
+            $this->permissionChecker->check(
+                $context,
+                PermissionTypes::EDIT,
+                $locale,
+                'page' === $type ? Page::class : null,
+                'page' === $type ? $uuid : null,
+            );
 
             $currentData = $this->contentManager->normalize($dimensionContent);
 
@@ -123,6 +154,8 @@ class BlockRemoveTool
                 'removedIndex' => $blockIndex,
                 'blockCount' => \count($blocks),
             ];
+        } catch (PermissionDeniedException $e) {
+            throw new ToolCallException($e->getMessage(), 0, $e);
         } catch (\Throwable $e) {
             return [
                 'error' => \sprintf('Failed to remove block from %s %s: %s', $type, $uuid, $e->getMessage()),

@@ -5,15 +5,22 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Exception\ToolCallException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
+use Sulu\Bundle\AdminBundle\Metadata\GroupProviderInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver;
 use Sulu\McpServerBundle\Capabilities\Tool\Page\BlockListTool;
+use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
+use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\McpServerBundle\Security\Permission\ContentSecurityContextResolver;
+use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\Page\Domain\Model\PageInterface;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Sulu\Snippet\Domain\Repository\SnippetRepositoryInterface;
@@ -26,6 +33,8 @@ final class BlockListToolTest extends TestCase
     private ArticleRepositoryInterface&MockObject $articleRepository;
     private SnippetRepositoryInterface&MockObject $snippetRepository;
     private ContentManagerInterface&MockObject $contentManager;
+    private ToolPermissionCheckerInterface&MockObject $permissionChecker;
+    private ContentSecurityContextResolver $contentSecurityContextResolver;
     private BlockListTool $tool;
 
     protected function setUp(): void
@@ -34,9 +43,15 @@ final class BlockListToolTest extends TestCase
         $this->articleRepository = $this->createMock(ArticleRepositoryInterface::class);
         $this->snippetRepository = $this->createMock(SnippetRepositoryInterface::class);
         $this->contentManager = $this->createMock(ContentManagerInterface::class);
+        $this->permissionChecker = $this->createMock(ToolPermissionCheckerInterface::class);
+        $groupProvider = $this->createMock(GroupProviderInterface::class);
+        $groupProvider->method('getGroups')->willReturn([]);
+        $this->contentSecurityContextResolver = new ContentSecurityContextResolver(new ArticleSecurityContextResolver($groupProvider));
         $this->tool = new BlockListTool(
             new ContentTypeResolver($this->pageRepository, $this->articleRepository, $this->snippetRepository),
             $this->contentManager,
+            $this->permissionChecker,
+            $this->contentSecurityContextResolver,
         );
     }
 
@@ -155,6 +170,21 @@ final class BlockListToolTest extends TestCase
 
         $instance = $attributes[0]->newInstance();
         $this->assertSame('sulu_block_list', $instance->name);
+    }
+
+    public function testListBlocksThrowsToolCallExceptionWhenPermissionDenied(): void
+    {
+        $this->setupPageWithBlocks([
+            ['_id' => 'a', 'type' => 'text', 'title' => 'Block 1'],
+        ]);
+
+        $this->permissionChecker
+            ->method('check')
+            ->willThrowException(new PermissionDeniedException('sulu.webspaces.example', PermissionTypes::VIEW, 'en'));
+
+        $this->expectException(ToolCallException::class);
+
+        $this->tool->listBlocks('page', 'test-uuid', 'en', 'blocks');
     }
 
     /**

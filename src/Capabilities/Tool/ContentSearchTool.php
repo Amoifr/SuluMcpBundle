@@ -8,6 +8,10 @@ use CmsIg\Seal\EngineInterface;
 use CmsIg\Seal\Search\Condition\Condition;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
+use Sulu\Component\Security\Authorization\PermissionTypes;
+use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
+use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
+use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
 
 /**
  * @internal
@@ -21,6 +25,7 @@ class ContentSearchTool
 
     public function __construct(
         private readonly EngineInterface $engine,
+        private readonly WebspacePermissionResolver $webspacePermissionResolver,
     ) {
     }
 
@@ -30,6 +35,11 @@ class ContentSearchTool
     #[McpTool(
         name: 'sulu_content_search',
         description: 'Search published website content (articles and pages) by keyword. Searches both titles and full content text. Returns matching items with their UUID and resource type — use resourceKey to pick the right get tool (sulu_article_get or sulu_page_get) and resourceId as the UUID. Filter by type ("page" or "article") to restrict results to one content type. Filter by webspace to scope results to one site. Only published content is searchable.',
+    )]
+    #[RequiresPermission(
+        requirements: [new PermissionRequirement('#context#', PermissionTypes::VIEW)],
+        objectResolved: true,
+        discoveryContexts: [WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
     )]
     public function search(
         string $query,
@@ -41,16 +51,26 @@ class ContentSearchTool
         int $page = 1,
         int $limit = 20,
     ): array {
+        // The `website` index carries only `webspaces`, no securityContext,
+        // so per-object ACL filtering isn't possible here. Constraining to the webspaces
+        // the caller may EDIT is the best available mirror.
+        $permitted = $this->webspacePermissionResolver->permittedWebspaceKeys(PermissionTypes::VIEW, $locale);
+        if ([] === $permitted) {
+            return ['items' => [], 'total' => 0, 'hint' => 'No webspaces are readable with your permissions.'];
+        }
+
+        $effective = null !== $webspace ? array_values(array_intersect($permitted, [$webspace])) : $permitted;
+        if ([] === $effective) {
+            return ['items' => [], 'total' => 0, 'hint' => \sprintf('Webspace "%s" is not readable with your permissions.', $webspace)];
+        }
+
         try {
             $builder = $this->engine->createSearchBuilder('website')
                 ->addFilter(Condition::search($query))
                 ->addFilter(Condition::equal('locale', $locale))
+                ->addFilter(Condition::in('webspaces', $effective))
                 ->limit($limit)
                 ->offset(($page - 1) * $limit);
-
-            if (null !== $webspace) {
-                $builder->addFilter(Condition::equal('webspaces', $webspace));
-            }
 
             if (null !== $type) {
                 $resourceKey = self::TYPE_MAP[$type] ?? $type;

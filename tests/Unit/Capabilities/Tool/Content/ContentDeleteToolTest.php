@@ -5,18 +5,37 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Content;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Exception\ToolCallException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Sulu\Article\Application\Message\RemoveArticleMessage;
+use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
+use Sulu\Bundle\AdminBundle\Metadata\GroupProviderInterface;
+use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
+use Sulu\Component\Security\Authentication\UserInterface;
+use Sulu\Component\Security\Authorization\AccessControl\AccessControlRepositoryInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
+use Sulu\Content\Application\ContentManager\ContentManagerInterface;
+use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\Content\Domain\Model\TemplateInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\Content\ContentDeleteTool;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver;
+use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
+use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\McpServerBundle\Security\Permission\ContentSecurityContextResolver;
+use Sulu\McpServerBundle\Security\Permission\PageDescendantPermissionChecker;
+use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Sulu\Page\Application\Message\RemovePageMessage;
+use Sulu\Page\Domain\Model\Page;
+use Sulu\Page\Domain\Model\PageInterface;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Sulu\Snippet\Application\Message\RemoveSnippetMessage;
+use Sulu\Snippet\Domain\Model\SnippetInterface;
 use Sulu\Snippet\Domain\Repository\SnippetRepositoryInterface;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
@@ -25,22 +44,56 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
 final class ContentDeleteToolTest extends TestCase
 {
     private MessageBusInterface&MockObject $messageBus;
-    private ContentTypeResolver $resolver;
+    private PageRepositoryInterface&MockObject $pageRepository;
+    private ArticleRepositoryInterface&MockObject $articleRepository;
+    private SnippetRepositoryInterface&MockObject $snippetRepository;
+    private ContentManagerInterface&MockObject $contentManager;
+    private ToolPermissionCheckerInterface&MockObject $permissionChecker;
+    private AccessControlRepositoryInterface&MockObject $accessControlRepository;
+    private Security&MockObject $security;
     private ContentDeleteTool $tool;
 
     protected function setUp(): void
     {
         $this->messageBus = $this->createMock(MessageBusInterface::class);
-        $this->resolver = new ContentTypeResolver(
-            $this->createMock(PageRepositoryInterface::class),
-            $this->createMock(ArticleRepositoryInterface::class),
-            $this->createMock(SnippetRepositoryInterface::class),
+        $this->pageRepository = $this->createMock(PageRepositoryInterface::class);
+        $this->articleRepository = $this->createMock(ArticleRepositoryInterface::class);
+        $this->snippetRepository = $this->createMock(SnippetRepositoryInterface::class);
+        $this->contentManager = $this->createMock(ContentManagerInterface::class);
+        $this->permissionChecker = $this->createMock(ToolPermissionCheckerInterface::class);
+        $this->accessControlRepository = $this->createMock(AccessControlRepositoryInterface::class);
+        $this->security = $this->createMock(Security::class);
+        $groupProvider = $this->createMock(GroupProviderInterface::class);
+        $groupProvider->method('getGroups')->willReturn([]);
+        $systemStore = $this->createMock(SystemStoreInterface::class);
+        $systemStore->method('getSystem')->willReturn('Sulu');
+
+        $pageDescendantPermissionChecker = new PageDescendantPermissionChecker(
+            $this->pageRepository,
+            $this->accessControlRepository,
+            $systemStore,
+            $this->security,
+            [PermissionTypes::DELETE => 8],
         );
-        $this->tool = new ContentDeleteTool($this->messageBus, $this->resolver);
+
+        $this->tool = new ContentDeleteTool(
+            $this->messageBus,
+            new ContentTypeResolver($this->pageRepository, $this->articleRepository, $this->snippetRepository),
+            $this->contentManager,
+            $this->permissionChecker,
+            new ContentSecurityContextResolver(new ArticleSecurityContextResolver($groupProvider)),
+            $pageDescendantPermissionChecker,
+        );
     }
 
     public function testDeletePageDispatchesRemovePageMessageWithFlushStamp(): void
     {
+        $this->setupEntity('page');
+
+        $user = $this->createMock(UserInterface::class);
+        $this->security->method('getUser')->willReturn($user);
+        $this->pageRepository->method('findDescendantIdsById')->willReturn([]);
+
         $this->messageBus->expects($this->once())
             ->method('dispatch')
             ->willReturnCallback(function (Envelope $envelope) {
@@ -57,6 +110,8 @@ final class ContentDeleteToolTest extends TestCase
 
     public function testDeleteSnippetDispatchesRemoveSnippetMessage(): void
     {
+        $this->setupEntity('snippet');
+
         $this->messageBus->expects($this->once())
             ->method('dispatch')
             ->willReturnCallback(function (Envelope $envelope) {
@@ -72,6 +127,8 @@ final class ContentDeleteToolTest extends TestCase
 
     public function testDeleteArticleDispatchesRemoveArticleMessage(): void
     {
+        $this->setupEntity('article');
+
         $this->messageBus->expects($this->once())
             ->method('dispatch')
             ->willReturnCallback(function (Envelope $envelope) {
@@ -95,8 +152,19 @@ final class ContentDeleteToolTest extends TestCase
         $this->assertArrayNotHasKey('success', $result);
     }
 
+    public function testEntityNotFoundReturnsErrorWithoutDispatch(): void
+    {
+        $this->articleRepository->method('getOneBy')->willThrowException(new \RuntimeException('not found'));
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $result = $this->tool->deleteContent('article', 'missing-uuid', 'en');
+
+        $this->assertArrayHasKey('error', $result);
+    }
+
     public function testErrorOnException(): void
     {
+        $this->setupEntity('article');
         $this->messageBus->method('dispatch')->willThrowException(new \RuntimeException('boom'));
 
         $result = $this->tool->deleteContent('article', 'uuid-1', 'en');
@@ -109,5 +177,109 @@ final class ContentDeleteToolTest extends TestCase
         $attributes = (new \ReflectionMethod(ContentDeleteTool::class, 'deleteContent'))->getAttributes(McpTool::class);
         $this->assertCount(1, $attributes);
         $this->assertSame('sulu_content_delete', $attributes[0]->newInstance()->name);
+    }
+
+    public function testDeleteContentThrowsToolCallExceptionWhenPermissionDenied(): void
+    {
+        $this->setupEntity('page');
+
+        $this->permissionChecker
+            ->method('check')
+            ->willThrowException(new PermissionDeniedException('sulu.webspaces.example', PermissionTypes::DELETE, 'en'));
+
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $this->expectException(ToolCallException::class);
+
+        $this->tool->deleteContent('page', 'uuid-1', 'en');
+    }
+
+    public function testDeletePageThrowsToolCallExceptionWhenDescendantPermissionDenied(): void
+    {
+        $this->setupEntity('page');
+
+        $user = $this->createMock(UserInterface::class);
+        $this->security->method('getUser')->willReturn($user);
+        $this->pageRepository->method('findDescendantIdsById')->willReturn(['child-1', 'child-2']);
+        // Only child-1 is granted DELETE — child-2 is missing, so the gate must trip.
+        $this->accessControlRepository->method('findIdsWithGrantedPermissions')->willReturn(['child-1']);
+
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $this->expectException(ToolCallException::class);
+
+        $this->tool->deleteContent('page', 'uuid-1', 'en', true);
+    }
+
+    public function testDeleteContentPassesConcretePageClassAsObjectTypeForBothChecks(): void
+    {
+        // Regression guard: Sulu stores per-page ACLs under the concrete Page class
+        // (getSecuredClass()), not PageInterface — the interface matches no ACL row and
+        // falls back to the webspace grant, for both the EDIT and DELETE check.
+        $this->setupEntity('page');
+
+        $user = $this->createMock(UserInterface::class);
+        $this->security->method('getUser')->willReturn($user);
+        $this->pageRepository->method('findDescendantIdsById')->willReturn([]);
+        $this->messageBus->method('dispatch')
+            ->willReturnCallback(fn (Envelope $envelope) => $envelope->with(new HandledStamp(null, 'handler')));
+
+        $recordedCalls = [];
+        $this->permissionChecker
+            ->expects($this->once())
+            ->method('check')
+            ->willReturnCallback(function (string $context, string|array $permissions, ?string $locale, ?string $objectType, mixed $objectId) use (&$recordedCalls): void {
+                $recordedCalls[] = [$permissions, $objectType, $objectId];
+            });
+
+        $result = $this->tool->deleteContent('page', 'uuid-1', 'en');
+
+        $this->assertTrue($result['deleted']);
+        $this->assertSame(
+            [
+                [[PermissionTypes::EDIT, PermissionTypes::DELETE], Page::class, 'uuid-1'],
+            ],
+            $recordedCalls,
+        );
+    }
+
+    public function testDeletePageDispatchesWhenAllDescendantsGranted(): void
+    {
+        $this->setupEntity('page');
+
+        $user = $this->createMock(UserInterface::class);
+        $this->security->method('getUser')->willReturn($user);
+        $this->pageRepository->method('findDescendantIdsById')->willReturn(['child-1', 'child-2']);
+        $this->accessControlRepository->method('findIdsWithGrantedPermissions')->willReturn(['child-1', 'child-2']);
+
+        $this->messageBus->expects($this->once())
+            ->method('dispatch')
+            ->willReturnCallback(fn (Envelope $envelope) => $envelope->with(new HandledStamp(null, 'handler')));
+
+        $result = $this->tool->deleteContent('page', 'uuid-1', 'en', true);
+
+        $this->assertTrue($result['deleted']);
+    }
+
+    private function setupEntity(string $type): void
+    {
+        $entity = $this->createMock(match ($type) {
+            'page' => PageInterface::class,
+            'article' => ArticleInterface::class,
+            'snippet' => SnippetInterface::class,
+            default => PageInterface::class,
+        });
+
+        match ($type) {
+            'article' => $this->articleRepository->method('getOneBy')->willReturn($entity),
+            'snippet' => $this->snippetRepository->method('getOneBy')->willReturn($entity),
+            default => $this->pageRepository->method('getOneBy')->willReturn($entity),
+        };
+
+        if ('article' === $type) {
+            $dimensionContent = $this->createMockForIntersectionOfInterfaces([TemplateInterface::class, DimensionContentInterface::class]);
+            $dimensionContent->method('getTemplateKey')->willReturn('default');
+            $this->contentManager->method('resolve')->willReturn($dimensionContent);
+        }
     }
 }

@@ -6,8 +6,13 @@ namespace Sulu\McpServerBundle\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
+use Sulu\McpServerBundle\Security\Permission\AccessControlFilterFactory;
+use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
+use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
 use Sulu\Page\Domain\Model\PageDimensionContentInterface;
 use Sulu\Page\Domain\Model\PageInterface;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
@@ -20,6 +25,8 @@ class PageTreeTool
     public function __construct(
         private readonly PageRepositoryInterface $pageRepository,
         private readonly ContentManagerInterface $contentManager,
+        private readonly WebspacePermissionResolver $webspacePermissionResolver,
+        private readonly AccessControlFilterFactory $accessControlFilterFactory,
     ) {
     }
 
@@ -30,16 +37,36 @@ class PageTreeTool
         name: 'sulu_page_tree',
         description: 'Get the page tree as a nested hierarchy for a webspace. Each node contains uuid, title, url, template, and a "children" array with the same structure. Shows the site structure — use this to find the parentId when creating new pages, or to understand the site navigation. Root-level pages are direct children of the webspace root. Accepts an optional maxDepth to limit response size on deep site trees; when a node has hasChildren:true but children:[] the branch was depth-truncated — request again with a higher maxDepth or fetch that branch separately.',
     )]
+    #[RequiresPermission(
+        requirements: [new PermissionRequirement('sulu.webspaces.#context#', PermissionTypes::VIEW)],
+        objectResolved: true,
+        discoveryContexts: [WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
+    )]
     public function getPageTree(
         string $webspace,
         string $locale,
         #[Schema(description: 'Maximum nesting depth to return (0 = root pages only). Omit for the full tree. Use to limit response size on deep site trees.')]
         ?int $maxDepth = null,
     ): array {
+        $permitted = $this->webspacePermissionResolver->permittedWebspaceKeys(PermissionTypes::VIEW, $locale);
+        if (!\in_array($webspace, $permitted, true)) {
+            return [
+                'webspace' => $webspace,
+                'locale' => $locale,
+                'tree' => [],
+                'hint' => \sprintf('Webspace "%s" is not readable with your permissions.', $webspace),
+            ];
+        }
+
+        // Scope the query to the requested webspace (checked permitted above); otherwise
+        // the tree mixes in every other webspace the user happens to be permitted on.
         $pages = $this->pageRepository->findByAsTree(
             [
+                'webspaceKey' => $webspace,
                 'locale' => $locale,
                 'stage' => DimensionContentInterface::STAGE_DRAFT,
+                // Per-page ACLs, as in PageListTool.
+                'accessControl' => $this->accessControlFilterFactory->forPermission(PermissionTypes::VIEW),
             ],
             [],
             [PageRepositoryInterface::GROUP_SELECT_PAGE_ADMIN => true],

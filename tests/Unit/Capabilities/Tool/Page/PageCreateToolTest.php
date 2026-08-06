@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Exception\ToolCallException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -14,6 +15,7 @@ use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\TypedFormMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataInterface;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\AdminLink\AdminLinkGenerator;
@@ -21,10 +23,14 @@ use Sulu\McpServerBundle\AdminLink\Provider\PageAdminLinkProvider;
 use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper;
 use Sulu\McpServerBundle\Capabilities\Tool\Page\PageCreateTool;
+use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
+use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\McpServerBundle\Tests\Support\StubViewRegistry;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Sulu\Page\Application\Message\CreatePageMessage;
+use Sulu\Page\Domain\Model\Page;
 use Sulu\Page\Domain\Model\PageInterface;
+use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
@@ -38,6 +44,8 @@ final class PageCreateToolTest extends TestCase
     private MetadataProviderInterface&MockObject $formMetadataProvider;
     private MetadataProviderInterface&MockObject $mapperMetadataProvider;
     private BlockIdGeneratorInterface&MockObject $blockIdGenerator;
+    private PageRepositoryInterface&MockObject $pageRepository;
+    private ToolPermissionCheckerInterface&MockObject $permissionChecker;
     private AdminLinkGenerator $adminLinkGenerator;
     private PageCreateTool $tool;
 
@@ -65,6 +73,15 @@ final class PageCreateToolTest extends TestCase
         $router->method('generate')->willReturn('https://example.com/admin/');
         $this->adminLinkGenerator = new AdminLinkGenerator($router, [new PageAdminLinkProvider(new StubViewRegistry())]);
 
+        $this->pageRepository = $this->createMock(PageRepositoryInterface::class);
+        // Default: parent resolves into the same webspace used across the existing
+        // tests below ('example'), so the new parent checks are transparent to them.
+        $parentPage = $this->createMock(PageInterface::class);
+        $parentPage->method('getWebspaceKey')->willReturn('example');
+        $this->pageRepository->method('getOneBy')->willReturn($parentPage);
+
+        $this->permissionChecker = $this->createMock(ToolPermissionCheckerInterface::class);
+
         $this->tool = new PageCreateTool(
             $this->messageBus,
             $this->contentManager,
@@ -72,6 +89,8 @@ final class PageCreateToolTest extends TestCase
             $this->blockIdGenerator,
             new ContentMetadataMapper($this->mapperMetadataProvider),
             $this->adminLinkGenerator,
+            $this->pageRepository,
+            $this->permissionChecker,
         );
     }
 
@@ -336,6 +355,8 @@ final class PageCreateToolTest extends TestCase
             $this->blockIdGenerator,
             new ContentMetadataMapper($this->mapperMetadataProvider),
             $this->adminLinkGenerator,
+            $this->pageRepository,
+            $this->permissionChecker,
         );
 
         $this->messageBus->expects($this->never())->method('dispatch');
@@ -411,5 +432,177 @@ final class PageCreateToolTest extends TestCase
         $this->assertSame(['id' => 5], $capturedData['excerpt']['image']);
         $this->assertSame('S', $capturedData['seo']['title']);
         $this->assertTrue($capturedData['seoNoIndex']);
+    }
+
+    public function testCreatePageLoadsParentWithCorrectFilters(): void
+    {
+        $mockPage = $this->createMock(PageInterface::class);
+        $mockPage->method('getUuid')->willReturn('uuid-1');
+
+        $this->pageRepository = $this->createMock(PageRepositoryInterface::class);
+        $parentPage = $this->createMock(PageInterface::class);
+        $parentPage->method('getWebspaceKey')->willReturn('example');
+
+        $this->pageRepository
+            ->expects($this->once())
+            ->method('getOneBy')
+            ->with(
+                [
+                    'uuid' => 'parent-uuid',
+                    'locale' => 'en',
+                    'stage' => DimensionContentInterface::STAGE_DRAFT,
+                ],
+                [
+                    PageRepositoryInterface::GROUP_SELECT_PAGE_ADMIN => true,
+                ],
+            )
+            ->willReturn($parentPage);
+
+        $this->tool = new PageCreateTool(
+            $this->messageBus,
+            $this->contentManager,
+            new BlockDataValidator($this->formMetadataProvider),
+            $this->blockIdGenerator,
+            new ContentMetadataMapper($this->mapperMetadataProvider),
+            $this->adminLinkGenerator,
+            $this->pageRepository,
+            $this->permissionChecker,
+        );
+
+        $this->messageBus->method('dispatch')
+            ->willReturnCallback(fn (Envelope $envelope) => $envelope->with(new HandledStamp($mockPage, 'handler')));
+
+        $mockDimensionContent = $this->createMock(DimensionContentInterface::class);
+        $this->contentManager->method('resolve')->willReturn($mockDimensionContent);
+        $this->contentManager->method('normalize')->willReturn([]);
+
+        $this->tool->createPage('example', 'en', 'default', 'Test', 'parent-uuid');
+    }
+
+    public function testCreatePageChecksObjectPermissionOnParent(): void
+    {
+        $mockPage = $this->createMock(PageInterface::class);
+        $mockPage->method('getUuid')->willReturn('uuid-1');
+
+        $this->messageBus->method('dispatch')
+            ->willReturnCallback(fn (Envelope $envelope) => $envelope->with(new HandledStamp($mockPage, 'handler')));
+
+        $mockDimensionContent = $this->createMock(DimensionContentInterface::class);
+        $this->contentManager->method('resolve')->willReturn($mockDimensionContent);
+        $this->contentManager->method('normalize')->willReturn([]);
+
+        $checked = [];
+        $this->permissionChecker
+            ->expects($this->once())
+            ->method('check')
+            ->willReturnCallback(function (string $context, string|array $permissions, ?string $locale, ?string $type, mixed $id) use (&$checked): void {
+                self::assertSame('sulu.webspaces.example', $context);
+                self::assertSame('en', $locale);
+                self::assertSame(Page::class, $type);
+                self::assertSame('parent-uuid', $id);
+                $checked = (array) $permissions;
+            });
+
+        $this->tool->createPage('example', 'en', 'default', 'Test', 'parent-uuid');
+
+        self::assertSame([PermissionTypes::EDIT, PermissionTypes::ADD], $checked);
+    }
+
+    public function testCreatePageDeniesWhenParentInDifferentWebspace(): void
+    {
+        $parentPage = $this->createMock(PageInterface::class);
+        $parentPage->method('getWebspaceKey')->willReturn('other-webspace');
+        $this->pageRepository = $this->createMock(PageRepositoryInterface::class);
+        $this->pageRepository->method('getOneBy')->willReturn($parentPage);
+
+        $this->tool = new PageCreateTool(
+            $this->messageBus,
+            $this->contentManager,
+            new BlockDataValidator($this->formMetadataProvider),
+            $this->blockIdGenerator,
+            new ContentMetadataMapper($this->mapperMetadataProvider),
+            $this->adminLinkGenerator,
+            $this->pageRepository,
+            $this->permissionChecker,
+        );
+
+        $this->messageBus->expects($this->never())->method('dispatch');
+        $this->permissionChecker->expects($this->never())->method('check');
+
+        $this->expectException(ToolCallException::class);
+
+        $this->tool->createPage('example', 'en', 'default', 'Test', 'parent-uuid');
+    }
+
+    public function testCreatePageForcesTrustedLocaleAndTemplateOverMetadataClobbering(): void
+    {
+        // Regression guard: excerpt/seo fields literally named "locale"/"template" let
+        // ContentMetadataMapper::place() clobber the trusted args that passed the EDIT preflight.
+        $mockPage = $this->createMock(PageInterface::class);
+        $mockPage->method('getUuid')->willReturn('uuid-1');
+
+        $mapperMetadataProvider = $this->createMock(MetadataProviderInterface::class);
+        $mapperMetadataProvider->method('getMetadata')->willReturnCallback(
+            fn (string $key) => match ($key) {
+                'content_excerpt_metadata' => $this->makeFormMeta(['locale']),
+                'content_seo_metadata' => $this->makeFormMeta(['template']),
+                default => $this->makeFormMeta([]),
+            },
+        );
+
+        $tool = new PageCreateTool(
+            $this->messageBus,
+            $this->contentManager,
+            new BlockDataValidator($this->formMetadataProvider),
+            $this->blockIdGenerator,
+            new ContentMetadataMapper($mapperMetadataProvider),
+            $this->adminLinkGenerator,
+            $this->pageRepository,
+            $this->permissionChecker,
+        );
+
+        $capturedData = null;
+        $this->messageBus->expects($this->once())
+            ->method('dispatch')
+            ->willReturnCallback(function (Envelope $envelope) use ($mockPage, &$capturedData) {
+                $message = $envelope->getMessage();
+                $this->assertInstanceOf(CreatePageMessage::class, $message);
+                $capturedData = (new \ReflectionProperty($message, 'data'))->getValue($message);
+
+                return $envelope->with(new HandledStamp($mockPage, 'handler'));
+            });
+
+        $mockDimensionContent = $this->createMock(DimensionContentInterface::class);
+        $this->contentManager->method('resolve')->willReturn($mockDimensionContent);
+        $this->contentManager->method('normalize')->willReturn([]);
+
+        $result = $tool->createPage(
+            'example',
+            'en',
+            'default',
+            'Test',
+            'parent-uuid',
+            null,
+            null,
+            ['locale' => 'de'],
+            ['template' => 'smuggled'],
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('en', $capturedData['locale']);
+        $this->assertSame('default', $capturedData['template']);
+    }
+
+    public function testCreatePageDeniesWhenParentAclDenied(): void
+    {
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $this->permissionChecker
+            ->method('check')
+            ->willThrowException(new PermissionDeniedException('sulu.webspaces.example', PermissionTypes::EDIT, 'en'));
+
+        $this->expectException(ToolCallException::class);
+
+        $this->tool->createPage('example', 'en', 'default', 'Test', 'parent-uuid');
     }
 }

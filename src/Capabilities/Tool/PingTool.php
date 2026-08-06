@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Sulu\McpServerBundle\Capabilities\Tool;
 
 use Mcp\Capability\Attribute\McpTool;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
+use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
 /**
@@ -16,6 +18,7 @@ class PingTool
     public function __construct(
         private readonly WebspaceManagerInterface $webspaceManager,
         private readonly TokenStorageInterface $tokenStorage,
+        private readonly WebspacePermissionResolver $webspacePermissionResolver,
     ) {
     }
 
@@ -39,8 +42,14 @@ class PingTool
             'webspaces' => [],
         ];
 
+        $permitted = $this->webspacePermissionResolver->permittedWebspaceKeys(PermissionTypes::VIEW);
+
         $webspaces = $this->webspaceManager->getWebspaceCollection()->getWebspaces();
         foreach ($webspaces as $webspace) {
+            if (!\in_array($webspace->getKey(), $permitted, true)) {
+                continue;
+            }
+
             $locales = \array_map(
                 fn ($l) => $l->getLocale(),
                 $webspace->getAllLocalizations()

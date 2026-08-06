@@ -6,6 +6,7 @@ namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Page;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
+use Mcp\Exception\ToolCallException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -17,14 +18,21 @@ use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterfa
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FieldMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\TypedFormMetadata;
+use Sulu\Bundle\AdminBundle\Metadata\GroupProviderInterface;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataInterface;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
 use Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver;
 use Sulu\McpServerBundle\Capabilities\Tool\Page\BlockAddTool;
+use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
+use Sulu\McpServerBundle\Security\Permission\ArticleSecurityContextResolver;
+use Sulu\McpServerBundle\Security\Permission\ContentSecurityContextResolver;
+use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\Page\Application\Message\ModifyPageMessage;
+use Sulu\Page\Domain\Model\Page;
 use Sulu\Page\Domain\Model\PageInterface;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Sulu\Snippet\Application\Message\ModifySnippetMessage;
@@ -45,6 +53,8 @@ final class BlockAddToolTest extends TestCase
     private ContentManagerInterface&MockObject $contentManager;
     private BlockIdGeneratorInterface&MockObject $blockIdGenerator;
     private MetadataProviderInterface&MockObject $formMetadataProvider;
+    private ToolPermissionCheckerInterface&MockObject $permissionChecker;
+    private ContentSecurityContextResolver $contentSecurityContextResolver;
     private BlockAddTool $tool;
 
     protected function setUp(): void
@@ -59,12 +69,18 @@ final class BlockAddToolTest extends TestCase
         $this->formMetadataProvider = $this->createMock(MetadataProviderInterface::class);
         // Default: provider returns a non-typed metadata so the validator skips strict checks.
         $this->formMetadataProvider->method('getMetadata')->willReturn($this->createMock(MetadataInterface::class));
+        $this->permissionChecker = $this->createMock(ToolPermissionCheckerInterface::class);
+        $groupProvider = $this->createMock(GroupProviderInterface::class);
+        $groupProvider->method('getGroups')->willReturn([]);
+        $this->contentSecurityContextResolver = new ContentSecurityContextResolver(new ArticleSecurityContextResolver($groupProvider));
         $this->tool = new BlockAddTool(
             $this->messageBus,
             new ContentTypeResolver($this->pageRepository, $this->articleRepository, $this->snippetRepository),
             $this->contentManager,
             $this->blockIdGenerator,
             new BlockDataValidator($this->formMetadataProvider),
+            $this->permissionChecker,
+            $this->contentSecurityContextResolver,
         );
     }
 
@@ -297,6 +313,8 @@ final class BlockAddToolTest extends TestCase
             $this->contentManager,
             $this->blockIdGenerator,
             new BlockDataValidator($this->formMetadataProvider),
+            $this->permissionChecker,
+            $this->contentSecurityContextResolver,
         );
 
         $this->messageBus->expects($this->never())->method('dispatch');
@@ -319,6 +337,47 @@ final class BlockAddToolTest extends TestCase
 
         $this->assertArrayHasKey('error', $result);
         $this->assertStringContainsString('internal {name, value} storage shape', $result['error']);
+    }
+
+    public function testAddBlockThrowsToolCallExceptionWhenPermissionDenied(): void
+    {
+        $this->setupEntityWithBlocks('page', []);
+
+        $this->permissionChecker
+            ->method('check')
+            ->willThrowException(new PermissionDeniedException('sulu.webspaces.example', PermissionTypes::EDIT, 'en'));
+
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $this->expectException(ToolCallException::class);
+
+        $this->tool->addBlock('page', 'test-uuid', 'en', 'text', 'blocks');
+    }
+
+    public function testAddBlockPassesConcretePageClassAsObjectTypeForPageType(): void
+    {
+        // Regression guard: Sulu stores per-page ACLs under the concrete Page class
+        // (getSecuredClass()), not PageInterface — the interface matches no ACL row and
+        // silently falls back to the webspace-level grant.
+        $this->setupEntityWithBlocks('page', []);
+
+        $this->permissionChecker
+            ->expects($this->once())
+            ->method('check')
+            ->with(
+                'sulu.webspaces.',
+                PermissionTypes::EDIT,
+                'en',
+                Page::class,
+                'test-uuid',
+            )
+            ->willThrowException(new PermissionDeniedException('sulu.webspaces.', PermissionTypes::EDIT, 'en'));
+
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $this->expectException(ToolCallException::class);
+
+        $this->tool->addBlock('page', 'test-uuid', 'en', 'text', 'blocks');
     }
 
     /**
