@@ -65,7 +65,7 @@ All three `dangerous_tools` flags default to `false`. Enable per category to exp
 
 ## Tools
 
-36 MCP tools, grouped by domain:
+37 MCP tools, grouped by domain:
 
 | Domain | Count | Examples |
 |--------|-------|----------|
@@ -77,6 +77,7 @@ All three `dangerous_tools` flags default to `false`. Enable per category to exp
 | Media | 3 | `sulu_media_list`, `sulu_media_get`, `sulu_media_update` |
 | Taxonomy | 6 | `sulu_tag_*`, `sulu_category_*` |
 | Preview | 2 | `sulu_preview_link_generate`, `sulu_preview_link_revoke` |
+| Navigation | 1 | `sulu_navigation_get` |
 | Contact | 1 | `sulu_contact_list` |
 | Misc | 3 | `sulu_content_search`, `sulu_get_context`, `sulu_ping` |
 

@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 namespace Sulu\Bundle\McpBundle\Capabilities\Tool\Navigation;
 
+use Mcp\Capability\Attribute\McpTool;
+use Mcp\Capability\Attribute\Schema;
+use Sulu\Bundle\McpBundle\Security\Attribute\RequiresPermission;
+use Sulu\Bundle\McpBundle\Security\Permission\PermissionRequirement;
+use Sulu\Bundle\McpBundle\Security\Permission\WebspacePermissionResolver;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Page\Domain\Repository\NavigationRepositoryInterface;
 
 /**
@@ -13,42 +19,52 @@ class NavigationGetTool
 {
     public function __construct(
         private readonly NavigationRepositoryInterface $navigationRepository,
+        private readonly WebspacePermissionResolver $webspacePermissionResolver,
     ) {
     }
 
     /**
      * @return array<string, mixed>
-     *
-     * TEMPORARILY DISABLED: Navigation tool has issues with Sulu's internal 'nav' key resolution.
-     * The tool exists but is not exposed as an MCP tool until the issue is fully resolved.
-     *
-     * #[McpTool(
-     *     name: 'sulu_navigation_get',
-     *     description: 'Get navigation tree for a webspace...',
-     * )]
      */
-    public function getNavigation(string $webspace, string $locale, string $navigationContext = 'main', int $depth = 2): array
-    {
+    #[McpTool(
+        name: 'sulu_navigation_get',
+        description: 'Get the published navigation tree of a webspace for one navigation context. Returns nodes with title, url, targetType, and nested "children". Only published (live) pages that are assigned to the given navigation context appear — a page missing here may simply be unpublished or not assigned to the context. Context keys are defined per webspace in config/webspaces/*.xml under <navigation><contexts> (commonly "main" or "footer"); use sulu_get_context to discover webspaces. Use sulu_page_tree instead when you need the full page hierarchy including drafts.',
+    )]
+    #[RequiresPermission(
+        requirements: [new PermissionRequirement('sulu.webspaces.#context#', PermissionTypes::VIEW)],
+        objectResolved: true,
+        discoveryContexts: [WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
+    )]
+    public function getNavigation(
+        string $webspace,
+        string $locale,
+        #[Schema(description: 'Navigation context key as defined in the webspace XML, e.g. "main" or "footer".')]
+        string $navigationContext = 'main',
+        #[Schema(description: 'Maximum nesting depth of the returned tree.')]
+        int $depth = 2,
+    ): array {
+        $permitted = $this->webspacePermissionResolver->permittedWebspaceKeys(PermissionTypes::VIEW, $locale);
+        if (!\in_array($webspace, $permitted, true)) {
+            return [
+                'webspace' => $webspace,
+                'navigation' => [],
+                'hint' => 'Webspace not accessible: it does not exist or your Sulu role lacks view permission for it.',
+            ];
+        }
+
         try {
-            // Validate parameters before calling repository
-            if ('' === $webspace || '' === $locale) {
-                return [
-                    'error' => 'Webspace and locale parameters are required.',
-                    'hint' => 'Provide valid webspace key (e.g., "example") and locale (e.g., "en").',
-                ];
-            }
-
-            // Pass minimal properties to ensure 'nav' key is resolved in the content
-            // The properties array is prefixed with 'nav.' by Sulu's NavigationRepository
-            $properties = ['title' => '', 'url' => ''];
-
+            // The property map values must name real content property paths --
+            // empty values make the content resolver return no "nav" group and
+            // NavigationRepository fails with 'Undefined array key "nav"'. This
+            // is core's default map from NavigationTwigExtension; targetType
+            // drives the repository's link-page fallback.
             $tree = $this->navigationRepository->getNavigationTree(
                 $navigationContext,
                 $locale,
                 $webspace,
                 null,
                 $depth,
-                $properties,
+                ['title' => 'title', 'url' => 'url', 'targetType' => 'object.linkData[provider]'],
             );
 
             return [
@@ -58,27 +74,9 @@ class NavigationGetTool
                 'context' => $navigationContext,
             ];
         } catch (\Throwable $e) {
-            $message = $e->getMessage();
-            $trace = $e->getTraceAsString();
-
-            // Provide helpful hint based on error type
-            $hint = 'Verify the webspace exists and the navigationContext matches a context defined in config/webspaces/*.xml.';
-            if (\str_contains($message, 'Undefined array key')) {
-                // Extract the missing key from error message
-                \preg_match('/Undefined array key "([^"]+)"/', $message, $matches);
-                $missingKey = $matches[1] ?? 'unknown';
-                $hint = 'The navigation context "'.$navigationContext.'" exists, but Sulu is looking for a key "'.$missingKey.'" that is missing. This may be a configuration issue in the webspace XML under \u003cnavigation\u003e → \u003ccontexts\u003e → \u003ccontext key="'.$navigationContext.'"\u003e.';
-            }
-
             return [
-                'error' => \sprintf('Failed to get navigation for webspace "%s": %s', $webspace, $message),
-                'hint' => $hint,
-                'debug' => [
-                    'webspace' => $webspace,
-                    'locale' => $locale,
-                    'navigationContext' => $navigationContext,
-                    'exception_class' => $e::class,
-                ],
+                'error' => \sprintf('Failed to get navigation for webspace "%s": %s', $webspace, $e->getMessage()),
+                'hint' => \sprintf('Verify the navigation context "%s" is defined in the webspace XML under <navigation><contexts> and that pages are published.', $navigationContext),
             ];
         }
     }

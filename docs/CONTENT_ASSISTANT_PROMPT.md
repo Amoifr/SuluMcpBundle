@@ -127,6 +127,12 @@ Categories and tags help organize articles and pages for filtering, navigation, 
 | `sulu_preview_link_generate` | Generate a shareable, token-protected preview URL for a draft page or article. |
 | `sulu_preview_link_revoke` | Revoke a previously generated preview link. |
 
+### Navigation
+
+| Tool | Description |
+|------|-------------|
+| `sulu_navigation_get` | Get the published navigation tree of a webspace for one navigation context (e.g. "main", "footer"). Only published pages assigned to the context appear. |
+
 ### Contacts
 
 | Tool | Description |
