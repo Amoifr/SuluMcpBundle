@@ -9,11 +9,19 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use Symfony\Component\Security\Core\Exception\AuthenticationException;
 
 /**
  * Converts MCP-endpoint exceptions to JSON-RPC error responses:
  * PermissionDeniedException -> 403, InvalidArgumentException -> 400,
  * anything else -> 500. Non-MCP requests fall through to Symfony.
+ *
+ * Security exceptions are deliberately not handled here: they belong to the
+ * firewall's ExceptionListener (priority 1) and McpAuthenticationListener
+ * (priority 10), which turn them into the RFC 9728 401 that MCP clients need
+ * for OAuth discovery. This listener runs at priority 5, so handling them
+ * would replace that 401 with a 500.
  *
  * @internal
  */
@@ -33,6 +41,10 @@ class McpExceptionListener
         }
 
         $exception = $event->getThrowable();
+
+        if ($exception instanceof AuthenticationException || $exception instanceof AccessDeniedException) {
+            return;
+        }
 
         if ($exception instanceof PermissionDeniedException) {
             $response = new JsonResponse([
