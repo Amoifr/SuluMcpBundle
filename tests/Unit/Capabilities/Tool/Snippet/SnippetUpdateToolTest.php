@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Snippet;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Tool\Snippet;
 
 use Mcp\Capability\Attribute\McpTool;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -15,14 +15,14 @@ use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\TypedFormMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataInterface;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
+use Sulu\Bundle\McpBundle\AdminLink\AdminLinkGenerator;
+use Sulu\Bundle\McpBundle\AdminLink\Provider\SnippetAdminLinkProvider;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Block\BlockDataValidator;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentTypeResolver;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Snippet\SnippetUpdateTool;
+use Sulu\Bundle\McpBundle\Tests\Support\StubViewRegistry;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
-use Sulu\McpServerBundle\AdminLink\AdminLinkGenerator;
-use Sulu\McpServerBundle\AdminLink\Provider\SnippetAdminLinkProvider;
-use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
-use Sulu\McpServerBundle\Capabilities\Tool\ContentTypeResolver;
-use Sulu\McpServerBundle\Capabilities\Tool\Snippet\SnippetUpdateTool;
-use Sulu\McpServerBundle\Tests\Support\StubViewRegistry;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Sulu\Snippet\Application\Message\ModifySnippetMessage;

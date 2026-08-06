@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Functional;
+namespace Sulu\Bundle\McpBundle\Tests\Functional;
 
+use PHPUnit\Framework\Attributes\CoversNothing;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\Bundle\MediaBundle\Entity\Collection;
 use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
 
 /**
  * Tier B case 4b: an AccessControl deny row on a specific Collection::class+id
@@ -15,6 +16,7 @@ use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
  * mechanism PermissionAclSmokeTest proves for Page::class, generalized here
  * (MediaGetTool/MediaListTool/MediaUpdateTool all check this context+object).
  */
+#[CoversNothing]
 final class MediaCollectionAclTest extends FunctionalTestCase
 {
     private const DENIED_COLLECTION_ID = 42;

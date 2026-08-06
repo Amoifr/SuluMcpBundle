@@ -2,12 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\OAuth;
+namespace Sulu\Bundle\McpBundle\Security\OAuth;
 
 use League\Bundle\OAuth2ServerBundle\Event\AuthorizationRequestResolveEvent;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 
+/**
+ * @internal
+ */
 final readonly class OAuthConsentStore
 {
     public const REQUEST_ID_PARAMETER = 'sulu_mcp_consent';

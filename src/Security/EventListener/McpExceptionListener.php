@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\EventListener;
+namespace Sulu\Bundle\McpBundle\Security\EventListener;
 
-use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
+use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
@@ -14,6 +14,8 @@ use Symfony\Component\HttpKernel\KernelEvents;
  * Converts MCP-endpoint exceptions to JSON-RPC error responses:
  * PermissionDeniedException -> 403, InvalidArgumentException -> 400,
  * anything else -> 500. Non-MCP requests fall through to Symfony.
+ *
+ * @internal
  */
 #[AsEventListener(event: KernelEvents::EXCEPTION, priority: 5)]
 class McpExceptionListener

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Security\OAuth;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Security\OAuth;
 
 use League\Bundle\OAuth2ServerBundle\Manager\ClientManagerInterface;
 use League\Bundle\OAuth2ServerBundle\Model\ClientInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Sulu\McpServerBundle\Security\OAuth\DynamicClientRegistrationController;
+use Sulu\Bundle\McpBundle\Security\OAuth\DynamicClientRegistrationController;
 use Symfony\Component\HttpFoundation\Request;
 
 #[CoversClass(DynamicClientRegistrationController::class)]

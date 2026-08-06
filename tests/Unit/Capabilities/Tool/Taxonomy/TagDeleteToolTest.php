@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool\Taxonomy;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Tool\Taxonomy;
 
 use Mcp\Capability\Attribute\McpTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\TagDeleteTool;
 use Sulu\Bundle\TagBundle\Tag\TagManagerInterface;
-use Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\TagDeleteTool;
 
 #[CoversClass(TagDeleteTool::class)]
 final class TagDeleteToolTest extends TestCase

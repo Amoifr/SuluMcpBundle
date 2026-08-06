@@ -9,5 +9,5 @@ mcp:
     type: mcp
 
 # MCP OAuth endpoints (well-known, authorize)
-sulu_mcp_server:
-    resource: '@SuluMcpServerBundle/config/routes.yaml'
+sulu_mcp:
+    resource: '@SuluMcpBundle/config/routes.yaml'

@@ -7,7 +7,7 @@ Claude Cowork is Anthropic's collaborative workspace. Setup mirrors [Claude.ai](
 Cowork uses its own callback URI, so override the default:
 
 ```bash
-php bin/console sulu:mcp:create-client "Claude Cowork" \
+php bin/console sulu:mcp:create-client "Claude Cowork" --client=claude-cowork \
     --redirect-uri="<the callback URI Cowork shows in its connector setup screen>"
 ```
 

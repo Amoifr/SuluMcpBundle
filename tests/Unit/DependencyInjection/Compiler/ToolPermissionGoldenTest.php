@@ -2,50 +2,50 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\DependencyInjection\Compiler;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\DependencyInjection\Compiler;
 
 use Mcp\Capability\Attribute\McpTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Article\ArticleCreateTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Article\ArticleGetTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Article\ArticleListTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Article\ArticleUpdateTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Contact\ContactListTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Content\ContentDeleteTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Content\ContentPublishTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Content\ContentUnpublishTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentSearchTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\GetContextTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Media\MediaGetTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Media\MediaListTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Media\MediaUpdateTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockAddTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockListTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockRemoveTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockReorderTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockUpdateTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\PageCreateTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\PageGetTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\PageListTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\PageTreeTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\PageUpdateTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\PingTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Preview\PreviewLinkGenerateTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Preview\PreviewLinkRevokeTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Snippet\SnippetCreateTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Snippet\SnippetGetTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Snippet\SnippetListTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Snippet\SnippetUpdateTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\CategoryCreateTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\CategoryDeleteTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\CategoryListTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\TagCreateTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\TagDeleteTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\TagListTool;
+use Sulu\Bundle\McpBundle\DependencyInjection\Compiler\ToolPermissionMapPass;
 use Sulu\Component\Security\Authorization\PermissionTypes;
-use Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleCreateTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleGetTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleListTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Article\ArticleUpdateTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Contact\ContactListTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Content\ContentDeleteTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Content\ContentPublishTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Content\ContentUnpublishTool;
-use Sulu\McpServerBundle\Capabilities\Tool\ContentSearchTool;
-use Sulu\McpServerBundle\Capabilities\Tool\GetContextTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Media\MediaGetTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Media\MediaListTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Media\MediaUpdateTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Page\BlockAddTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Page\BlockListTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Page\BlockRemoveTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Page\BlockReorderTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Page\BlockUpdateTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Page\PageCreateTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Page\PageGetTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Page\PageListTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Page\PageTreeTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Page\PageUpdateTool;
-use Sulu\McpServerBundle\Capabilities\Tool\PingTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Preview\PreviewLinkGenerateTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Preview\PreviewLinkRevokeTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Snippet\SnippetCreateTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Snippet\SnippetGetTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Snippet\SnippetListTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Snippet\SnippetUpdateTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\CategoryCreateTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\CategoryDeleteTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\CategoryListTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\TagCreateTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\TagDeleteTool;
-use Sulu\McpServerBundle\Capabilities\Tool\Taxonomy\TagListTool;
-use Sulu\McpServerBundle\DependencyInjection\Compiler\ToolPermissionMapPass;
 
 /**
  * Golden-table pin for every tool's #[RequiresPermission] declaration, plus a
@@ -121,7 +121,7 @@ final class ToolPermissionGoldenTest extends TestCase
 
             $relative = \substr((string) $file->getPathname(), \strlen($srcRoot) + 1);
             $relative = \str_replace(\DIRECTORY_SEPARATOR, '\\', $relative);
-            $class = 'Sulu\\McpServerBundle\\'.\substr($relative, 0, -4);
+            $class = 'Sulu\\Bundle\\McpBundle\\'.\substr($relative, 0, -4);
 
             if (!\class_exists($class)) {
                 continue;

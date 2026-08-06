@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capabilities\Tool\Article;
+namespace Sulu\Bundle\McpBundle\Capabilities\Tool\Article;
 
 use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Bundle\AdminBundle\Metadata\GroupProviderInterface;
@@ -16,6 +16,8 @@ use Sulu\Content\Domain\Model\DimensionContentInterface;
  * is the article template's <group> element (falling back to "default"). The
  * group is not stored on the article — it is derived from the template via the
  * admin metadata, the same way Sulu's own GroupProvider builds the routes.
+ *
+ * @internal
  */
 final readonly class ArticleGroupResolver
 {

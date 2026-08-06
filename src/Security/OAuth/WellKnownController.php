@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\OAuth;
+namespace Sulu\Bundle\McpBundle\Security\OAuth;
 
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
@@ -13,6 +13,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * These well-known endpoints enable MCP clients (e.g., Claude.ai) to discover
  * the OAuth authorization server and its capabilities for authenticating with
  * the MCP resource server.
+ *
+ * @internal
  */
 class WellKnownController
 {

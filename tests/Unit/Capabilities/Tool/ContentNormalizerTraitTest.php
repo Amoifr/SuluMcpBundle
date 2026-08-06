@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Tool;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Sulu\McpServerBundle\Capabilities\Tool\ContentNormalizerTrait;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentNormalizerTrait;
 
 #[CoversClass(ContentNormalizerTrait::class)]
 final class ContentNormalizerTraitTest extends TestCase

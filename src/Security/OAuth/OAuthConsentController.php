@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\OAuth;
+namespace Sulu\Bundle\McpBundle\Security\OAuth;
 
 use Sulu\Component\Security\Authentication\UserInterface;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -11,6 +11,9 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
+/**
+ * @internal
+ */
 final readonly class OAuthConsentController
 {
     public function __construct(
@@ -22,7 +25,7 @@ final readonly class OAuthConsentController
 
     #[Route(
         '/admin/mcp/consent/{requestId}',
-        name: 'sulu_mcp_server_oauth_consent_details',
+        name: 'sulu_mcp_oauth_consent_details',
         options: ['expose' => true],
         methods: ['GET'],
     )]
@@ -44,7 +47,7 @@ final readonly class OAuthConsentController
 
     #[Route(
         '/admin/mcp/consent/{requestId}',
-        name: 'sulu_mcp_server_oauth_consent_decision',
+        name: 'sulu_mcp_oauth_consent_decision',
         options: ['expose' => true],
         methods: ['POST'],
     )]
@@ -74,7 +77,7 @@ final readonly class OAuthConsentController
         return [
             'id' => $scope,
             // Falls back to the raw scope identifier when no translation exists.
-            'label' => $this->translator->trans($scope, [], 'sulu_mcp_server', $this->userLocale()),
+            'label' => $this->translator->trans($scope, [], 'sulu_mcp', $this->userLocale()),
         ];
     }
 

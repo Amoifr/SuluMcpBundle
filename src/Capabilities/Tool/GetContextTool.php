@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capabilities\Tool;
+namespace Sulu\Bundle\McpBundle\Capabilities\Tool;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
+use Sulu\Bundle\McpBundle\Capabilities\Resource\BlocksResource;
+use Sulu\Bundle\McpBundle\Capabilities\Resource\ExtensionFieldsResource;
+use Sulu\Bundle\McpBundle\Capabilities\Resource\FieldValueExampleProvider;
+use Sulu\Bundle\McpBundle\Capabilities\Resource\TemplatesResource;
+use Sulu\Bundle\McpBundle\Capabilities\Resource\WebspacesResource;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolVisibilityResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\WebspacePermissionResolver;
 use Sulu\Component\Security\Authorization\PermissionTypes;
-use Sulu\McpServerBundle\Capabilities\Resource\BlocksResource;
-use Sulu\McpServerBundle\Capabilities\Resource\ExtensionFieldsResource;
-use Sulu\McpServerBundle\Capabilities\Resource\FieldValueExampleProvider;
-use Sulu\McpServerBundle\Capabilities\Resource\TemplatesResource;
-use Sulu\McpServerBundle\Capabilities\Resource\WebspacesResource;
-use Sulu\McpServerBundle\Security\Permission\ToolVisibilityResolver;
-use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
 
 /**
  * @internal

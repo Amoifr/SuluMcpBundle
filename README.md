@@ -1,4 +1,4 @@
-# Sulu MCP Server
+# Sulu MCP Bundle
 
 MCP server for [Sulu CMS](https://sulu.io) 3.x — let AI assistants manage your Sulu content.
 
@@ -18,23 +18,29 @@ A Symfony bundle that exposes Sulu's content management as [Model Context Protoc
 ## Installation
 
 ```bash
-composer require sulu/mcp-server-bundle
+composer require sulu/mcp-bundle
 ```
 
-Register the bundle in `config/bundles.php`:
+Register the bundle in `config/bundles.php`, along with its two required dependencies (`league/oauth2-server-bundle` registers itself automatically if you use Symfony Flex; `symfony/mcp-bundle` has no Flex recipe yet and always needs the manual entry):
 
 ```php
 return [
     // ...
-    Sulu\McpServerBundle\SuluMcpServerBundle::class => ['all' => true],
+    Symfony\AI\McpBundle\McpBundle::class => ['all' => true],
+    League\Bundle\OAuth2ServerBundle\LeagueOAuth2ServerBundle::class => ['all' => true],
+    Sulu\Bundle\McpBundle\SuluMcpBundle::class => ['all' => true],
 ];
 ```
 
-Import the routes in `config/routes.yaml`:
+Import the routes in `config/routes.yaml` — `mcp` registers the actual MCP transport endpoint (provided by `symfony/mcp-bundle`), `sulu_mcp` registers this bundle's OAuth endpoints:
 
 ```yaml
-sulu_mcp_server:
-    resource: '@SuluMcpServerBundle/config/routes.yaml'
+mcp:
+    resource: .
+    type: mcp
+
+sulu_mcp:
+    resource: '@SuluMcpBundle/config/routes.yaml'
 ```
 
 Set the public server URL in your environment:
@@ -46,8 +52,8 @@ SULU_MCP_SERVER_URL=https://your-sulu-host.example.com
 ## Configuration
 
 ```yaml
-# config/packages/sulu_mcp_server.yaml
-sulu_mcp_server:
+# config/packages/sulu_mcp.yaml
+sulu_mcp:
     server_url: '%env(SULU_MCP_SERVER_URL)%'
     dangerous_tools:
         delete: false        # sulu_*_delete (page, article, tag, category)
@@ -59,7 +65,7 @@ All three `dangerous_tools` flags default to `false`. Enable per category to exp
 
 ## Tools
 
-37 MCP tools, grouped by domain:
+36 MCP tools, grouped by domain:
 
 | Domain | Count | Examples |
 |--------|-------|----------|
@@ -70,7 +76,6 @@ All three `dangerous_tools` flags default to `false`. Enable per category to exp
 | Unified content | 3 | `sulu_content_delete`, `sulu_content_publish`, `sulu_content_unpublish` — take a `type` param (`page` \| `article` \| `snippet`) |
 | Media | 3 | `sulu_media_list`, `sulu_media_get`, `sulu_media_update` |
 | Taxonomy | 6 | `sulu_tag_*`, `sulu_category_*` |
-| Navigation | 1 | `sulu_navigation_get` |
 | Preview | 2 | `sulu_preview_link_generate`, `sulu_preview_link_revoke` |
 | Contact | 1 | `sulu_contact_list` |
 | Misc | 3 | `sulu_content_search`, `sulu_get_context`, `sulu_ping` |

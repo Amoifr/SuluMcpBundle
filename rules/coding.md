@@ -9,5 +9,5 @@
 
 After change:
 1) composer fix
-2) composer phpstan
-3) composer lint
+2) composer lint
+3) composer test

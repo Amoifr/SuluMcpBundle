@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\AdminLink\Provider;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\AdminLink\Provider;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -11,8 +11,8 @@ use PHPUnit\Framework\TestCase;
 use Sulu\Bundle\AdminBundle\Admin\View\View;
 use Sulu\Bundle\AdminBundle\Admin\View\ViewRegistry;
 use Sulu\Bundle\AdminBundle\Exception\ViewNotFoundException;
+use Sulu\Bundle\McpBundle\AdminLink\Provider\MediaAdminLinkProvider;
 use Sulu\Bundle\MediaBundle\Admin\MediaAdmin;
-use Sulu\McpServerBundle\AdminLink\Provider\MediaAdminLinkProvider;
 
 #[CoversClass(MediaAdminLinkProvider::class)]
 final class MediaAdminLinkProviderTest extends TestCase

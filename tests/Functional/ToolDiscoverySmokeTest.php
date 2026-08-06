@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Functional;
+namespace Sulu\Bundle\McpBundle\Tests\Functional;
 
 use Mcp\Capability\RegistryInterface;
+use PHPUnit\Framework\Attributes\CoversNothing;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\GetContextTool;
 use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
-use Sulu\McpServerBundle\Capabilities\Tool\GetContextTool;
 
 /**
  * Tier A: discovery visibility against the real compiled map, for a real
@@ -15,6 +16,7 @@ use Sulu\McpServerBundle\Capabilities\Tool\GetContextTool;
  * getTools() assertions are meaningless-green. Also grants a real,
  * non-allowlisted permission to prove availability tracks real grants.
  */
+#[CoversNothing]
 final class ToolDiscoverySmokeTest extends FunctionalTestCase
 {
     public function testViewOnlyRoleSeesDeniedToolsMarkedUnavailableWithReason(): void

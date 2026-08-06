@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Functional;
+namespace Sulu\Bundle\McpBundle\Tests\Functional;
 
 use Mcp\Capability\RegistryInterface;
+use PHPUnit\Framework\Attributes\CoversNothing;
 
 /**
  * Tier 0b: boots the real kernel and diffs the compiled tool_permissions
@@ -12,6 +13,7 @@ use Mcp\Capability\RegistryInterface;
  * tool added with no declaration or silently dropped is caught here.
  * sulu_ping/sulu_get_context are attribute-free, hence the allowlist.
  */
+#[CoversNothing]
 final class ToolPermissionMapCompletenessTest extends FunctionalTestCase
 {
     private const ALLOWLIST = ['sulu_ping', 'sulu_get_context'];
@@ -21,7 +23,7 @@ final class ToolPermissionMapCompletenessTest extends FunctionalTestCase
         $container = self::getContainer();
 
         /** @var array<string, array{name: string, requirements: list<array{context: string, permission: string}>, contextArgument: ?string, contextResolver: ?string, objectResolved: bool, discoveryContexts: list<string>}> $map */
-        $map = $container->getParameter('sulu_mcp_server.tool_permissions');
+        $map = $container->getParameter('sulu_mcp.tool_permissions');
         self::assertNotEmpty($map, 'The compiled tool_permissions map is empty -- ToolPermissionMapPass did not run or found no tagged mcp.tool services.');
 
         // Populate the shared registry: Builder::build() runs its loaders only

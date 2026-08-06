@@ -2,8 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\AdminLink;
+namespace Sulu\Bundle\McpBundle\AdminLink;
 
+/**
+ * @internal
+ */
 interface AdminLinkGeneratorInterface
 {
     /**

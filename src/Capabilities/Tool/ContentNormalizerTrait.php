@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capabilities\Tool;
+namespace Sulu\Bundle\McpBundle\Capabilities\Tool;
 
 /**
  * Strips empty/null values and unnecessary metadata from Sulu's normalized content
  * to keep MCP responses small enough for AI clients.
+ *
+ * @internal
  */
 trait ContentNormalizerTrait
 {

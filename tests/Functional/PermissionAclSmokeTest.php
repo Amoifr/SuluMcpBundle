@@ -2,15 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Functional;
+namespace Sulu\Bundle\McpBundle\Tests\Functional;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use Sulu\Bundle\AdminBundle\Admin\Admin;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionChecker;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
 use Sulu\Component\Security\Authorization\MaskConverterInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Component\Security\Authorization\SecurityCheckerInterface;
 use Sulu\Component\Security\Authorization\SecurityCondition;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
 use Sulu\Page\Domain\Model\Page;
 use Sulu\Page\Domain\Model\PageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
@@ -21,8 +23,9 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInt
  * abstract `PageInterface::class` instead of concrete `Page::class` as the ACL
  * object type silently drops the per-page lookup and falls back to the grant.
  *
- * @see \Sulu\McpServerBundle\Security\Permission\ToolPermissionChecker
+ * @see ToolPermissionChecker
  */
+#[CoversClass(ToolPermissionChecker::class)]
 final class PermissionAclSmokeTest extends FunctionalTestCase
 {
     private const WEBSPACE_KEY = 'website';

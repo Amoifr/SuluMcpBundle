@@ -2,19 +2,22 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Security\EventListener;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Security\EventListener;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Sulu\Bundle\McpBundle\Security\EventListener\McpAuthenticationListener;
+use Sulu\Bundle\McpBundle\Security\EventListener\McpExceptionListener;
+use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
 use Sulu\Component\Security\Authorization\PermissionTypes;
-use Sulu\McpServerBundle\Security\EventListener\McpAuthenticationListener;
-use Sulu\McpServerBundle\Security\EventListener\McpExceptionListener;
-use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 
-class McpExceptionListenerTest extends TestCase
+#[CoversClass(McpExceptionListener::class)]
+#[CoversClass(McpAuthenticationListener::class)]
+final class McpExceptionListenerTest extends TestCase
 {
     private McpExceptionListener $listener;
     private McpAuthenticationListener $authListener;

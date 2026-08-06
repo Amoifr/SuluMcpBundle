@@ -23,7 +23,7 @@ Or write `.mcp.json` by hand:
 }
 ```
 
-This repo includes a working example at [`dev/.mcp.json`](../../dev/.mcp.json) pointing at the local dev server (`https://127.0.0.1:8000/_mcp`).
+This repo includes a working example at [`dev/.mcp.json`](../../dev/.mcp.json) pointing at the local dev server (`https://127.0.0.1:8000/admin/_mcp`).
 
 ## 2. Authenticate
 
@@ -42,5 +42,5 @@ Add the contents of [`CONTENT_ASSISTANT_PROMPT.md`](../CONTENT_ASSISTANT_PROMPT.
 ## Troubleshooting
 
 - **`Server failed to start`** — confirm the URL is reachable from your machine and ends in `/_mcp`. Check the Symfony log for OAuth/CORS errors.
-- **Tools missing** — `dangerous_tools.*` defaults to `false`. Enable categories in `config/packages/sulu_mcp_server.yaml`.
+- **Tools missing** — `dangerous_tools.*` defaults to `false`. Enable categories in `config/packages/sulu_mcp.yaml`.
 - **Tokens expire after re-deploy** — clearing the OAuth tables on Sulu invalidates issued tokens; re-run `claude mcp logout sulu` and reconnect.

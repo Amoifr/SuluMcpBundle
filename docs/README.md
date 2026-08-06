@@ -1,6 +1,6 @@
 # Documentation
 
-Sulu MCP Server is a Symfony bundle that turns a Sulu 3.x installation into an [MCP](https://modelcontextprotocol.io) server. AI assistants connect over HTTP and can read, create, edit, and publish content using the authenticated user's existing Sulu permissions.
+Sulu MCP Bundle is a Symfony bundle that turns a Sulu 3.x installation into an [MCP](https://modelcontextprotocol.io) server. AI assistants connect over HTTP and can read, create, edit, and publish content using the authenticated user's existing Sulu permissions.
 
 ## Contents
 
@@ -15,10 +15,10 @@ Sulu MCP Server is a Symfony bundle that turns a Sulu 3.x installation into an [
 
 ## What it exposes
 
-The bundle ships **49 tools** spanning the core Sulu domains:
+The bundle ships **36 tools** spanning the core Sulu domains:
 
 - Pages, articles, snippets — full lifecycle (CRUD, publish/unpublish, blocks, SEO, excerpt).
-- Media, taxonomy (tags, categories), navigation, contacts.
+- Media, taxonomy (tags, categories), contacts.
 - Preview links, content search, and a context tool that briefs the AI on the current Sulu instance.
 
 A handful of high-impact tools (delete, publish, block-remove) are gated behind opt-in config — see the bundle [README](../README.md#configuration).

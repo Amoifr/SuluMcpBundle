@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\EventListener;
+namespace Sulu\Bundle\McpBundle\Security\EventListener;
 
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,6 +17,8 @@ use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface
  * Returns 401 + WWW-Authenticate for unauthenticated MCP requests, pointing
  * clients to the PRM endpoint (RFC 9728) for OAuth discovery. Priority 10 so
  * it runs before McpExceptionListener (5).
+ *
+ * @internal
  */
 #[AsEventListener(event: KernelEvents::EXCEPTION, priority: 10)]
 class McpAuthenticationListener implements AuthenticationEntryPointInterface

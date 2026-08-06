@@ -1,11 +1,8 @@
 # Tooling Rules
 
-Before PR:
-- composer lint
-- composer phpstan
-- composer test
-
-Quality workflow:
+Before PR, in order:
 1) composer fix
-2) composer phpstan
-3) composer lint
+2) composer lint
+3) composer test
+
+Never skip fix.

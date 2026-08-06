@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capabilities\Tool\Snippet;
+namespace Sulu\Bundle\McpBundle\Capabilities\Tool\Snippet;
 
 use Mcp\Capability\Attribute\McpTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentNormalizerTrait;
+use Sulu\Bundle\McpBundle\Security\Attribute\RequiresPermission;
+use Sulu\Bundle\McpBundle\Security\Permission\PermissionRequirement;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
-use Sulu\McpServerBundle\Capabilities\Tool\ContentNormalizerTrait;
-use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
-use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
 use Sulu\Snippet\Domain\Exception\SnippetNotFoundException;
 use Sulu\Snippet\Domain\Repository\SnippetRepositoryInterface;
 

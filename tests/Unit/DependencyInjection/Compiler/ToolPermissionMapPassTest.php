@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\DependencyInjection\Compiler;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\DependencyInjection\Compiler;
 
 use Mcp\Capability\Attribute\McpTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\PingTool;
+use Sulu\Bundle\McpBundle\DependencyInjection\Compiler\ToolPermissionMapPass;
+use Sulu\Bundle\McpBundle\Security\Attribute\RequiresPermission;
+use Sulu\Bundle\McpBundle\Security\Permission\PermissionRequirement;
 use Sulu\Component\Security\Authorization\PermissionTypes;
-use Sulu\McpServerBundle\Capabilities\Tool\PingTool;
-use Sulu\McpServerBundle\DependencyInjection\Compiler\ToolPermissionMapPass;
-use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
-use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
 
 #[CoversClass(ToolPermissionMapPass::class)]
 final class ToolPermissionMapPassTest extends TestCase

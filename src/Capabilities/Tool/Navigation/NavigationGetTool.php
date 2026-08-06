@@ -2,10 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capabilities\Tool\Navigation;
+namespace Sulu\Bundle\McpBundle\Capabilities\Tool\Navigation;
 
 use Sulu\Page\Domain\Repository\NavigationRepositoryInterface;
 
+/**
+ * @internal
+ */
 class NavigationGetTool
 {
     public function __construct(

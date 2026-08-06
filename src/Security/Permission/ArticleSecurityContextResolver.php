@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\Permission;
+namespace Sulu\Bundle\McpBundle\Security\Permission;
 
 use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Bundle\AdminBundle\Metadata\GroupProviderInterface;
@@ -11,6 +11,8 @@ use Sulu\Bundle\AdminBundle\Metadata\GroupProviderInterface;
  * Resolves an article's per-group security context:
  * `sulu.article.articles` for the default/only group, else
  * `sulu.article.articles_<groupIdentifier>`.
+ *
+ * @internal
  */
 final readonly class ArticleSecurityContextResolver implements ToolContextResolverInterface
 {

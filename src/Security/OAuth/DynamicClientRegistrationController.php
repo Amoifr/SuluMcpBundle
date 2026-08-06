@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\OAuth;
+namespace Sulu\Bundle\McpBundle\Security\OAuth;
 
 use League\Bundle\OAuth2ServerBundle\Manager\ClientManagerInterface;
 use League\Bundle\OAuth2ServerBundle\Model\Client;
@@ -19,6 +19,8 @@ use Symfony\Component\Routing\Attribute\Route;
  *
  * Allows MCP clients (e.g. Claude Code) to register themselves without
  * requiring a pre-provisioned client_id/secret.
+ *
+ * @internal
  */
 class DynamicClientRegistrationController
 {

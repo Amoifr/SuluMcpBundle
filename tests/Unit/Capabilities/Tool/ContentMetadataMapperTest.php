@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Capabilities\Tool;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Tool;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FieldMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
-use Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentMetadataMapper;
 
 #[CoversClass(ContentMetadataMapper::class)]
 final class ContentMetadataMapperTest extends TestCase

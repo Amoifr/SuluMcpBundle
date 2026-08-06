@@ -96,6 +96,8 @@ Blocks are the building units of pages and articles — typed components like te
 |------|-------------|
 | `sulu_snippet_list` | List snippets (global reusable content shared across pages). |
 | `sulu_snippet_get` | Get snippet content by UUID. |
+| `sulu_snippet_create` | Create a new snippet (as draft). |
+| `sulu_snippet_update` | Update snippet fields. Only pass changed fields. |
 
 ### Taxonomy (Categories and Tags)
 
@@ -117,6 +119,13 @@ Categories and tags help organize articles and pages for filtering, navigation, 
 | `sulu_media_list` | List/search media files by collection, type, or search text. |
 | `sulu_media_get` | Get media details — original URL, all format/thumbnail URLs, metadata. |
 | `sulu_media_update` | Update media metadata (title, description, copyright). |
+
+### Preview Links
+
+| Tool | Description |
+|------|-------------|
+| `sulu_preview_link_generate` | Generate a shareable, token-protected preview URL for a draft page or article. |
+| `sulu_preview_link_revoke` | Revoke a previously generated preview link. |
 
 ### Contacts
 
@@ -381,7 +390,7 @@ For content with many blocks (e.g., a homepage with 10+ sections):
 
 ### Preview Links
 
-Use `sulu_preview_link_generate(resourceKey, uuid, locale, webspace?)` to produce a token-protected URL under `/admin/p/<token>` that reviewers can open without logging into the CMS. The public preview route is registered automatically when this bundle is installed; if it isn't available (e.g. the host project loads routes selectively), the tool returns a clear error pointing at the routes import. The admin's in-app preview is not shareable — use this tool whenever you need an external review URL.
+Use `sulu_preview_link_generate(type, uuid, locale, webspace?)` to produce a token-protected URL under `/admin/p/<token>` that reviewers can open without logging into the CMS. The public preview route is provided by Sulu's own PreviewBundle and is part of a standard Sulu installation; if it isn't available (e.g. the host project's routing doesn't import Sulu's standard admin routes), the tool returns a clear error. The admin's in-app preview is not shareable — use this tool whenever you need an external review URL.
 
 ---
 

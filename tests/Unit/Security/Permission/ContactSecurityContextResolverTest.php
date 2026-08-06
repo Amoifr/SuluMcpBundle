@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Security\Permission;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Security\Permission;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Sulu\McpServerBundle\Security\Permission\ContactSecurityContextResolver;
+use Sulu\Bundle\McpBundle\Security\Permission\ContactSecurityContextResolver;
 
 #[CoversClass(ContactSecurityContextResolver::class)]
 final class ContactSecurityContextResolverTest extends TestCase

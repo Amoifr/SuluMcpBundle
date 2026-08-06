@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\Permission;
+namespace Sulu\Bundle\McpBundle\Security\Permission;
 
 use Sulu\Component\Security\Authentication\UserInterface;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -11,6 +11,8 @@ use Symfony\Bundle\SecurityBundle\Security;
  * Builds the `accessControl` filter Sulu's repositories accept, so per-object ACLs
  * are applied in the query instead of after it. Without it a listing returns rows
  * the caller may not open individually, and counts them in `total`.
+ *
+ * @internal
  */
 final readonly class AccessControlFilterFactory
 {

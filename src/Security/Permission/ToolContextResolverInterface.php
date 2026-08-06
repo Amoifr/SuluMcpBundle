@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\Permission;
+namespace Sulu\Bundle\McpBundle\Security\Permission;
 
 /**
  * Resolves a dynamic security context from a tool call's arguments (e.g. the
  * per-group article context from the `template` argument).
+ *
+ * @internal
  */
 interface ToolContextResolverInterface
 {

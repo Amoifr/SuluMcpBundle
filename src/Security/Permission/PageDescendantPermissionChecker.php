@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\Permission;
+namespace Sulu\Bundle\McpBundle\Security\Permission;
 
+use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
 use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
 use Sulu\Component\Security\Authentication\UserInterface;
 use Sulu\Component\Security\Authorization\AccessControl\AccessControlRepositoryInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
-use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
 use Sulu\Page\Domain\Model\Page;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -17,6 +17,8 @@ use Symfony\Bundle\SecurityBundle\Security;
  * Reproduces PageDescendantSecurityListener: MCP dispatches
  * RemovePageMessage directly, bypassing the route listener that requires DELETE
  * on every descendant. This restores that gate.
+ *
+ * @internal
  */
 final readonly class PageDescendantPermissionChecker
 {

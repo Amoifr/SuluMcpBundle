@@ -24,7 +24,7 @@
 
     <php>
         <server name="APP_ENV" value="test" force="true"/>
-        <server name="KERNEL_CLASS" value="Sulu\McpServerBundle\Tests\Application\Kernel"/>
+        <server name="KERNEL_CLASS" value="Sulu\Bundle\McpBundle\Tests\Application\Kernel"/>
         <server name="DATABASE_URL" value="sqlite:///%kernel.project_dir%/var/data_test.db"/>
         <server name="SEAL_DSN" value="memory://"/>
     </php>

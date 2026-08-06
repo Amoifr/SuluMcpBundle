@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capabilities\Tool\Block;
+namespace Sulu\Bundle\McpBundle\Capabilities\Tool\Block;
 
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FieldMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormMetadata;
@@ -16,6 +16,8 @@ use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
  * them to Sulu, where they were stored verbatim. The admin UI then read from the
  * expected template field keys and showed empty blocks, while the read-side
  * normalizer flattened bogus `{name, value}` pairs and hid the corruption.
+ *
+ * @internal
  */
 final readonly class BlockDataValidator
 {

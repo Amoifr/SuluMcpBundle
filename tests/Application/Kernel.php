@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Application;
+namespace Sulu\Bundle\McpBundle\Tests\Application;
 
 use League\Bundle\OAuth2ServerBundle\LeagueOAuth2ServerBundle;
 use Sulu\Article\Infrastructure\Symfony\HttpKernel\SuluArticleBundle;
+use Sulu\Bundle\McpBundle\SuluMcpBundle;
 use Sulu\Bundle\TestBundle\Kernel\SuluTestKernel;
-use Sulu\McpServerBundle\SuluMcpServerBundle;
 use Sulu\Snippet\Infrastructure\Symfony\HttpKernel\SuluSnippetBundle;
 use Symfony\AI\McpBundle\McpBundle;
 use Symfony\Component\Config\Loader\LoaderInterface;
@@ -25,7 +25,7 @@ class Kernel extends SuluTestKernel
         $bundles[] = new SuluSnippetBundle();
         $bundles[] = new McpBundle();
         $bundles[] = new LeagueOAuth2ServerBundle();
-        $bundles[] = new SuluMcpServerBundle();
+        $bundles[] = new SuluMcpBundle();
 
         return $bundles;
     }

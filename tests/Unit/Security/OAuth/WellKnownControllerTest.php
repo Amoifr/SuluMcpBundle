@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Unit\Security\OAuth;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Security\OAuth;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Sulu\McpServerBundle\Security\OAuth\WellKnownController;
+use Sulu\Bundle\McpBundle\Security\OAuth\WellKnownController;
 
 #[CoversClass(WellKnownController::class)]
 final class WellKnownControllerTest extends TestCase

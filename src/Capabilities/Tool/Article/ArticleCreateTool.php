@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Capabilities\Tool\Article;
+namespace Sulu\Bundle\McpBundle\Capabilities\Tool\Article;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Sulu\Article\Application\Message\CreateArticleMessage;
 use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
+use Sulu\Bundle\McpBundle\AdminLink\AdminLinkGeneratorInterface;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Block\BlockDataValidator;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\BlockDataNormalizerTrait;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentMetadataMapper;
+use Sulu\Bundle\McpBundle\Security\Attribute\RequiresPermission;
+use Sulu\Bundle\McpBundle\Security\Permission\PermissionRequirement;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
-use Sulu\McpServerBundle\AdminLink\AdminLinkGeneratorInterface;
-use Sulu\McpServerBundle\Capabilities\Tool\Block\BlockDataValidator;
-use Sulu\McpServerBundle\Capabilities\Tool\BlockDataNormalizerTrait;
-use Sulu\McpServerBundle\Capabilities\Tool\ContentMetadataMapper;
-use Sulu\McpServerBundle\Security\Attribute\RequiresPermission;
-use Sulu\McpServerBundle\Security\Permission\PermissionRequirement;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\HandleTrait;
@@ -59,7 +59,7 @@ class ArticleCreateTool
             new PermissionRequirement('#context#', PermissionTypes::EDIT),
             new PermissionRequirement('#context#', PermissionTypes::ADD),
         ],
-        contextResolver: 'sulu_mcp_server.article_context_resolver',
+        contextResolver: 'sulu_mcp.article_context_resolver',
     )]
     public function createArticle(
         string $locale,

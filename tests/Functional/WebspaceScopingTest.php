@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Tests\Functional;
+namespace Sulu\Bundle\McpBundle\Tests\Functional;
 
+use PHPUnit\Framework\Attributes\CoversNothing;
+use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionCheckerInterface;
+use Sulu\Bundle\McpBundle\Security\Permission\WebspacePermissionResolver;
 use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
-use Sulu\McpServerBundle\Security\Permission\ToolPermissionCheckerInterface;
-use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
 
 /**
  * Tier B case 3: single-webspace scoping. Requires a second configured
@@ -16,6 +17,7 @@ use Sulu\McpServerBundle\Security\Permission\WebspacePermissionResolver;
  * configured, permittedWebspaceKeys() == ['website'] would hold even if the
  * resolver never filtered anything, so it wouldn't prove exclusion.
  */
+#[CoversNothing]
 final class WebspaceScopingTest extends FunctionalTestCase
 {
     public function testWebspacePermissionResolverExcludesUngrantedWebspace(): void

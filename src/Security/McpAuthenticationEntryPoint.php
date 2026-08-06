@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security;
+namespace Sulu\Bundle\McpBundle\Security;
 
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -14,6 +14,8 @@ use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface
  * Redirects unauthenticated OAuth-authorize hits to the Sulu admin login
  * (McpLoginSuccessListener resumes the flow afterwards). All other admin
  * routes delegate to Sulu's original entry point.
+ *
+ * @internal
  */
 class McpAuthenticationEntryPoint implements AuthenticationEntryPointInterface
 {

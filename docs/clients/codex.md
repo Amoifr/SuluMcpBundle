@@ -25,4 +25,4 @@ Add the contents of [`CONTENT_ASSISTANT_PROMPT.md`](../CONTENT_ASSISTANT_PROMPT.
 
 - **Browser flow doesn't complete** — confirm the server URL is reachable and ends in `/admin/_mcp`; check the Symfony log for OAuth errors.
 - **`invalid redirect URI`** — Codex must use an `http` loopback callback (`localhost`/`127.0.0.1`) or an `https` URL. Other hosts are rejected.
-- **Tools missing** — `dangerous_tools.*` defaults to `false`. Enable categories in `config/packages/sulu_mcp_server.yaml`.
+- **Tools missing** — `dangerous_tools.*` defaults to `false`. Enable categories in `config/packages/sulu_mcp.yaml`.

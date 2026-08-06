@@ -2,13 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\Permission;
+namespace Sulu\Bundle\McpBundle\Security\Permission;
 
-use Sulu\McpServerBundle\Security\Exception\PermissionDeniedException;
+use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
 
 /**
  * Checks a Sulu security-context permission for the current user, failing
  * closed on empty subjects, unresolved contexts, or missing authentication.
+ *
+ * @internal
  */
 interface ToolPermissionCheckerInterface
 {

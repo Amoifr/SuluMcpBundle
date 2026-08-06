@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\Permission;
+namespace Sulu\Bundle\McpBundle\Security\Permission;
 
 /**
  * Decides whether a tool is shown at discovery time (`tools/list`,
  * `sulu_get_context`), mirroring the coarse check PermissionAwareCallToolHandler
  * runs at call time. Errs toward showing; the in-body check decides.
+ *
+ * @internal
  */
 final readonly class ToolVisibilityResolver
 {

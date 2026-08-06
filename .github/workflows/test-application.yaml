@@ -1,0 +1,127 @@
+name: Test application
+
+on:
+    pull_request:
+    push:
+        branches:
+            - 'main'
+            - '[0-9]+.[0-9]+'
+    workflow_dispatch:
+
+# automatically cancel previously started workflows when pushing a new commit to a branch
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    php:
+        name: "PHP ${{ matrix.php-version }} (${{ matrix.dependency-versions }})"
+        runs-on: ubuntu-22.04
+        timeout-minutes: 30
+
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - php-version: '8.2'
+                      dependency-versions: 'lowest'
+                      php-extensions: 'ctype, iconv, mbstring, sodium, pdo_sqlite'
+                      tools: 'composer:v2'
+
+                    - php-version: '8.2'
+                      dependency-versions: 'highest'
+                      php-extensions: 'ctype, iconv, mbstring, sodium, pdo_sqlite'
+                      tools: 'composer:v2'
+
+                    - php-version: '8.3'
+                      dependency-versions: 'highest'
+                      php-extensions: 'ctype, iconv, mbstring, sodium, pdo_sqlite'
+                      tools: 'composer:v2'
+
+                    - php-version: '8.4'
+                      dependency-versions: 'highest'
+                      php-extensions: 'ctype, iconv, mbstring, sodium, pdo_sqlite'
+                      tools: 'composer:v2'
+
+        steps:
+            - name: Checkout project
+              uses: actions/checkout@v4
+
+            - name: Install and configure PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: ${{ matrix.php-version }}
+                  extensions: ${{ matrix.php-extensions }}
+                  tools: ${{ matrix.tools }}
+                  ini-values: memory_limit=-1
+                  coverage: none
+
+            - name: Remove Lint Tools
+              # These tools are not required to run tests, so we are removing them to improve dependency resolving and
+              # testing lowest versions.
+              run: composer remove "*php-cs-fixer*" "*phpstan*" "*rector*" --dev --no-update
+
+            - name: Install composer dependencies
+              uses: ramsey/composer-install@v3
+              with:
+                  dependency-versions: ${{ matrix.dependency-versions }}
+
+            - name: Output versions and installed dependencies
+              run: |
+                  echo 'PHP Version:'
+                  php --version
+                  echo ''
+                  echo 'PHP Modules:'
+                  php -m
+                  echo ''
+                  echo 'Composer Info:'
+                  composer info
+
+            - name: Execute test cases
+              run: time composer test
+
+    php-lint:
+        name: "PHP Lint"
+        runs-on: ubuntu-22.04
+        timeout-minutes: 30
+
+        steps:
+            - name: Checkout project
+              uses: actions/checkout@v4
+
+            - name: Install and configure PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: 'ctype, iconv, mbstring, sodium, pdo_sqlite'
+                  tools: 'composer:v2'
+                  ini-values: memory_limit=-1
+                  coverage: none
+
+            - name: Install composer dependencies
+              uses: ramsey/composer-install@v3
+              with:
+                  dependency-versions: 'highest'
+
+            - name: Lint code
+              run: composer lint
+
+    security:
+        name: "Security Audit"
+        runs-on: ubuntu-22.04
+        timeout-minutes: 30
+        continue-on-error: true
+
+        steps:
+            - name: Checkout project
+              uses: actions/checkout@v4
+
+            - name: Install and configure PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  tools: 'composer:v2'
+                  coverage: none
+
+            - name: Audit composer dependencies
+              run: composer audit

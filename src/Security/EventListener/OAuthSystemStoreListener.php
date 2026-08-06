@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Sulu\McpServerBundle\Security\EventListener;
+namespace Sulu\Bundle\McpBundle\Security\EventListener;
 
 use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
@@ -13,6 +13,8 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
  * Sulu's UserProvider needs a system in the SystemStore to check the user's role.
  * SuluAdminRequestListener sets it for admin requests, but MCP uses the OAuth
  * firewall — without this, valid users hit UserNotFoundException.
+ *
+ * @internal
  */
 class OAuthSystemStoreListener
 {
