@@ -13,6 +13,7 @@ use Sulu\Component\Security\Authorization\PermissionTypes;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 
 #[CoversClass(McpExceptionListener::class)]
@@ -84,6 +85,30 @@ final class McpExceptionListenerTest extends TestCase
         $body = json_decode($response->getContent(), true);
         $this->assertSame(-32603, $body['error']['code']);
         $this->assertSame('internal_error', $body['error']['data']['type']);
+    }
+
+    public function testAccessDeniedExceptionIsLeftToTheSecurityLayer(): void
+    {
+        // Thrown by Symfony's AccessListener when the access_control rule on the
+        // MCP path denies an unauthenticated request. Swallowing it here would
+        // pre-empt the firewall's ExceptionListener (priority 1), which turns it
+        // into the RFC 9728 401 via the configured entry point.
+        $exception = new AccessDeniedException('Access Denied. The user is not appropriately authenticated.');
+        $event = $this->createExceptionEvent($exception);
+
+        $this->listener->onKernelException($event);
+
+        $this->assertNull($event->getResponse());
+    }
+
+    public function testAuthenticationExceptionIsLeftToTheAuthenticationListener(): void
+    {
+        $exception = new AuthenticationException('Full authentication is required');
+        $event = $this->createExceptionEvent($exception);
+
+        $this->listener->onKernelException($event);
+
+        $this->assertNull($event->getResponse());
     }
 
     public function testExceptionOnNonMcpPathDoesNotSetResponse(): void
