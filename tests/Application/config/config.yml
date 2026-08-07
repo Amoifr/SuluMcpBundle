@@ -20,8 +20,6 @@ sulu_mcp:
 
 mcp:
     pagination_limit: 100
-    discovery:
-        scan_dirs: ['../../src']
 
 league_oauth2_server:
     authorization_server:
