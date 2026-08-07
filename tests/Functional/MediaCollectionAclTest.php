@@ -11,7 +11,7 @@ use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 
 /**
- * Tier B case 4b: an AccessControl deny row on a specific Collection::class+id
+ * An AccessControl deny row on a specific Collection::class+id
  * overrides a role-level EDIT grant on sulu.media.collections -- same
  * mechanism PermissionAclSmokeTest proves for Page::class, generalized here
  * (MediaGetTool/MediaListTool/MediaUpdateTool all check this context+object).

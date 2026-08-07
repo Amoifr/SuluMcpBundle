@@ -18,10 +18,10 @@ use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 
 /**
- * Tier A: vertical smoke over the real compiled permission map and
+ * Vertical smoke over the real compiled permission map and
  * PermissionAwareCallToolHandler, covering what stubbed-checker/unit tests
  * cannot reach. Each floor denial is paired with a positive control, so the
- * deny is attributable to the missing permission, not a dead fixture (Task 4).
+ * deny is attributable to the missing permission, not a dead fixture.
  */
 #[CoversClass(PermissionAwareCallToolHandler::class)]
 final class PermissionHandlerSmokeTest extends FunctionalTestCase
@@ -95,7 +95,7 @@ final class PermissionHandlerSmokeTest extends FunctionalTestCase
         self::assertStringNotContainsString('Permission denied', $this->textOf($response));
     }
 
-    /** Case 1: read floor is VIEW -- EDIT without VIEW must not read (Sulu maps GET to VIEW). */
+    /** Read floor is VIEW -- EDIT without VIEW must not read (Sulu maps GET to VIEW). */
     public function testEditWithoutViewIsDeniedPageList(): void
     {
         $this->grantRole('EditNoView', [
@@ -113,8 +113,8 @@ final class PermissionHandlerSmokeTest extends FunctionalTestCase
     }
 
     /**
-     * Positive control for Case 1: a VIEW-only role must NOT be denied a read,
-     * proving the deny above is attributable to the missing VIEW.
+     * Positive control for the read-floor case above: a VIEW-only role must NOT
+     * be denied a read, proving the deny above is attributable to the missing VIEW.
      */
     public function testViewGrantedRoleIsNotDeniedPageList(): void
     {
@@ -130,7 +130,7 @@ final class PermissionHandlerSmokeTest extends FunctionalTestCase
         $this->assertNotDeniedAtPreflight($response);
     }
 
-    /** Case 2: EDIT-without-LIVE -- content_publish denied. */
+    /** EDIT-without-LIVE -- content_publish denied. */
     public function testEditWithoutLiveIsDeniedPublish(): void
     {
         $this->grantRole('EditNoLive', [
@@ -156,7 +156,7 @@ final class PermissionHandlerSmokeTest extends FunctionalTestCase
         $this->assertNotDeniedAtPreflight($updateResponse);
     }
 
-    /** Case 6: LIVE-without-EDIT -- page_update denied (the intentional-divergence floor, EDIT side). */
+    /** LIVE-without-EDIT -- page_update denied (the intentional-divergence floor, EDIT side). */
     public function testLiveWithoutEditIsDeniedPageUpdate(): void
     {
         $this->grantRole('LiveNoEdit', [
@@ -282,7 +282,7 @@ final class PermissionHandlerSmokeTest extends FunctionalTestCase
     /**
      * Positive control for the atomicity test above: granting BOTH EDIT and
      * DELETE on the SAME candidate must NOT be denied, proving the split-grant
-     * deny above is attributable to splitting across candidates (Task 4).
+     * deny above is attributable to splitting across candidates.
      */
     public function testContentDeleteBothPermissionsOnSameCandidateIsNotDenied(): void
     {
@@ -340,7 +340,7 @@ final class PermissionHandlerSmokeTest extends FunctionalTestCase
     /**
      * Positive control for the deny above: querying a DIFFERENT collectionId
      * with no AccessControl row must NOT be denied, proving the deny above is
-     * attributable to the object ACL row, not a dead fixture (Task 4).
+     * attributable to the object ACL row, not a dead fixture.
      */
     public function testMediaListAllowedCollectionIdIsNotDeniedAtObjectAcl(): void
     {

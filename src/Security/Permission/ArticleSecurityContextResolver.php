@@ -53,7 +53,7 @@ final readonly class ArticleSecurityContextResolver implements ToolContextResolv
         }
 
         // Multi-group install, no group claims this template key: the context is
-        // unresolvable. Fail closed (F8) instead of falling back to the base group.
+        // unresolvable. Fail closed instead of falling back to the base group.
         return '';
     }
 

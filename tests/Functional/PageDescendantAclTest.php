@@ -35,7 +35,7 @@ final class SqliteCastFunction extends OroCastFunction
 }
 
 /**
- * Tier B case 5: PageDescendantPermissionChecker end to end against a real
+ * PageDescendantPermissionChecker end to end against a real
  * persisted page tree and the real AccessControlRepository -- not a
  * repository double, so tree traversal is genuinely exercised.
  */

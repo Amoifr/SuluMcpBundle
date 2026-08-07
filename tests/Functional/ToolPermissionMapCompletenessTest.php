@@ -8,7 +8,7 @@ use Mcp\Capability\RegistryInterface;
 use PHPUnit\Framework\Attributes\CoversNothing;
 
 /**
- * Tier 0b: boots the real kernel and diffs the compiled tool_permissions
+ * Boots the real kernel and diffs the compiled tool_permissions
  * map plus the actual MCP registry against ALLOWLIST -- dynamically, so a
  * tool added with no declaration or silently dropped is caught here.
  * sulu_ping/sulu_get_context are attribute-free, hence the allowlist.

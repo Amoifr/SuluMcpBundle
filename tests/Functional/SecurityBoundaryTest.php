@@ -11,7 +11,7 @@ use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 
 /**
- * Tier B: two targeted rows verifying our layer supplies the correct locale and
+ * Two targeted rows verifying our layer supplies the correct locale and
  * system inputs to Sulu's real security stack. Sulu's own OR-combination of
  * permissions across multiple roles is Sulu's responsibility (already covered
  * by Sulu's own test suite) and is deliberately NOT re-tested here.

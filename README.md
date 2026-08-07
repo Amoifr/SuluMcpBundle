@@ -7,7 +7,7 @@ MCP server for [Sulu CMS](https://sulu.io) 3.x — let AI assistants manage your
 [![Symfony](https://img.shields.io/badge/symfony-%5E7.3-000.svg)](composer.json)
 [![Sulu](https://img.shields.io/badge/sulu-%5E3.0-52b6ca.svg)](composer.json)
 
-A Symfony bundle that exposes Sulu's content management as [Model Context Protocol](https://modelcontextprotocol.io) tools over Streamable HTTP. AI assistants like Claude.ai, ChatGPT, and Cursor can create pages, edit articles, manage media, and publish content — using the authenticated Sulu user's existing roles and permissions. No separate auth, no privilege escalation.
+A Symfony bundle that exposes Sulu's content management as [Model Context Protocol](https://modelcontextprotocol.io) tools over Streamable HTTP. AI assistants like Claude.ai, Claude Code, and ChatGPT can create pages, edit articles, manage media, and publish content — using the authenticated Sulu user's existing roles and permissions. No separate auth, no privilege escalation.
 
 ## Requirements
 
@@ -56,8 +56,8 @@ SULU_MCP_SERVER_URL=https://your-sulu-host.example.com
 sulu_mcp:
     server_url: '%env(SULU_MCP_SERVER_URL)%'
     dangerous_tools:
-        delete: false        # sulu_*_delete (page, article, tag, category)
-        publish: false       # sulu_*_publish, sulu_*_unpublish, sulu_preview_link_revoke
+        delete: false        # sulu_content_delete, sulu_tag_delete, sulu_category_delete
+        publish: false       # sulu_content_publish, sulu_content_unpublish, sulu_preview_link_revoke
         block_remove: false  # sulu_block_remove
 ```
 

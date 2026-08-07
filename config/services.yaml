@@ -76,7 +76,7 @@ services:
                 sulu_mcp.article_context_resolver: '@sulu_mcp.article_context_resolver'
             $allowlist: ['sulu_ping', 'sulu_get_context']
 
-    # Reproduces PageDescendantSecurityListener (spec F10) for the MCP delete tool,
+    # Reproduces PageDescendantSecurityListener for the MCP delete tool,
     # which dispatches RemovePageMessage directly and bypasses that route listener.
     Sulu\Bundle\McpBundle\Security\Permission\PageDescendantPermissionChecker:
         arguments:
@@ -129,7 +129,7 @@ services:
     Sulu\Bundle\McpBundle\Capabilities\Resource\ExtensionFieldsResource:
         arguments:
             $formMetadataProvider: '@sulu_admin.form_metadata_provider'
-# OAuth well-known controller
+    # OAuth well-known controller
     Sulu\Bundle\McpBundle\Security\OAuth\WellKnownController:
         arguments:
             $serverUrl: '%sulu_mcp.server_url%'
@@ -239,7 +239,7 @@ services:
     Sulu\Bundle\PreviewBundle\Application\Manager\PreviewLinkManagerInterface:
         alias: sulu_preview.preview_link_manager
 
-    # Phase 04: Article tools
+    # Article tools
     Sulu\Bundle\McpBundle\Capabilities\Tool\Article\ArticleGroupResolver:
         arguments:
             $groupProvider: '@sulu_admin.metadata_group_provider'
@@ -248,7 +248,7 @@ services:
     Sulu\Bundle\McpBundle\Capabilities\Tool\Article\ArticleCreateTool: ~
     Sulu\Bundle\McpBundle\Capabilities\Tool\Article\ArticleUpdateTool: ~
 
-    # Phase 04: Taxonomy tools
+    # Taxonomy tools
     Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\TagCreateTool: ~
     Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\TagListTool: ~
     Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\TagDeleteTool: ~  # gated by dangerous_tools.delete
@@ -256,21 +256,21 @@ services:
     Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\CategoryListTool: ~
     Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\CategoryDeleteTool: ~  # gated by dangerous_tools.delete
 
-    # Phase 04: Media tools
+    # Media tools
     Sulu\Bundle\McpBundle\Capabilities\Tool\Media\MediaListTool: ~
     Sulu\Bundle\McpBundle\Capabilities\Tool\Media\MediaGetTool: ~
     Sulu\Bundle\McpBundle\Capabilities\Tool\Media\MediaUpdateTool: ~
 
-    # Phase 04: Snippet tools
+    # Snippet tools
     Sulu\Bundle\McpBundle\Capabilities\Tool\Snippet\SnippetGetTool: ~
     Sulu\Bundle\McpBundle\Capabilities\Tool\Snippet\SnippetListTool: ~
     Sulu\Bundle\McpBundle\Capabilities\Tool\Snippet\SnippetCreateTool: ~
     Sulu\Bundle\McpBundle\Capabilities\Tool\Snippet\SnippetUpdateTool: ~
 
-    # Phase 04: Contact tools
+    # Contact tools
     Sulu\Bundle\McpBundle\Capabilities\Tool\Contact\ContactListTool: ~
 
-    # Phase 04: Navigation tools
+    # Navigation tools
     Sulu\Bundle\McpBundle\Capabilities\Tool\Navigation\NavigationGetTool: ~
 
     # Preview link tools
