@@ -135,6 +135,17 @@ final class FilteredRegistryTest extends TestCase
         self::assertSame($toolReference, $registry->getTool('sulu_tag_create'));
     }
 
+    public function testGetToolIsNotFilteredByDisabledToolNames(): void
+    {
+        $toolReference = new ToolReference($this->tool('sulu_dangerous'), static fn () => null);
+        $this->inner->method('getTool')->with('sulu_dangerous')->willReturn($toolReference);
+
+        $checker = $this->createMock(ToolPermissionCheckerInterface::class);
+        $registry = new FilteredRegistry($this->inner, $this->visibilityResolver([], $checker), ['sulu_dangerous']);
+
+        self::assertSame($toolReference, $registry->getTool('sulu_dangerous'));
+    }
+
     public function testRegisterToolSkipsDisabledToolNames(): void
     {
         $this->inner->expects(self::never())->method('registerTool');
