@@ -21,8 +21,6 @@ use Sulu\Bundle\McpBundle\Security\Permission\PermissionRequirement;
  * - `objectResolved`: the handler only runs the coarse `discoveryContexts` check and
  *   the tool does the object-level check in-body.
  * - `discoveryContexts`: candidate contexts used for hiding and the coarse check.
- *
- * @internal
  */
 #[\Attribute(\Attribute::TARGET_METHOD)]
 final readonly class RequiresPermission

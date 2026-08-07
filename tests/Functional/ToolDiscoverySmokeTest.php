@@ -11,7 +11,7 @@ use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 
 /**
- * Tier A: discovery visibility against the real compiled map, for a real
+ * Discovery visibility against the real compiled map, for a real
  * view-only role. Requires mcp.server initialized first, else
  * getTools() assertions are meaningless-green. Also grants a real,
  * non-allowlisted permission to prove availability tracks real grants.
