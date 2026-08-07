@@ -123,5 +123,10 @@ jobs:
                   tools: 'composer:v2'
                   coverage: none
 
+            - name: Install composer dependencies
+              uses: ramsey/composer-install@v3
+              with:
+                  dependency-versions: 'highest'
+
             - name: Audit composer dependencies
               run: composer audit
