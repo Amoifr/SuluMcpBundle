@@ -1,10 +1,32 @@
 {
     "name": "sulu/mcp-bundle",
     "description": "Sulu CMS MCP Bundle - Exposes content management as MCP tools for AI assistants",
+    "keywords": [
+        "symfony",
+        "sulu",
+        "sulucms",
+        "cms",
+        "mcp",
+        "model-context-protocol",
+        "ai"
+    ],
+    "homepage": "https://sulu.io/",
     "type": "symfony-bundle",
     "license": "MIT",
+    "authors": [
+        {
+            "name": "Sulu Community",
+            "homepage": "https://github.com/sulu/SuluMcpBundle/graphs/contributors"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/sulu/SuluMcpBundle/issues",
+        "source": "https://github.com/sulu/SuluMcpBundle",
+        "docs": "https://docs.sulu.io/"
+    },
     "require": {
         "php": "^8.2",
+        "symfony/doctrine-bridge": "^7.3",
         "symfony/framework-bundle": "^7.3",
         "symfony/mcp-bundle": "^0.6",
         "sulu/sulu": "^3.0.8",
@@ -19,7 +41,6 @@
         "phpstan/phpstan-phpunit": "^2.0",
         "phpunit/phpunit": "^10.3",
         "rector/rector": "^2.1",
-        "helgesverre/toon": "^3.1",
         "symfony/ai-mate": "^0.8.0",
         "symfony/ai-symfony-mate-extension": "^0.8.0",
         "symfony/ai-monolog-mate-extension": "^0.8.0",
@@ -76,8 +97,6 @@
             "@php-cs-fix"
         ]
     },
-    "minimum-stability": "dev",
-    "prefer-stable": true,
     "config": {
         "allow-plugins": {
             "php-http/discovery": true,
@@ -86,6 +105,7 @@
         }
     },
     "conflict": {
+        "doctrine/orm": "3.6.8",
         "symfony/doctrine-bridge": "<6.4.2"
     }
 }

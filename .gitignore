@@ -5,3 +5,5 @@
 .phpunit.result.cache
 .claude
 .codex/
+.idea/
+/composer.lock
