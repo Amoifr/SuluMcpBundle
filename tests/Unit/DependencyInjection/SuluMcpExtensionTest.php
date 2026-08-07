@@ -62,6 +62,27 @@ final class SuluMcpExtensionTest extends TestCase
         );
     }
 
+    public function testLoadSetsDisabledToolNamesFromDangerousToolsConfig(): void
+    {
+        $container = new ContainerBuilder();
+
+        (new SuluMcpExtension())->load([
+            [
+                'server_url' => 'https://sulu.example.com',
+                'dangerous_tools' => [
+                    'delete' => true,
+                    'publish' => false,
+                    'block_remove' => true,
+                ],
+            ],
+        ], $container);
+
+        self::assertSame(
+            ['sulu_content_publish', 'sulu_content_unpublish', 'sulu_preview_link_revoke'],
+            $container->getParameter('sulu_mcp.disabled_tool_names'),
+        );
+    }
+
     private function extension(string $alias): Extension
     {
         return new class($alias) extends Extension {
