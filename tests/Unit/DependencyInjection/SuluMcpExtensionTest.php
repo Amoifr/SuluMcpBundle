@@ -38,7 +38,6 @@ final class SuluMcpExtensionTest extends TestCase
                 [
                     'client_transports' => ['http' => true],
                     'http' => ['path' => '/admin/custom-mcp'],
-                    'discovery' => ['scan_dirs' => ['src', 'vendor/sulu/mcp-bundle/src']],
                 ],
             ],
             $container->getExtensionConfig('mcp'),

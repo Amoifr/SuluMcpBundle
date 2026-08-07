@@ -29,9 +29,6 @@ class SuluMcpExtension extends Extension implements PrependExtensionInterface
                 'http' => [
                     'path' => $config['mcp_path'],
                 ],
-                'discovery' => [
-                    'scan_dirs' => ['src', 'vendor/sulu/mcp-bundle/src'],
-                ],
             ]);
         }
 
@@ -57,8 +54,6 @@ class SuluMcpExtension extends Extension implements PrependExtensionInterface
 
         $container->setParameter('sulu_mcp.server_url', $config['server_url']);
         $container->setParameter('sulu_mcp.mcp_path', $config['mcp_path']);
-        $container->setParameter('sulu_mcp.oauth.access_token_ttl', $config['oauth']['access_token_ttl']);
-        $container->setParameter('sulu_mcp.oauth.refresh_token_ttl', $config['oauth']['refresh_token_ttl']);
         $container->setParameter('sulu_mcp.oauth.scopes', $config['oauth']['scopes']);
         $container->setParameter('sulu_mcp.dangerous_tools.delete', $config['dangerous_tools']['delete']);
         $container->setParameter('sulu_mcp.dangerous_tools.publish', $config['dangerous_tools']['publish']);
