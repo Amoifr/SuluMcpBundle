@@ -181,6 +181,7 @@ services:
     Sulu\Bundle\McpBundle\Security\EventListener\McpExceptionListener:
         arguments:
             $mcpPath: '%sulu_mcp.mcp_path%'
+            $debug: '%kernel.debug%'
 
     # Forces request format to "json" for MCP requests so Sulu's MarkupBundle
     # response listener does not run the HtmlMarkupParser on JSON-RPC responses
