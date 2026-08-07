@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Sulu\Bundle\McpBundle\Security\EventListener;
 
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -15,7 +17,8 @@ use Symfony\Component\Security\Core\Exception\AuthenticationException;
 /**
  * Converts MCP-endpoint exceptions to JSON-RPC error responses:
  * PermissionDeniedException -> 403, InvalidArgumentException -> 400,
- * anything else -> 500. Non-MCP requests fall through to Symfony.
+ * anything else -> 500, logged and with its message exposed only in debug
+ * mode. Non-MCP requests fall through to Symfony.
  *
  * Security exceptions are deliberately not handled here: they belong to the
  * firewall's ExceptionListener (priority 1) and McpAuthenticationListener
@@ -30,6 +33,8 @@ class McpExceptionListener
 {
     public function __construct(
         private readonly string $mcpPath = '/admin/_mcp',
+        private readonly bool $debug = false,
+        private readonly LoggerInterface $logger = new NullLogger(),
     ) {
     }
 
@@ -88,6 +93,10 @@ class McpExceptionListener
         }
 
         // Generic internal error for unexpected exceptions
+        $this->logger->error('Unhandled exception on MCP endpoint', ['exception' => $exception]);
+
+        $detail = $this->debug ? $exception->getMessage() : 'An internal error occurred.';
+
         $response = new JsonResponse([
             'jsonrpc' => '2.0',
             'error' => [
@@ -95,7 +104,7 @@ class McpExceptionListener
                 'message' => 'Internal error',
                 'data' => [
                     'type' => 'internal_error',
-                    'detail' => $exception->getMessage(),
+                    'detail' => $detail,
                 ],
             ],
             'id' => null,

@@ -6,6 +6,7 @@ namespace Sulu\Bundle\McpBundle\Tests\Unit\Security\EventListener;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Sulu\Bundle\McpBundle\Security\EventListener\McpAuthenticationListener;
 use Sulu\Bundle\McpBundle\Security\EventListener\McpExceptionListener;
 use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
@@ -85,6 +86,52 @@ final class McpExceptionListenerTest extends TestCase
         $body = json_decode($response->getContent(), true);
         $this->assertSame(-32603, $body['error']['code']);
         $this->assertSame('internal_error', $body['error']['data']['type']);
+    }
+
+    public function testGenericExceptionInDebugModeIncludesExceptionMessageInDetail(): void
+    {
+        $exception = new \RuntimeException('Something went wrong');
+        $event = $this->createExceptionEvent($exception);
+        $listener = new McpExceptionListener('/_mcp', true);
+
+        $listener->onKernelException($event);
+
+        $response = $event->getResponse();
+        $this->assertNotNull($response);
+
+        $body = json_decode($response->getContent(), true);
+        $this->assertSame('Something went wrong', $body['error']['data']['detail']);
+    }
+
+    public function testGenericExceptionInProductionModeHidesExceptionMessage(): void
+    {
+        $exception = new \RuntimeException('Something went wrong');
+        $event = $this->createExceptionEvent($exception);
+        $listener = new McpExceptionListener('/_mcp', false);
+
+        $listener->onKernelException($event);
+
+        $response = $event->getResponse();
+        $this->assertNotNull($response);
+
+        $body = json_decode($response->getContent(), true);
+        $this->assertSame('An internal error occurred.', $body['error']['data']['detail']);
+        $this->assertStringNotContainsString('Something went wrong', $response->getContent());
+    }
+
+    public function testGenericExceptionIsLogged(): void
+    {
+        $exception = new \RuntimeException('Something went wrong');
+        $event = $this->createExceptionEvent($exception);
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())
+            ->method('error')
+            ->with(self::isType('string'), self::equalTo(['exception' => $exception]));
+
+        $listener = new McpExceptionListener('/_mcp', false, $logger);
+
+        $listener->onKernelException($event);
     }
 
     public function testAccessDeniedExceptionIsLeftToTheSecurityLayer(): void
