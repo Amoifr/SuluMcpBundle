@@ -106,7 +106,7 @@ composer lint    # phpstan + cs check + rector dry-run + composer validate
 composer test    # phpunit
 ```
 
-Run in that order. See [`AGENTS.md`](AGENTS.md) for contributor guidelines.
+Run in that order. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for contributor guidelines.
 
 ## License
 
