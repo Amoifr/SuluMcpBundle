@@ -11,13 +11,13 @@ declare(strict_types=1);
  * with this source code in the file LICENSE.
  */
 
-namespace Sulu\Bundle\McpBundle\Capabilities\Tool\Page;
+namespace Sulu\Bundle\McpBundle\Capabilities\Tool\Block;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
-use Sulu\Bundle\McpBundle\Capabilities\Tool\BlockDataNormalizerTrait;
-use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentTypeResolver;
+use Sulu\Bundle\McpBundle\Content\BlockDataNormalizerTrait;
+use Sulu\Bundle\McpBundle\Content\ContentTypeResolver;
 use Sulu\Bundle\McpBundle\Security\Attribute\RequiresPermission;
 use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
 use Sulu\Bundle\McpBundle\Security\Permission\ArticleSecurityContextResolver;
@@ -38,7 +38,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 /**
  * @internal
  */
-class BlockRemoveTool
+class BlockReorderTool
 {
     use HandleTrait;
     use BlockDataNormalizerTrait;
@@ -54,40 +54,54 @@ class BlockRemoveTool
     }
 
     /**
+     * @param list<int>|null         $newOrder
+     * @param array<int, mixed>|null $blockIds
+     *
      * @return array<string, mixed>
      */
     #[McpTool(
-        name: 'sulu_block_remove',
-        description: 'Remove a block from a page, article or snippet by its 0-based index OR its _id (blockId). Pass "type" ("page", "article" or "snippet") and the entity "uuid". Provide EITHER "blockIndex" (0-based) OR "blockId" (the block _id value). Prefer blockId — it is robust because ids do not shift as blocks are added/removed. Call sulu_block_list (or sulu_page_get / sulu_article_get / sulu_snippet_get) first to see the current blocks array and identify which block to remove. The blockProperty must match the template property name that holds blocks. Remaining blocks shift down to fill the gap. The entity must be re-published after removing blocks.',
+        name: 'sulu_block_reorder',
+        description: 'Reorder blocks on a page, article, or snippet. Pass "type" ("page", "article" or "snippet") and the entity "uuid", plus EITHER "newOrder" (every current 0-based index exactly once, e.g. [2,0,1]) OR "blockIds" (the block _id values in the desired order, e.g. ["c6c22b89","76541424"]). Prefer blockIds — it is robust because ids do not shift as blocks are added/removed. Get the current order/ids from sulu_block_list (or sulu_page_get / sulu_article_get / sulu_snippet_get). The entity must be re-published after reordering.',
     )]
     #[RequiresPermission(
         requirements: [new PermissionRequirement('#context#', PermissionTypes::EDIT)],
         objectResolved: true,
         discoveryContexts: ['sulu.snippet.snippets', ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
     )]
-    public function removeBlock(
+    public function reorderBlocks(
         string $type,
         string $uuid,
         string $locale,
         string $blockProperty,
-        #[Schema(type: 'integer', description: '0-based index of the block to remove, e.g. 2. Provide this OR blockId.')]
-        ?int $blockIndex = null,
-        #[Schema(type: 'string', description: 'The block\'s _id value, e.g. "c6c22b89". Provide this OR blockIndex. Prefer blockId — ids do not shift as blocks are added/removed.')]
-        ?string $blockId = null,
+        #[Schema(type: 'array', description: 'New block order as 0-based indices, e.g. [2, 0, 1]. Provide this OR blockIds.', items: ['type' => 'integer'])]
+        ?array $newOrder = null,
+        #[Schema(type: 'array', description: 'Block _id values in the desired order, e.g. ["c6c22b89", "76541424"]. Provide this OR newOrder.', items: ['type' => 'string'])]
+        ?array $blockIds = null,
     ): array {
         try {
             if (!$this->contentTypeResolver->supports($type)) {
                 return ['error' => \sprintf('Unsupported content type "%s". Use "page", "article" or "snippet".', $type)];
             }
 
-            if (null === $blockIndex && null === $blockId) {
+            if (null === $newOrder && null === $blockIds) {
                 return [
-                    'error' => 'Provide either blockIndex (0-based) or blockId (the block _id value).',
-                    'hint' => 'e.g. blockIndex=2 or blockId="c6c22b89". Use sulu_block_list to see indices and _id values.',
+                    'error' => 'Provide either newOrder (0-based indices) or blockIds (ordered list of block _id values).',
+                    'hint' => 'e.g. newOrder=[2,0,1] or blockIds=["<id-c>","<id-a>","<id-b>"].',
                 ];
             }
-            if (null !== $blockIndex && null !== $blockId) {
-                return ['error' => 'Provide either blockIndex or blockId, not both.'];
+            if (null !== $newOrder && null !== $blockIds) {
+                return ['error' => 'Provide either newOrder or blockIds, not both.'];
+            }
+
+            $normalizedNewOrder = null;
+            if (null !== $newOrder) {
+                $normalizedNewOrder = $this->normalizeBlockOrder($newOrder);
+                if (null === $normalizedNewOrder) {
+                    return [
+                        'error' => 'newOrder must contain only integer indices.',
+                        'hint' => 'Pass every current block index exactly once, e.g. [2, 0, 1].',
+                    ];
+                }
             }
 
             $entity = $this->contentTypeResolver->loadDraft($type, $uuid, $locale);
@@ -118,36 +132,47 @@ class BlockRemoveTool
             /** @var list<array<string, mixed>> $blocks */
             $blocks = $currentData[$blockProperty] ?? [];
 
-            if (null !== $blockId) {
-                $resolvedIndex = $this->resolveBlockIndexById($blockId, $blocks);
-                if (null === $resolvedIndex) {
+            if (null !== $normalizedNewOrder) {
+                $order = $normalizedNewOrder;
+            } else {
+                $order = $this->resolveBlockIdOrder($blockIds, $blocks);
+                if (\is_string($order)) {
                     return [
-                        'error' => \sprintf('Block _id "%s" not found in %s %s.', $blockId, $type, $uuid),
+                        'error' => \sprintf('Block _id "%s" not found in %s %s.', $order, $type, $uuid),
                         'hint' => 'Use sulu_block_list to see the current block _id values.',
                     ];
                 }
-                $blockIndex = $resolvedIndex;
             }
 
-            if ($blockIndex < 0 || $blockIndex >= \count($blocks)) {
+            if (\count($order) !== \count($blocks)) {
                 return [
-                    'error' => \sprintf(
-                        'Block index %d out of range. %s has %d block(s) (valid indices: 0-%d).',
-                        $blockIndex,
-                        \ucfirst($type),
-                        \count($blocks),
-                        \max(0, \count($blocks) - 1),
-                    ),
+                    'error' => \sprintf('Order length (%d) does not match block count (%d).', \count($order), \count($blocks)),
                 ];
             }
 
-            \array_splice($blocks, $blockIndex, 1);
+            $sorted = $order;
+            \sort($sorted);
+            if ($sorted !== \range(0, \count($blocks) - 1)) {
+                // Echo back what the caller passed (block ids or indices), not the resolved indices.
+                $supplied = $normalizedNewOrder ?? $blockIds;
+
+                return [
+                    'error' => 'The order must reference each block from 0 to '
+                        .(\count($blocks) - 1)
+                        .' exactly once. Got: ['.\implode(', ', \array_map(static fn (mixed $v): string => (string) $v, $supplied)).']',
+                ];
+            }
+
+            $reordered = \array_map(
+                static fn (int $i): array => $blocks[$i],
+                $order,
+            );
 
             $data = [
                 'locale' => $locale,
                 'template' => $currentData['template'] ?? null,
                 'title' => $currentData['title'] ?? null,
-                $blockProperty => $blocks,
+                $blockProperty => $reordered,
             ];
 
             // Ensure all array keys are strings (Sulu's MetadataResolver requires string keys)
@@ -160,33 +185,45 @@ class BlockRemoveTool
             return [
                 'success' => true,
                 'uuid' => $uuid,
-                'removedIndex' => $blockIndex,
-                'blockCount' => \count($blocks),
+                'blockCount' => \count($reordered),
+                'order' => $order,
             ];
         } catch (PermissionDeniedException $e) {
             throw new ToolCallException($e->getMessage(), 0, $e);
         } catch (\Throwable $e) {
             return [
-                'error' => \sprintf('Failed to remove block from %s %s: %s', $type, $uuid, $e->getMessage()),
-                'hint' => 'Use sulu_block_list to see current blocks and their indices and _id values before removing.',
+                'error' => \sprintf('Failed to reorder blocks on %s %s: %s', $type, $uuid, $e->getMessage()),
+                'hint' => 'Use sulu_block_list to see current blocks. Provide newOrder or blockIds covering every block exactly once.',
             ];
         }
     }
 
     /**
-     * Resolve a block _id to its current 0-based index.
-     * Returns null when the id cannot be found.
+     * Resolve an ordered list of block _id values to their current 0-based indices.
+     * Returns the offending id as a string when one cannot be found.
      *
+     * @param array<int, mixed>          $blockIds
      * @param list<array<string, mixed>> $blocks
+     *
+     * @return list<int>|string
      */
-    private function resolveBlockIndexById(string $blockId, array $blocks): ?int
+    private function resolveBlockIdOrder(array $blockIds, array $blocks): array|string
     {
+        $idToIndex = [];
         foreach ($blocks as $index => $block) {
-            if (isset($block['_id']) && $block['_id'] === $blockId) {
-                return $index;
+            if (isset($block['_id']) && \is_string($block['_id'])) {
+                $idToIndex[$block['_id']] = $index;
             }
         }
 
-        return null;
+        $order = [];
+        foreach ($blockIds as $id) {
+            if (!\is_string($id) || !isset($idToIndex[$id])) {
+                return \is_string($id) ? $id : \get_debug_type($id);
+            }
+            $order[] = $idToIndex[$id];
+        }
+
+        return $order;
     }
 }

@@ -16,7 +16,7 @@ namespace Sulu\Bundle\McpBundle\Tests\Unit\Security\EventListener;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
-use Sulu\Bundle\McpBundle\Security\EventListener\McpAuthenticationListener;
+use Sulu\Bundle\McpBundle\Security\EntryPoint\McpAuthenticationEntryPoint;
 use Sulu\Bundle\McpBundle\Security\EventListener\McpExceptionListener;
 use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
 use Sulu\Component\Security\Authorization\PermissionTypes;
@@ -27,16 +27,16 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 
 #[CoversClass(McpExceptionListener::class)]
-#[CoversClass(McpAuthenticationListener::class)]
+#[CoversClass(McpAuthenticationEntryPoint::class)]
 final class McpExceptionListenerTest extends TestCase
 {
     private McpExceptionListener $listener;
-    private McpAuthenticationListener $authListener;
+    private McpAuthenticationEntryPoint $authListener;
 
     protected function setUp(): void
     {
         $this->listener = new McpExceptionListener('/_mcp');
-        $this->authListener = new McpAuthenticationListener('https://sulu.example.com', '/_mcp');
+        $this->authListener = new McpAuthenticationEntryPoint('https://sulu.example.com', '/_mcp');
     }
 
     private function createExceptionEvent(\Throwable $exception, string $pathInfo = '/_mcp'): ExceptionEvent

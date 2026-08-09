@@ -11,7 +11,7 @@ declare(strict_types=1);
  * with this source code in the file LICENSE.
  */
 
-namespace Sulu\Bundle\McpBundle\Tests\Unit\Capability;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities;
 
 use Mcp\Capability\Registry\ReferenceHandler;
 use Mcp\Capability\RegistryInterface;
@@ -24,7 +24,7 @@ use Mcp\Server\Session\SessionInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Sulu\Bundle\McpBundle\Capability\PermissionAwareCallToolHandler;
+use Sulu\Bundle\McpBundle\Capabilities\PermissionAwareCallToolHandler;
 use Sulu\Bundle\McpBundle\Security\Permission\ArticleSecurityContextResolver;
 use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionChecker;
 use Sulu\Bundle\McpBundle\Security\Permission\ToolPermissionCheckerInterface;

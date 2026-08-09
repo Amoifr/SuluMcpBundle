@@ -30,7 +30,7 @@ use Symfony\Component\Security\Core\Exception\AuthenticationException;
  * mode. Non-MCP requests fall through to Symfony.
  *
  * Security exceptions are deliberately not handled here: they belong to the
- * firewall's ExceptionListener (priority 1) and McpAuthenticationListener
+ * firewall's ExceptionListener (priority 1) and McpAuthenticationEntryPoint
  * (priority 10), which turn them into the RFC 9728 401 that MCP clients need
  * for OAuth discovery. This listener runs at priority 5, so handling them
  * would replace that 401 with a 500.
