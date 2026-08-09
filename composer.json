@@ -105,7 +105,6 @@
         }
     },
     "conflict": {
-        "doctrine/orm": "3.6.8",
         "symfony/doctrine-bridge": "<6.4.2"
     }
 }
