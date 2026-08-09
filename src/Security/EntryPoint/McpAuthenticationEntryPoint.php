@@ -11,7 +11,7 @@ declare(strict_types=1);
  * with this source code in the file LICENSE.
  */
 
-namespace Sulu\Bundle\McpBundle\Security\EventListener;
+namespace Sulu\Bundle\McpBundle\Security\EntryPoint;
 
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -27,10 +27,13 @@ use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface
  * clients to the PRM endpoint (RFC 9728) for OAuth discovery. Priority 10 so
  * it runs before McpExceptionListener (5).
  *
+ * Lives under Security/EntryPoint because it is both the firewall's
+ * authentication entry point and a kernel.exception listener.
+ *
  * @internal
  */
 #[AsEventListener(event: KernelEvents::EXCEPTION, priority: 10)]
-class McpAuthenticationListener implements AuthenticationEntryPointInterface
+class McpAuthenticationEntryPoint implements AuthenticationEntryPointInterface
 {
     public function __construct(
         private readonly string $serverUrl,

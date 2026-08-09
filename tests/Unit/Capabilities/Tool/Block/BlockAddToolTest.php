@@ -11,7 +11,7 @@ declare(strict_types=1);
  * with this source code in the file LICENSE.
  */
 
-namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Tool\Page;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Tool\Block;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
@@ -30,9 +30,9 @@ use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\TypedFormMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\GroupProviderInterface;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataInterface;
 use Sulu\Bundle\AdminBundle\Metadata\MetadataProviderInterface;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Block\BlockAddTool;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Block\BlockDataValidator;
-use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentTypeResolver;
-use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockAddTool;
+use Sulu\Bundle\McpBundle\Content\ContentTypeResolver;
 use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
 use Sulu\Bundle\McpBundle\Security\Permission\ArticleSecurityContextResolver;
 use Sulu\Bundle\McpBundle\Security\Permission\ContentSecurityContextResolver;

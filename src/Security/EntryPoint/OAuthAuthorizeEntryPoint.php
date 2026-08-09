@@ -11,7 +11,7 @@ declare(strict_types=1);
  * with this source code in the file LICENSE.
  */
 
-namespace Sulu\Bundle\McpBundle\Security;
+namespace Sulu\Bundle\McpBundle\Security\EntryPoint;
 
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -26,7 +26,7 @@ use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface
  *
  * @internal
  */
-class McpAuthenticationEntryPoint implements AuthenticationEntryPointInterface
+class OAuthAuthorizeEntryPoint implements AuthenticationEntryPointInterface
 {
     public function __construct(
         private readonly AuthenticationEntryPointInterface $inner,

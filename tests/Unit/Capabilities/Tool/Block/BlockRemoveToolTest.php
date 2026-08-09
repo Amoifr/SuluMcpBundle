@@ -11,7 +11,7 @@ declare(strict_types=1);
  * with this source code in the file LICENSE.
  */
 
-namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Tool\Page;
+namespace Sulu\Bundle\McpBundle\Tests\Unit\Capabilities\Tool\Block;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
@@ -24,8 +24,8 @@ use Sulu\Article\Application\Message\ModifyArticleMessage;
 use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Bundle\AdminBundle\Metadata\GroupProviderInterface;
-use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentTypeResolver;
-use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockReorderTool;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Block\BlockRemoveTool;
+use Sulu\Bundle\McpBundle\Content\ContentTypeResolver;
 use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
 use Sulu\Bundle\McpBundle\Security\Permission\ArticleSecurityContextResolver;
 use Sulu\Bundle\McpBundle\Security\Permission\ContentSecurityContextResolver;
@@ -43,9 +43,9 @@ use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[CoversClass(BlockReorderTool::class)]
+#[CoversClass(BlockRemoveTool::class)]
 #[CoversClass(ContentTypeResolver::class)]
-final class BlockReorderToolTest extends TestCase
+final class BlockRemoveToolTest extends TestCase
 {
     private MessageBusInterface&MockObject $messageBus;
     private PageRepositoryInterface&MockObject $pageRepository;
@@ -54,7 +54,7 @@ final class BlockReorderToolTest extends TestCase
     private ContentManagerInterface&MockObject $contentManager;
     private ToolPermissionCheckerInterface&MockObject $permissionChecker;
     private ContentSecurityContextResolver $contentSecurityContextResolver;
-    private BlockReorderTool $tool;
+    private BlockRemoveTool $tool;
 
     protected function setUp(): void
     {
@@ -67,7 +67,7 @@ final class BlockReorderToolTest extends TestCase
         $groupProvider = $this->createMock(GroupProviderInterface::class);
         $groupProvider->method('getGroups')->willReturn([]);
         $this->contentSecurityContextResolver = new ContentSecurityContextResolver(new ArticleSecurityContextResolver($groupProvider));
-        $this->tool = new BlockReorderTool(
+        $this->tool = new BlockRemoveTool(
             $this->messageBus,
             new ContentTypeResolver($this->pageRepository, $this->articleRepository, $this->snippetRepository),
             $this->contentManager,
@@ -90,7 +90,7 @@ final class BlockReorderToolTest extends TestCase
      * @param class-string $expectedMessageClass
      */
     #[DataProvider('contentTypeProvider')]
-    public function testReorderBlocksDispatchesCorrectMessagePerType(string $type, string $expectedMessageClass): void
+    public function testRemoveBlockDispatchesCorrectMessagePerType(string $type, string $expectedMessageClass): void
     {
         $this->setupEntityWithBlocks($type, [
             ['type' => 'text', 'title' => 'First'],
@@ -106,188 +106,172 @@ final class BlockReorderToolTest extends TestCase
                 return $envelope->with(new HandledStamp(null, 'handler'));
             });
 
-        $result = $this->tool->reorderBlocks($type, 'test-uuid', 'en', 'blocks', [2, 0, 1]);
+        $result = $this->tool->removeBlock($type, 'test-uuid', 'en', 'blocks', blockIndex: 1);
 
         $this->assertTrue($result['success']);
-        $this->assertSame(3, $result['blockCount']);
-        $this->assertSame([2, 0, 1], $result['order']);
+        $this->assertSame(2, $result['blockCount']);
+        $this->assertSame(1, $result['removedIndex']);
         $this->assertSame('test-uuid', $result['uuid']);
     }
 
-    public function testReorderBlocksReturnsErrorForUnsupportedType(): void
+    public function testRemoveBlockReturnsErrorForUnsupportedType(): void
     {
         $this->messageBus->expects($this->never())->method('dispatch');
 
-        $result = $this->tool->reorderBlocks('media', 'test-uuid', 'en', 'blocks', [0]);
+        $result = $this->tool->removeBlock('media', 'test-uuid', 'en', 'blocks', blockIndex: 0);
 
         $this->assertArrayHasKey('error', $result);
         $this->assertStringContainsString('Unsupported content type', $result['error']);
     }
 
-    public function testReorderBlocksReturnsErrorWhenEntityNotFound(): void
+    public function testRemoveBlockReturnsErrorWhenEntityNotFound(): void
     {
         $this->pageRepository->method('getOneBy')->willThrowException(new \RuntimeException('not found'));
         $this->messageBus->expects($this->never())->method('dispatch');
 
-        $result = $this->tool->reorderBlocks('page', 'missing-uuid', 'en', 'blocks', [0]);
+        $result = $this->tool->removeBlock('page', 'missing-uuid', 'en', 'blocks', blockIndex: 0);
 
         $this->assertArrayHasKey('error', $result);
     }
 
-    public function testReorderBlocksReturnsErrorForWrongLength(): void
-    {
-        $this->setupEntityWithBlocks('page', [
-            ['type' => 'text', 'title' => 'First'],
-            ['type' => 'text', 'title' => 'Second'],
-            ['type' => 'text', 'title' => 'Third'],
-        ]);
-
-        $this->messageBus->expects($this->never())->method('dispatch');
-
-        $result = $this->tool->reorderBlocks('page', 'test-uuid', 'en', 'blocks', [0, 1]);
-
-        $this->assertArrayHasKey('error', $result);
-        $this->assertStringContainsString('does not match block count', $result['error']);
-    }
-
-    public function testReorderBlocksReturnsErrorForDuplicateIndices(): void
-    {
-        $this->setupEntityWithBlocks('page', [
-            ['type' => 'text', 'title' => 'First'],
-            ['type' => 'text', 'title' => 'Second'],
-            ['type' => 'text', 'title' => 'Third'],
-        ]);
-
-        $this->messageBus->expects($this->never())->method('dispatch');
-
-        $result = $this->tool->reorderBlocks('page', 'test-uuid', 'en', 'blocks', [0, 0, 1]);
-
-        $this->assertArrayHasKey('error', $result);
-        $this->assertStringContainsString('exactly once', $result['error']);
-    }
-
-    public function testReorderBlocksReturnsErrorForOutOfRangeIndex(): void
-    {
-        $this->setupEntityWithBlocks('page', [
-            ['type' => 'text', 'title' => 'First'],
-            ['type' => 'text', 'title' => 'Second'],
-            ['type' => 'text', 'title' => 'Third'],
-        ]);
-
-        $this->messageBus->expects($this->never())->method('dispatch');
-
-        $result = $this->tool->reorderBlocks('page', 'test-uuid', 'en', 'blocks', [0, 1, 5]);
-
-        $this->assertArrayHasKey('error', $result);
-        $this->assertStringContainsString('exactly once', $result['error']);
-    }
-
-    public function testReorderBlocksAcceptsNumericStringIndices(): void
+    public function testRemoveBlockReturnsErrorForOutOfRangeIndex(): void
     {
         $this->setupEntityWithBlocks('page', [
             ['type' => 'text', 'title' => 'First'],
             ['type' => 'text', 'title' => 'Second'],
         ]);
 
-        $this->messageBus->expects($this->once())
-            ->method('dispatch')
-            ->willReturnCallback(fn (Envelope $envelope) => $envelope->with(new HandledStamp(null, 'handler')));
-
-        $result = $this->tool->reorderBlocks('page', 'test-uuid', 'en', 'blocks', ['1', '0']);
-
-        $this->assertTrue($result['success']);
-        $this->assertSame([1, 0], $result['order']);
-    }
-
-    public function testReorderBlocksRejectsNonIntegerIndices(): void
-    {
         $this->messageBus->expects($this->never())->method('dispatch');
 
-        $result = $this->tool->reorderBlocks('page', 'test-uuid', 'en', 'blocks', ['first']);
+        $result = $this->tool->removeBlock('page', 'test-uuid', 'en', 'blocks', blockIndex: 5);
 
         $this->assertArrayHasKey('error', $result);
-        $this->assertStringContainsString('integer indices', $result['error']);
+        $this->assertStringContainsString('out of range', $result['error']);
     }
 
-    public function testReorderBlocksMethodHasMcpToolAttribute(): void
+    public function testRemoveBlockReturnsErrorForNegativeIndex(): void
     {
-        $reflection = new \ReflectionMethod(BlockReorderTool::class, 'reorderBlocks');
+        $this->setupEntityWithBlocks('page', [
+            ['type' => 'text', 'title' => 'First'],
+        ]);
+
+        $this->messageBus->expects($this->never())->method('dispatch');
+
+        $result = $this->tool->removeBlock('page', 'test-uuid', 'en', 'blocks', blockIndex: -1);
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('out of range', $result['error']);
+    }
+
+    public function testRemoveBlockMethodHasMcpToolAttribute(): void
+    {
+        $reflection = new \ReflectionMethod(BlockRemoveTool::class, 'removeBlock');
         $attributes = $reflection->getAttributes(McpTool::class);
 
-        $this->assertCount(1, $attributes, 'reorderBlocks() must have exactly one #[McpTool] attribute');
+        $this->assertCount(1, $attributes, 'removeBlock() must have exactly one #[McpTool] attribute');
 
         $instance = $attributes[0]->newInstance();
-        $this->assertSame('sulu_block_reorder', $instance->name);
+        $this->assertSame('sulu_block_remove', $instance->name);
     }
 
-    public function testNewOrderParameterIsAdvertisedAsIntegerArraySchema(): void
-    {
-        $reflection = new \ReflectionMethod(BlockReorderTool::class, 'reorderBlocks');
-        $parameter = $reflection->getParameters()[4];
-        $attributes = $parameter->getAttributes(Schema::class);
-
-        $this->assertCount(1, $attributes);
-
-        $schema = $attributes[0]->newInstance();
-        $this->assertSame('array', $schema->type);
-        $this->assertSame(['type' => 'integer'], $schema->items);
-    }
-
-    public function testReorderByBlockIdsReordersByIdentity(): void
+    public function testRemoveByBlockIdRemovesCorrectBlock(): void
     {
         $this->setupEntityWithBlocks('page', [
-            ['_id' => 'a', 'type' => 'text', 'title' => 'First'],
-            ['_id' => 'b', 'type' => 'image', 'src' => '/img.jpg'],
-            ['_id' => 'c', 'type' => 'text', 'title' => 'Third'],
+            ['_id' => 'aaa', 'type' => 'text', 'title' => 'First'],
+            ['_id' => 'bbb', 'type' => 'image', 'src' => '/img.jpg'],
+            ['_id' => 'ccc', 'type' => 'text', 'title' => 'Third'],
         ]);
 
+        $capturedData = null;
         $this->messageBus->expects($this->once())
             ->method('dispatch')
-            ->willReturnCallback(fn (Envelope $envelope) => $envelope->with(new HandledStamp(null, 'handler')));
+            ->willReturnCallback(function (Envelope $envelope) use (&$capturedData) {
+                $this->assertInstanceOf(ModifyPageMessage::class, $envelope->getMessage());
+                $capturedData = $envelope->getMessage()->getData();
 
-        $result = $this->tool->reorderBlocks('page', 'test-uuid', 'en', 'blocks', null, ['c', 'a', 'b']);
+                return $envelope->with(new HandledStamp(null, 'handler'));
+            });
+
+        $result = $this->tool->removeBlock('page', 'test-uuid', 'en', 'blocks', blockId: 'bbb');
 
         $this->assertTrue($result['success']);
-        $this->assertSame([2, 0, 1], $result['order']);
+        $this->assertSame(1, $result['removedIndex']);
+        $this->assertSame(2, $result['blockCount']);
+        $this->assertSame('test-uuid', $result['uuid']);
+
+        $this->assertIsArray($capturedData);
+        $remainingBlocks = $capturedData['blocks'];
+        $this->assertCount(2, $remainingBlocks);
+        $remainingIds = \array_column($remainingBlocks, '_id');
+        $this->assertContains('aaa', $remainingIds);
+        $this->assertContains('ccc', $remainingIds);
+        $this->assertNotContains('bbb', $remainingIds);
     }
 
-    public function testReorderByBlockIdsRejectsUnknownId(): void
+    public function testRemoveByBlockIdReturnsErrorForUnknownId(): void
     {
         $this->setupEntityWithBlocks('page', [
-            ['_id' => 'a', 'type' => 'text', 'title' => 'First'],
-            ['_id' => 'b', 'type' => 'text', 'title' => 'Second'],
+            ['_id' => 'aaa', 'type' => 'text', 'title' => 'First'],
+            ['_id' => 'bbb', 'type' => 'text', 'title' => 'Second'],
         ]);
 
         $this->messageBus->expects($this->never())->method('dispatch');
 
-        $result = $this->tool->reorderBlocks('page', 'test-uuid', 'en', 'blocks', null, ['a', 'missing']);
+        $result = $this->tool->removeBlock('page', 'test-uuid', 'en', 'blocks', blockId: 'missing');
 
         $this->assertArrayHasKey('error', $result);
+        $this->assertArrayHasKey('hint', $result);
         $this->assertStringContainsString('missing', $result['error']);
+        $this->assertStringContainsString('sulu_block_list', $result['hint']);
     }
 
-    public function testReorderRequiresNewOrderOrBlockIds(): void
+    public function testRemoveRequiresBlockIndexOrBlockId(): void
     {
         $this->messageBus->expects($this->never())->method('dispatch');
 
-        $result = $this->tool->reorderBlocks('page', 'test-uuid', 'en', 'blocks');
+        $result = $this->tool->removeBlock('page', 'test-uuid', 'en', 'blocks');
 
         $this->assertArrayHasKey('error', $result);
-        $this->assertStringContainsString('newOrder', $result['error']);
-        $this->assertStringContainsString('blockIds', $result['error']);
+        $this->assertArrayHasKey('hint', $result);
+        $this->assertStringContainsString('blockIndex', $result['error']);
+        $this->assertStringContainsString('blockId', $result['error']);
     }
 
-    public function testReorderRejectsBothNewOrderAndBlockIds(): void
+    public function testRemoveRejectsBothBlockIndexAndBlockId(): void
     {
         $this->messageBus->expects($this->never())->method('dispatch');
 
-        $result = $this->tool->reorderBlocks('page', 'test-uuid', 'en', 'blocks', [0, 1], ['a', 'b']);
+        $result = $this->tool->removeBlock('page', 'test-uuid', 'en', 'blocks', blockIndex: 0, blockId: 'aaa');
 
         $this->assertArrayHasKey('error', $result);
         $this->assertStringContainsString('not both', $result['error']);
     }
 
-    public function testReorderBlocksThrowsToolCallExceptionWhenPermissionDenied(): void
+    public function testBlockIndexParameterHasSchemaAttribute(): void
+    {
+        $reflection = new \ReflectionMethod(BlockRemoveTool::class, 'removeBlock');
+        $parameter = $reflection->getParameters()[4];
+        $this->assertSame('blockIndex', $parameter->getName());
+        $attributes = $parameter->getAttributes(Schema::class);
+
+        $this->assertCount(1, $attributes);
+        $schema = $attributes[0]->newInstance();
+        $this->assertSame('integer', $schema->type);
+    }
+
+    public function testBlockIdParameterHasSchemaAttribute(): void
+    {
+        $reflection = new \ReflectionMethod(BlockRemoveTool::class, 'removeBlock');
+        $parameter = $reflection->getParameters()[5];
+        $this->assertSame('blockId', $parameter->getName());
+        $attributes = $parameter->getAttributes(Schema::class);
+
+        $this->assertCount(1, $attributes);
+        $schema = $attributes[0]->newInstance();
+        $this->assertSame('string', $schema->type);
+    }
+
+    public function testRemoveBlockThrowsToolCallExceptionWhenPermissionDenied(): void
     {
         $this->setupEntityWithBlocks('page', [
             ['type' => 'text', 'title' => 'First'],
@@ -301,7 +285,7 @@ final class BlockReorderToolTest extends TestCase
 
         $this->expectException(ToolCallException::class);
 
-        $this->tool->reorderBlocks('page', 'test-uuid', 'en', 'blocks', [0]);
+        $this->tool->removeBlock('page', 'test-uuid', 'en', 'blocks', blockIndex: 0);
     }
 
     /**

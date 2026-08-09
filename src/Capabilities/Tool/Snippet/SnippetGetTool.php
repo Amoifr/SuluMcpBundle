@@ -14,7 +14,7 @@ declare(strict_types=1);
 namespace Sulu\Bundle\McpBundle\Capabilities\Tool\Snippet;
 
 use Mcp\Capability\Attribute\McpTool;
-use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentNormalizerTrait;
+use Sulu\Bundle\McpBundle\Content\ContentNormalizerTrait;
 use Sulu\Bundle\McpBundle\Security\Attribute\RequiresPermission;
 use Sulu\Bundle\McpBundle\Security\Permission\PermissionRequirement;
 use Sulu\Component\Security\Authorization\PermissionTypes;

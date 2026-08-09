@@ -50,7 +50,7 @@ services:
     # Decorates mcp.registry to drop tools disabled via `dangerous_tools.*`.
     # Attribute discovery would otherwise re-add them after DangerousToolsPass
     # removed the services, and calls would fall through to `new $class()`.
-    Sulu\Bundle\McpBundle\Capability\FilteredRegistry:
+    Sulu\Bundle\McpBundle\Capabilities\FilteredRegistry:
         decorates: mcp.registry
         arguments:
             $inner: '@.inner'
@@ -98,7 +98,7 @@ services:
 
     # Central fail-closed permission gate: preflight-checks the compile-time
     # permission map before delegating to the SDK's built-in CallToolHandler.
-    Sulu\Bundle\McpBundle\Capability\PermissionAwareCallToolHandler:
+    Sulu\Bundle\McpBundle\Capabilities\PermissionAwareCallToolHandler:
         arguments:
             $registry: '@mcp.registry'
             $referenceHandler: '@sulu_mcp.reference_handler'
@@ -118,7 +118,7 @@ services:
             $engine: '@cmsig_seal.engine.default'
 
     # MCP Resources: discovery layer for AI clients
-    Sulu\Bundle\McpBundle\Capabilities\Resource\FieldValueExampleProvider: ~
+    Sulu\Bundle\McpBundle\Metadata\FieldValueExampleProvider: ~
     Sulu\Bundle\McpBundle\Capabilities\Resource\TemplatesResource:
         arguments:
             $formMetadataProvider: '@sulu_admin.form_metadata_provider'
@@ -126,7 +126,7 @@ services:
         arguments:
             $formMetadataProvider: '@sulu_admin.form_metadata_provider'
     Sulu\Bundle\McpBundle\Capabilities\Resource\WebspacesResource: ~
-    Sulu\Bundle\McpBundle\Capabilities\Resource\ExtensionFieldsResource:
+    Sulu\Bundle\McpBundle\Metadata\ExtensionFieldsResource:
         arguments:
             $formMetadataProvider: '@sulu_admin.form_metadata_provider'
     # OAuth well-known controller
@@ -158,7 +158,7 @@ services:
     Sulu\Bundle\McpBundle\Security\EventListener\OAuthAuthorizationListener: ~
 
     # Redirect unauthenticated OAuth-authorize hits to the Sulu admin login
-    Sulu\Bundle\McpBundle\Security\McpAuthenticationEntryPoint:
+    Sulu\Bundle\McpBundle\Security\EntryPoint\OAuthAuthorizeEntryPoint:
         decorates: sulu_security.authentication_entry_point
         arguments:
             $inner: '@.inner'
@@ -167,7 +167,7 @@ services:
     Sulu\Bundle\McpBundle\Security\EventListener\McpLoginSuccessListener: ~
 
     # MCP event listeners
-    Sulu\Bundle\McpBundle\Security\EventListener\McpAuthenticationListener:
+    Sulu\Bundle\McpBundle\Security\EntryPoint\McpAuthenticationEntryPoint:
         arguments:
             $serverUrl: '%sulu_mcp.server_url%'
             $mcpPath: '%sulu_mcp.mcp_path%'
@@ -175,7 +175,7 @@ services:
     # Stable id for the firewall entry_point, so security.yaml never references
     # an internal class name.
     sulu_mcp.authentication_entry_point:
-        alias: Sulu\Bundle\McpBundle\Security\EventListener\McpAuthenticationListener
+        alias: Sulu\Bundle\McpBundle\Security\EntryPoint\McpAuthenticationEntryPoint
         public: true
 
     Sulu\Bundle\McpBundle\Security\EventListener\McpExceptionListener:
@@ -220,18 +220,18 @@ services:
     Sulu\Bundle\McpBundle\Capabilities\Tool\Content\ContentUnpublishTool: ~  # gated by dangerous_tools.publish
 
     # Block management tools
-    Sulu\Bundle\McpBundle\Capabilities\Tool\ContentTypeResolver: ~
-    Sulu\Bundle\McpBundle\Capabilities\Tool\ContentMetadataMapper:
+    Sulu\Bundle\McpBundle\Content\ContentTypeResolver: ~
+    Sulu\Bundle\McpBundle\Content\ContentMetadataMapper:
         arguments:
             $formMetadataProvider: '@sulu_admin.form_metadata_provider'
     Sulu\Bundle\McpBundle\Capabilities\Tool\Block\BlockDataValidator:
         arguments:
             $formMetadataProvider: '@sulu_admin.form_metadata_provider'
-    Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockListTool: ~
-    Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockAddTool: ~
-    Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockUpdateTool: ~
-    Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockRemoveTool: ~  # gated by dangerous_tools.block_remove
-    Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockReorderTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Block\BlockListTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Block\BlockAddTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Block\BlockUpdateTool: ~
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Block\BlockRemoveTool: ~  # gated by dangerous_tools.block_remove
+    Sulu\Bundle\McpBundle\Capabilities\Tool\Block\BlockReorderTool: ~
 
     Sulu\Page\Domain\Repository\NavigationRepositoryInterface:
         alias: sulu_page.navigation_repository

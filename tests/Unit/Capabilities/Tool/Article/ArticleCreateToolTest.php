@@ -33,7 +33,7 @@ use Sulu\Bundle\McpBundle\AdminLink\Provider\ArticleAdminLinkProvider;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Article\ArticleCreateTool;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Article\ArticleGroupResolver;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Block\BlockDataValidator;
-use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentMetadataMapper;
+use Sulu\Bundle\McpBundle\Content\ContentMetadataMapper;
 use Sulu\Bundle\McpBundle\Tests\Support\StubViewRegistry;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;

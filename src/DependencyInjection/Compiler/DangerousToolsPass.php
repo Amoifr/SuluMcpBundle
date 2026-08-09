@@ -13,10 +13,10 @@ declare(strict_types=1);
 
 namespace Sulu\Bundle\McpBundle\DependencyInjection\Compiler;
 
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Block\BlockRemoveTool;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Content\ContentDeleteTool;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Content\ContentPublishTool;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Content\ContentUnpublishTool;
-use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockRemoveTool;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Preview\PreviewLinkRevokeTool;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\CategoryDeleteTool;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\TagDeleteTool;

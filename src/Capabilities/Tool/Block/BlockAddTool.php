@@ -11,16 +11,15 @@ declare(strict_types=1);
  * with this source code in the file LICENSE.
  */
 
-namespace Sulu\Bundle\McpBundle\Capabilities\Tool\Page;
+namespace Sulu\Bundle\McpBundle\Capabilities\Tool\Block;
 
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
-use Sulu\Bundle\McpBundle\Capabilities\Tool\Block\BlockDataValidator;
-use Sulu\Bundle\McpBundle\Capabilities\Tool\BlockDataNormalizerTrait;
-use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentNormalizerTrait;
-use Sulu\Bundle\McpBundle\Capabilities\Tool\ContentTypeResolver;
+use Sulu\Bundle\McpBundle\Content\BlockDataNormalizerTrait;
+use Sulu\Bundle\McpBundle\Content\ContentNormalizerTrait;
+use Sulu\Bundle\McpBundle\Content\ContentTypeResolver;
 use Sulu\Bundle\McpBundle\Security\Attribute\RequiresPermission;
 use Sulu\Bundle\McpBundle\Security\Exception\PermissionDeniedException;
 use Sulu\Bundle\McpBundle\Security\Permission\ArticleSecurityContextResolver;

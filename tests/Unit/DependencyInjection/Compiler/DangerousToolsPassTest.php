@@ -15,10 +15,10 @@ namespace Sulu\Bundle\McpBundle\Tests\Unit\DependencyInjection\Compiler;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Sulu\Bundle\McpBundle\Capabilities\Tool\Block\BlockRemoveTool;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Content\ContentDeleteTool;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Content\ContentPublishTool;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Content\ContentUnpublishTool;
-use Sulu\Bundle\McpBundle\Capabilities\Tool\Page\BlockRemoveTool;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Preview\PreviewLinkRevokeTool;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\CategoryDeleteTool;
 use Sulu\Bundle\McpBundle\Capabilities\Tool\Taxonomy\TagDeleteTool;
