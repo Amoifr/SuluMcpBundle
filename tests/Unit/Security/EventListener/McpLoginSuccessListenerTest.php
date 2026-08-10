@@ -72,6 +72,18 @@ final class McpLoginSuccessListenerTest extends TestCase
         self::assertArrayNotHasKey('method', $data);
     }
 
+    public function testLeavesResponseUnchangedWhenTargetMerelySharesTheAuthorizePrefix(): void
+    {
+        $request = $this->requestWithTargetPath('https://sulu.example.com/admin/mcp/authorize-not-really');
+        $event = $this->event('admin', $request, new JsonResponse(['url' => '/admin/', 'completed' => true]));
+
+        (new McpLoginSuccessListener())($event);
+
+        $data = $this->json($event->getResponse());
+        self::assertSame('/admin/', $data['url']);
+        self::assertArrayNotHasKey('method', $data);
+    }
+
     public function testLeavesResponseUnchangedWhenNoTargetPath(): void
     {
         $request = $this->requestWithTargetPath(null);

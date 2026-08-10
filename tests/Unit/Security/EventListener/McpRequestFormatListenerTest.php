@@ -56,6 +56,26 @@ final class McpRequestFormatListenerTest extends TestCase
         $this->assertSame('html', $event->getRequest()->getRequestFormat());
     }
 
+    public function testLeavesAdjacentPathSharingPrefixUntouched(): void
+    {
+        $event = $this->createRequestEvent('/admin/_mcpfoo');
+
+        $this->listener->onKernelRequest($event);
+
+        $this->assertSame('html', $event->getRequest()->getRequestFormat());
+    }
+
+    public function testLeavesSubPathOfMcpPathUntouched(): void
+    {
+        // The mcp-bundle route loader registers exactly one route at the
+        // configured path -- no sub-paths are served.
+        $event = $this->createRequestEvent('/admin/_mcp/nested');
+
+        $this->listener->onKernelRequest($event);
+
+        $this->assertSame('html', $event->getRequest()->getRequestFormat());
+    }
+
     public function testIgnoresSubRequests(): void
     {
         $event = $this->createRequestEvent('/admin/_mcp', HttpKernelInterface::SUB_REQUEST);

@@ -77,7 +77,7 @@ final class McpLoginSuccessListener
     private function relativeMcpAuthorizeTarget(string $targetPath): ?string
     {
         $parts = \parse_url($targetPath);
-        if (false === $parts || !isset($parts['path']) || !str_starts_with($parts['path'], self::MCP_AUTHORIZE_PATH)) {
+        if (false === $parts || !isset($parts['path']) || self::MCP_AUTHORIZE_PATH !== $parts['path']) {
             return null;
         }
 

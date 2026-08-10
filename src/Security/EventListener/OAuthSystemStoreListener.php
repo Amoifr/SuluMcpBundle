@@ -42,7 +42,7 @@ class OAuthSystemStoreListener
 
         $path = $event->getRequest()->getPathInfo();
 
-        if (!str_starts_with($path, $this->mcpPath)) {
+        if ($path !== $this->mcpPath) {
             return;
         }
 
