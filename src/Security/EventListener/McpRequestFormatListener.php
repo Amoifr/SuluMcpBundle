@@ -40,7 +40,7 @@ class McpRequestFormatListener
 
         $request = $event->getRequest();
 
-        if (!str_starts_with($request->getPathInfo(), $this->mcpPath)) {
+        if ($request->getPathInfo() !== $this->mcpPath) {
             return;
         }
 

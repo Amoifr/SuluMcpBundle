@@ -177,6 +177,28 @@ final class McpExceptionListenerTest extends TestCase
         $this->assertNull($event->getResponse());
     }
 
+    public function testExceptionOnAdjacentPathSharingPrefixDoesNotSetResponse(): void
+    {
+        $exception = new PermissionDeniedException('sulu.webspaces.example', PermissionTypes::VIEW, 'en');
+        $event = $this->createExceptionEvent($exception, '/_mcpfoo');
+
+        $this->listener->onKernelException($event);
+
+        $this->assertNull($event->getResponse());
+    }
+
+    public function testExceptionOnSubPathOfMcpPathDoesNotSetResponse(): void
+    {
+        // The mcp-bundle route loader registers exactly one route at the
+        // configured path -- no sub-paths are served.
+        $exception = new PermissionDeniedException('sulu.webspaces.example', PermissionTypes::VIEW, 'en');
+        $event = $this->createExceptionEvent($exception, '/_mcp/nested');
+
+        $this->listener->onKernelException($event);
+
+        $this->assertNull($event->getResponse());
+    }
+
     public function testAuthenticationExceptionOnMcpPathReturns401WithWwwAuthenticate(): void
     {
         $exception = new AuthenticationException('Full authentication is required');
@@ -202,6 +224,28 @@ final class McpExceptionListenerTest extends TestCase
     {
         $exception = new AuthenticationException('Full authentication is required');
         $event = $this->createExceptionEvent($exception, '/admin');
+
+        $this->authListener->onKernelException($event);
+
+        $this->assertNull($event->getResponse());
+    }
+
+    public function testAuthenticationExceptionOnAdjacentPathSharingPrefixDoesNotSetResponse(): void
+    {
+        $exception = new AuthenticationException('Full authentication is required');
+        $event = $this->createExceptionEvent($exception, '/_mcpfoo');
+
+        $this->authListener->onKernelException($event);
+
+        $this->assertNull($event->getResponse());
+    }
+
+    public function testAuthenticationExceptionOnSubPathOfMcpPathDoesNotSetResponse(): void
+    {
+        // The mcp-bundle route loader registers exactly one route at the
+        // configured path -- no sub-paths are served.
+        $exception = new AuthenticationException('Full authentication is required');
+        $event = $this->createExceptionEvent($exception, '/_mcp/nested');
 
         $this->authListener->onKernelException($event);
 

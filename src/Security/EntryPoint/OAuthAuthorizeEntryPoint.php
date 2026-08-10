@@ -35,7 +35,7 @@ class OAuthAuthorizeEntryPoint implements AuthenticationEntryPointInterface
 
     public function start(Request $request, ?AuthenticationException $authException = null): Response
     {
-        if (!str_contains($request->getPathInfo(), '/mcp/authorize')) {
+        if ('/admin/mcp/authorize' !== $request->getPathInfo()) {
             return $this->inner->start($request, $authException);
         }
 
