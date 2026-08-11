@@ -27,6 +27,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 #[CoversClass(OAuthAuthorizationListener::class)]
@@ -104,7 +105,19 @@ final class OAuthAuthorizationListenerTest extends TestCase
         $requestStack = new RequestStack();
         $requestStack->push($request);
 
-        return new OAuthAuthorizationListener($requestStack, $store);
+        return new OAuthAuthorizationListener($requestStack, $store, $this->urlGenerator());
+    }
+
+    private function urlGenerator(): UrlGeneratorInterface
+    {
+        $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+        $urlGenerator->method('generate')->willReturnCallback(
+            static fn (string $name): string => 'sulu_admin' === $name
+                ? '/admin/'
+                : self::fail('Unexpected route "'.$name.'".'),
+        );
+
+        return $urlGenerator;
     }
 
     private function request(string $uri, ?Session $session = null): Request

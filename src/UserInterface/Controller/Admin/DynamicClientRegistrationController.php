@@ -11,7 +11,7 @@ declare(strict_types=1);
  * with this source code in the file LICENSE.
  */
 
-namespace Sulu\Mcp\UserInterface\Controller;
+namespace Sulu\Mcp\UserInterface\Controller\Admin;
 
 use League\Bundle\OAuth2ServerBundle\Manager\ClientManagerInterface;
 use League\Bundle\OAuth2ServerBundle\Model\Client;
@@ -24,10 +24,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * RFC 7591 — OAuth 2.0 Dynamic Client Registration.
- *
- * Allows MCP clients (e.g. Claude Code) to register themselves without
- * requiring a pre-provisioned client_id/secret.
+ * RFC 7591 — OAuth 2.0 Dynamic Client Registration, so MCP clients can register
+ * themselves without a pre-provisioned client_id/secret.
  *
  * @internal
  */
@@ -42,7 +40,6 @@ class DynamicClientRegistrationController
      */
     public function __construct(
         private readonly ClientManagerInterface $clientManager,
-        private readonly string $serverUrl,
         private readonly array $allowedScopes = ['mcp:tools', 'mcp:resources'],
     ) {
     }
@@ -122,8 +119,6 @@ class DynamicClientRegistrationController
 
         $this->clientManager->save($client);
 
-        $base = rtrim($this->serverUrl, '/');
-
         $payload = [
             'client_id' => $clientId,
             'client_name' => $clientName,
@@ -131,7 +126,6 @@ class DynamicClientRegistrationController
             'grant_types' => $grantTypes,
             'token_endpoint_auth_method' => $tokenEndpointAuthMethod,
             'scope' => \implode(' ', $scopes),
-            'registration_client_uri' => $base.'/mcp/register/'.$clientId,
         ];
 
         if (null !== $clientSecret) {
