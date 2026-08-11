@@ -43,16 +43,17 @@
         "rector/rector": "^2.1",
         "cmsig/seal-memory-adapter": "^0.12.2",
         "symfony/dotenv": "^7.3",
-        "doctrine/data-fixtures": "^2.2"
+        "doctrine/data-fixtures": "^2.2",
+        "friendsofsymfony/jsrouting-bundle": "^3.6"
     },
     "autoload": {
         "psr-4": {
-            "Sulu\\Bundle\\McpBundle\\": "src/"
+            "Sulu\\Mcp\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Sulu\\Bundle\\McpBundle\\Tests\\": "tests/"
+            "Sulu\\Mcp\\Tests\\": "tests/"
         }
     },
     "extra": {
