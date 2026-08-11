@@ -1,3 +1,0 @@
-# Functional tests call container services directly and never dispatch real
-# HTTP requests, so no routes are needed here -- the file only needs to exist
-# for framework.router.resource (see SuluTestBundle's sulu.yml).

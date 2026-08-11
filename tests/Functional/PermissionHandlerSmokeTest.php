@@ -104,6 +104,24 @@ final class PermissionHandlerSmokeTest extends FunctionalTestCase
         self::assertStringNotContainsString('Permission denied', $this->textOf($response));
     }
 
+    /**
+     * Fail-closed for a tool name absent from the compiled permission map and
+     * not allowlisted: denied before any registry lookup or permission check,
+     * so no role/authentication fixture is needed here. Ported from the
+     * former Integration suite's PermissionEnforcementTest.
+     */
+    public function testUndeclaredNonAllowlistedToolIsDeniedFailClosed(): void
+    {
+        $response = $this->handler()->handle(
+            $this->callRequest('sulu_mystery_tool', []),
+            $this->session(),
+        );
+
+        self::assertInstanceOf(Response::class, $response);
+        self::assertTrue($response->result->isError);
+        self::assertStringContainsString('Permission denied', $this->textOf($response));
+    }
+
     /** Read floor is VIEW -- EDIT without VIEW must not read (Sulu maps GET to VIEW). */
     public function testEditWithoutViewIsDeniedPageList(): void
     {
@@ -253,7 +271,9 @@ final class PermissionHandlerSmokeTest extends FunctionalTestCase
         self::assertInstanceOf(Response::class, $peopleAllowed);
         $text = $this->textOf($peopleAllowed);
         self::assertStringNotContainsString('your Sulu role does not grant', $text);
-        self::assertStringContainsString('Failed to list', $text);
+        // ContactBundle's tables are present against the real schema, so the call
+        // succeeds for real rather than hitting ContactListTool's missing-bundle catch.
+        self::assertStringContainsString('"type": "contact"', $text);
 
         $organizationsDenied = $this->handler()->handle(
             $this->callRequest('sulu_contact_list', ['type' => 'account']),
