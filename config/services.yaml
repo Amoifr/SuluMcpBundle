@@ -115,10 +115,11 @@ services:
 
     # MCP resources
     Sulu\Mcp\Application\Metadata\FieldValueExampleProvider: ~
+    Sulu\Mcp\Application\Metadata\FieldNormalizer: ~
     Sulu\Mcp\UserInterface\Mcp\Resource\TemplatesResource:
         arguments:
             $formMetadataProvider: '@sulu_admin.form_metadata_provider'
-    Sulu\Mcp\UserInterface\Mcp\Resource\BlocksResource:
+    Sulu\Mcp\UserInterface\Mcp\Resource\GlobalBlocksResource:
         arguments:
             $formMetadataProvider: '@sulu_admin.form_metadata_provider'
     Sulu\Mcp\UserInterface\Mcp\Resource\WebspacesResource: ~
