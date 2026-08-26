@@ -73,7 +73,7 @@ class BlockUpdateTool
     #[RequiresPermission(
         requirements: [new PermissionRequirement('#context#', PermissionTypes::EDIT)],
         objectResolved: true,
-        discoveryContexts: ['sulu.snippet.snippets', ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
+        discoveryContexts: ['sulu.snippet.snippets', 'sulu.product.products', ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
     )]
     public function updateBlock(
         string $type,
@@ -84,7 +84,7 @@ class BlockUpdateTool
         array $blockData,
     ): array {
         if (!$this->contentTypeResolver->supports($type)) {
-            return ['error' => \sprintf('Unsupported content type "%s". Use "page", "article" or "snippet".', $type)];
+            return ['error' => \sprintf('Unsupported content type "%s". Supported: %s.', $type, \implode(', ', $this->contentTypeResolver->supportedTypes()))];
         }
 
         try {

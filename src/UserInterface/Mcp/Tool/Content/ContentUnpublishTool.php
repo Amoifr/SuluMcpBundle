@@ -56,7 +56,7 @@ class ContentUnpublishTool
     #[McpTool(
         name: 'sulu_content_unpublish',
         title: 'Unpublish Content',
-        description: 'Unpublish a live page, article, or snippet — removes it from the website but keeps the draft. Set "type" to "page", "article", or "snippet". The content is preserved and can be re-published later with sulu_content_publish. Use this to take content offline without deleting it.',
+        description: 'Unpublish a live page, article, or snippet — removes it from the website but keeps the draft. Set "type" to "page", "article", "snippet", or "product" when SuluProductBundle is installed. The content is preserved and can be re-published later with sulu_content_publish. Use this to take content offline without deleting it.',
     )]
     #[RequiresPermission(
         requirements: [
@@ -64,7 +64,7 @@ class ContentUnpublishTool
             new PermissionRequirement('#context#', PermissionTypes::LIVE),
         ],
         objectResolved: true,
-        discoveryContexts: ['sulu.snippet.snippets', ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
+        discoveryContexts: ['sulu.snippet.snippets', 'sulu.product.products', ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
     )]
     public function unpublishContent(string $type, string $uuid, string $locale): array
     {

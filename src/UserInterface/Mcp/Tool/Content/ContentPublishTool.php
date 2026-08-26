@@ -56,7 +56,7 @@ class ContentPublishTool
     #[McpTool(
         name: 'sulu_content_publish',
         title: 'Publish Content',
-        description: 'Publish a page, article, or snippet to make its current draft the live version. Set "type" to "page", "article", or "snippet". Content is always created/updated as a draft first — call this after creating or updating to go live. Can be called again to re-publish after edits. IMPORTANT: Always ask the user for confirmation before calling this tool — never publish without explicit user approval.',
+        description: 'Publish a page, article, or snippet to make its current draft the live version. Set "type" to "page", "article", "snippet", or "product" when SuluProductBundle is installed. Content is always created/updated as a draft first — call this after creating or updating to go live. Can be called again to re-publish after edits. IMPORTANT: Always ask the user for confirmation before calling this tool — never publish without explicit user approval.',
     )]
     #[RequiresPermission(
         requirements: [
@@ -64,7 +64,7 @@ class ContentPublishTool
             new PermissionRequirement('#context#', PermissionTypes::LIVE),
         ],
         objectResolved: true,
-        discoveryContexts: ['sulu.snippet.snippets', ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
+        discoveryContexts: ['sulu.snippet.snippets', 'sulu.product.products', ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
     )]
     public function publishContent(string $type, string $uuid, string $locale): array
     {
