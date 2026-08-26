@@ -20,9 +20,9 @@ use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterfa
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
-use Sulu\Content\Domain\Model\TemplateInterface;
 use Sulu\Mcp\Application\Content\BlockDataNormalizerTrait;
 use Sulu\Mcp\Application\Content\BlockDataValidator;
+use Sulu\Mcp\Application\Content\ContentLocaleTrait;
 use Sulu\Mcp\Application\Content\ContentNormalizerTrait;
 use Sulu\Mcp\Application\Content\ContentTypeResolver;
 use Sulu\Mcp\Application\Security\ContentSecurityContextResolver;
@@ -46,6 +46,7 @@ class BlockUpdateTool
     use HandleTrait;
     use ContentNormalizerTrait;
     use BlockDataNormalizerTrait;
+    use ContentLocaleTrait;
 
     public function __construct(
         MessageBusInterface $messageBus,
@@ -87,7 +88,7 @@ class BlockUpdateTool
         }
 
         try {
-            $entity = $this->contentTypeResolver->loadDraft($type, $uuid, $locale);
+            $entity = $this->contentTypeResolver->loadDraft($type, $uuid, $locale, loadGhost: true);
 
             if (null === $entity) {
                 return ['error' => \sprintf('%s not found: %s', \ucfirst($type), $uuid)];
@@ -98,10 +99,11 @@ class BlockUpdateTool
                 'stage' => DimensionContentInterface::STAGE_DRAFT,
             ]);
 
-            $context = $this->contentSecurityContextResolver->forEntity(
+            $context = $this->contentSecurityContextResolver->forEntityInLocale(
                 $type,
                 $entity,
-                $dimensionContent instanceof TemplateInterface ? $dimensionContent : null,
+                $dimensionContent,
+                $locale,
             );
             $this->permissionChecker->check(
                 $context,
@@ -110,6 +112,10 @@ class BlockUpdateTool
                 'page' === $type ? Page::class : null,
                 'page' === $type ? $uuid : null,
             );
+
+            if ($missingTranslation = self::missingBlockTranslationError($dimensionContent, $type, $uuid, $locale)) {
+                return $missingTranslation;
+            }
 
             $currentData = $this->contentManager->normalize($dimensionContent);
 

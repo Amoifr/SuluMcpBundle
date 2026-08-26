@@ -92,7 +92,7 @@ final class BlockAddToolTest extends TestCase
         $this->formMetadataProvider->setDefault(new FormMetadata());
         $this->permissionChecker = FakeToolPermissionChecker::grantingAll();
         $groupProvider = new TestGroupProvider([]);
-        $this->contentSecurityContextResolver = new ContentSecurityContextResolver(new ArticleSecurityContextResolver($groupProvider));
+        $this->contentSecurityContextResolver = new ContentSecurityContextResolver(new ArticleSecurityContextResolver($groupProvider), $this->contentManager->reveal());
         $this->tool = new BlockAddTool(
             $this->messageBus->reveal(),
             new ContentTypeResolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal()),
@@ -224,7 +224,7 @@ final class BlockAddToolTest extends TestCase
 
     public function testAddBlockPreservesLocaleInModifyMessage(): void
     {
-        $this->setupEntityWithBlocks('page', []);
+        $this->setupEntityWithBlocks('page', [], 'de');
 
         $this->expectMessageDispatch();
 
@@ -391,7 +391,7 @@ final class BlockAddToolTest extends TestCase
     /**
      * @param list<array<string, mixed>> $blocks
      */
-    private function setupEntityWithBlocks(string $type, array $blocks): void
+    private function setupEntityWithBlocks(string $type, array $blocks, string $locale = 'en'): void
     {
         $entity = match ($type) {
             'article' => new Article('test-uuid'),
@@ -411,11 +411,31 @@ final class BlockAddToolTest extends TestCase
         };
 
         $dimensionContent = new PageDimensionContent(new Page());
+        $dimensionContent->setLocale($locale);
         $this->contentManager->resolve(Argument::cetera())->willReturn($dimensionContent);
         $this->contentManager->normalize(Argument::cetera())->willReturn([
             'template' => 'default',
             'title' => 'Test',
             'blocks' => $blocks,
         ]);
+    }
+
+    public function testRejectsLocaleWithoutContentInsteadOfReportingNotFound(): void
+    {
+        $page = new Page('uuid-1');
+        $page->setWebspaceKey('example');
+        $this->pageRepository->getOneBy(Argument::cetera())->willReturn($page);
+
+        // A ghost resolves to the unlocalized dimension, so its locale stays null.
+        $ghostDimensionContent = new PageDimensionContent(new Page());
+        $ghostDimensionContent->addAvailableLocale('de');
+        $this->contentManager->resolve(Argument::cetera())->willReturn($ghostDimensionContent);
+
+        $result = $this->tool->addBlock('page', 'uuid-1', 'en', 'text', 'blocks');
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('has no "en" content yet', $result['error']);
+        $this->assertStringContainsString('sulu_page_update', $result['hint']);
+        $this->assertStringContainsString('de', $result['hint']);
     }
 }

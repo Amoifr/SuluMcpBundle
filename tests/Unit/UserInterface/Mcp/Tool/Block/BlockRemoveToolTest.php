@@ -77,7 +77,7 @@ final class BlockRemoveToolTest extends TestCase
         $this->contentManager = $this->prophesize(ContentManagerInterface::class);
         $this->permissionChecker = FakeToolPermissionChecker::grantingAll();
         $groupProvider = new TestGroupProvider([]);
-        $this->contentSecurityContextResolver = new ContentSecurityContextResolver(new ArticleSecurityContextResolver($groupProvider));
+        $this->contentSecurityContextResolver = new ContentSecurityContextResolver(new ArticleSecurityContextResolver($groupProvider), $this->contentManager->reveal());
         $this->tool = new BlockRemoveTool(
             $this->messageBus->reveal(),
             new ContentTypeResolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal()),
@@ -328,11 +328,31 @@ final class BlockRemoveToolTest extends TestCase
         };
 
         $dimensionContent = new PageDimensionContent(new Page());
+        $dimensionContent->setLocale('en');
         $this->contentManager->resolve(Argument::cetera())->willReturn($dimensionContent);
         $this->contentManager->normalize(Argument::cetera())->willReturn([
             'template' => 'default',
             'title' => 'Test',
             'blocks' => $blocks,
         ]);
+    }
+
+    public function testRejectsLocaleWithoutContentInsteadOfReportingNotFound(): void
+    {
+        $page = new Page('uuid-1');
+        $page->setWebspaceKey('example');
+        $this->pageRepository->getOneBy(Argument::cetera())->willReturn($page);
+
+        // A ghost resolves to the unlocalized dimension, so its locale stays null.
+        $ghostDimensionContent = new PageDimensionContent(new Page());
+        $ghostDimensionContent->addAvailableLocale('de');
+        $this->contentManager->resolve(Argument::cetera())->willReturn($ghostDimensionContent);
+
+        $result = $this->tool->removeBlock('page', 'uuid-1', 'en', 'blocks', null, 'block-1');
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('has no "en" content yet', $result['error']);
+        $this->assertStringContainsString('sulu_page_update', $result['hint']);
+        $this->assertStringContainsString('de', $result['hint']);
     }
 }
