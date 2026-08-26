@@ -45,7 +45,7 @@ class PageTreeTool
     #[McpTool(
         name: 'sulu_page_tree',
         title: 'Get Page Tree',
-        description: 'Get the page tree as a nested hierarchy for a webspace. Each node contains uuid, title, url, template, and a "children" array with the same structure. Shows the site structure — use this to find the parentId when creating new pages, or to understand the site navigation. Root-level pages are direct children of the webspace root. Accepts an optional maxDepth to limit response size on deep site trees; when a node has hasChildren:true but children:[] the branch was depth-truncated — request again with a higher maxDepth or fetch that branch separately.',
+        description: 'Get the page tree as a nested hierarchy for a webspace. Each node contains uuid, title, url, template, a 1-based "position" among its siblings (what sulu_page_reorder expects), and a "children" array with the same structure. Shows the site structure — use this to find the parentId when creating new pages, or to understand the site navigation. Root-level pages are direct children of the webspace root. Accepts an optional maxDepth to limit response size on deep site trees; when a node has hasChildren:true but children:[] the branch was depth-truncated — request again with a higher maxDepth or fetch that branch separately.',
     )]
     #[RequiresPermission(
         requirements: [new PermissionRequirement('sulu.webspaces.#context#', PermissionTypes::VIEW)],
@@ -95,6 +95,30 @@ class PageTreeTool
     }
 
     /**
+     * Counted over the parent's own children (mapped `ORDER BY lft`), not over the nodes
+     * in this response: the query is ACL-filtered, and sulu_page_reorder needs the
+     * absolute ordinal that reorderOneBy() counts against.
+     */
+    private function siblingPosition(PageInterface $page): int
+    {
+        $parent = $page->getParent();
+        if (null === $parent) {
+            return 1;
+        }
+
+        $position = 1;
+        foreach ($parent->getChildren() as $sibling) {
+            if ($sibling->getUuid() === $page->getUuid()) {
+                break;
+            }
+
+            ++$position;
+        }
+
+        return $position;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function buildTreeNode(PageInterface $page, string $locale, int $depth = 0, ?int $maxDepth = null): array
@@ -122,6 +146,7 @@ class PageTreeTool
             'hasChildren' => !$children->isEmpty(),
             'parentUuid' => $page->getParent()?->getUuid(),
             'depth' => $depth,
+            'position' => $this->siblingPosition($page),
             'workflowPlace' => $dimensionContent->getWorkflowPlace(),
             'availableLocales' => $dimensionContent->getAvailableLocales(),
             'children' => $childNodes,
