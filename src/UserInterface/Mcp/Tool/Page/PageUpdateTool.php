@@ -18,6 +18,7 @@ use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
+use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\Mcp\Application\AdminLink\AdminLinkGeneratorInterface;
@@ -26,6 +27,7 @@ use Sulu\Mcp\Application\Content\BlockDataValidator;
 use Sulu\Mcp\Application\Content\ContentLocaleTrait;
 use Sulu\Mcp\Application\Content\ContentMetadataMapper;
 use Sulu\Mcp\Application\Content\ContentNormalizerTrait;
+use Sulu\Mcp\Application\Content\NavigationContextTrait;
 use Sulu\Mcp\Application\Security\ToolPermissionCheckerInterface;
 use Sulu\Mcp\Application\Security\WebspacePermissionResolver;
 use Sulu\Mcp\Domain\Exception\PermissionDeniedException;
@@ -45,10 +47,11 @@ use Symfony\Component\Messenger\MessageBusInterface;
  */
 class PageUpdateTool
 {
-    use HandleTrait;
     use BlockDataNormalizerTrait;
     use ContentLocaleTrait;
     use ContentNormalizerTrait;
+    use HandleTrait;
+    use NavigationContextTrait;
 
     public function __construct(
         MessageBusInterface $messageBus,
@@ -59,6 +62,7 @@ class PageUpdateTool
         private readonly ContentMetadataMapper $contentMetadataMapper,
         private readonly AdminLinkGeneratorInterface $adminLinkGenerator,
         private readonly ToolPermissionCheckerInterface $permissionChecker,
+        private readonly WebspaceManagerInterface $webspaceManager,
     ) {
         $this->messageBus = $messageBus;
     }
@@ -67,6 +71,7 @@ class PageUpdateTool
      * @param array<string, mixed>|null $content
      * @param array<string, mixed>|null $excerpt
      * @param array<string, mixed>|null $seo
+     * @param list<string>|null $navigationContexts
      *
      * @return array<string, mixed>
      */
@@ -92,6 +97,8 @@ class PageUpdateTool
         ?array $excerpt = null,
         #[Schema(type: 'object', description: 'Optional SEO fields keyed by the project\'s SEO field names (e.g. title, description, keywords, canonicalUrl, seoNoIndex, seoNoFollow, seoHideInSitemap). Call sulu_get_context for the exact field list.', additionalProperties: true)]
         ?array $seo = null,
+        #[Schema(type: 'array', description: 'Optional navigation context keys to assign the page to, e.g. ["main", "footer"]. Replaces the current assignment; omit to leave it unchanged, pass [] to clear it. Call sulu_get_context for the keys declared by the webspace. Navigation contexts exist on pages only.', items: ['type' => 'string'])]
+        ?array $navigationContexts = null,
     ): array {
         try {
             // Read current page state to get template and existing content.
@@ -161,6 +168,14 @@ class PageUpdateTool
                 }
                 $normalizedContent = $this->assignBlockIds($normalizedContent, $this->blockIdGenerator);
                 $data = \array_merge($data, $normalizedContent);
+            }
+
+            if (null !== $navigationContexts) {
+                if ($validationError = $this->validateNavigationContexts($this->webspaceManager, $page->getWebspaceKey(), $navigationContexts)) {
+                    return $validationError;
+                }
+
+                $data['navigationContexts'] = $navigationContexts;
             }
 
             $data = $this->contentMetadataMapper->applyExcerpt($data, $excerpt, $locale);
