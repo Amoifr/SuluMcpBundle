@@ -14,11 +14,13 @@ declare(strict_types=1);
 namespace Sulu\Mcp\Tests\Functional;
 
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\Group;
 use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Mcp\UserInterface\Mcp\Tool\GetContextTool;
 
 #[CoversNothing]
+#[Group('product')]
 final class ProductPermissionScopingTest extends FunctionalTestCase
 {
     /**
@@ -39,7 +41,7 @@ final class ProductPermissionScopingTest extends FunctionalTestCase
     public function testViewOnlyRoleSeesProductReadToolsButNotWriteTools(): void
     {
         $container = self::getContainer();
-        $container->get('mcp.server'); // populates the registry -- must run first
+        $container->get('mcp.server.sulu'); // populates the registry -- must run first
 
         $builder = new PermissionFixtureBuilder(
             $this->entityManager,
@@ -89,7 +91,7 @@ final class ProductPermissionScopingTest extends FunctionalTestCase
     public function testProductOnlyRoleCanReachTheUnifiedContentAndBlockTools(): void
     {
         $container = self::getContainer();
-        $container->get('mcp.server');
+        $container->get('mcp.server.sulu');
 
         $builder = new PermissionFixtureBuilder(
             $this->entityManager,
@@ -124,7 +126,7 @@ final class ProductPermissionScopingTest extends FunctionalTestCase
     public function testRoleWithoutProductPermissionsSeesNoProductToolAsAvailable(): void
     {
         $container = self::getContainer();
-        $container->get('mcp.server');
+        $container->get('mcp.server.sulu');
 
         $builder = new PermissionFixtureBuilder(
             $this->entityManager,
