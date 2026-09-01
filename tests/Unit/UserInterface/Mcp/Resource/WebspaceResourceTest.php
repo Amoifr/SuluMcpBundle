@@ -22,6 +22,8 @@ use Sulu\Component\Localization\Localization;
 use Sulu\Component\Webspace\Environment;
 use Sulu\Component\Webspace\Manager\WebspaceCollection;
 use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
+use Sulu\Component\Webspace\Navigation;
+use Sulu\Component\Webspace\NavigationContext;
 use Sulu\Component\Webspace\Portal;
 use Sulu\Component\Webspace\Url;
 use Sulu\Component\Webspace\Webspace;
@@ -91,6 +93,47 @@ final class WebspaceResourceTest extends TestCase
         $result = $this->resource->getWebspaces();
 
         $this->assertSame('example.com', $result[0]['url']);
+    }
+
+    public function testGetWebspacesReturnsNavigationContextsKeyedByKeyWithTheirTitle(): void
+    {
+        $webspace = $this->createWebspaceWithPortal('example', 'Example', ['en', 'de'], 'example.com');
+        $webspace->setNavigation(new Navigation([
+            new NavigationContext('main', ['title' => ['en' => 'Main Navigation', 'de' => 'Hauptnavigation']]),
+            new NavigationContext('footer', ['title' => ['en' => 'Footer']]),
+        ]));
+
+        $this->webspaceManager->getWebspaceCollection()->willReturn(new WebspaceCollection([$webspace]));
+
+        $result = $this->resource->getWebspaces();
+
+        // "en" is the first localization, so it is the default one
+        $this->assertSame(['main' => 'Main Navigation', 'footer' => 'Footer'], $result[0]['navigationContexts']);
+    }
+
+    public function testGetWebspacesFallsBackToTheCapitalisedKeyWhenTheDefaultLocaleHasNoTitle(): void
+    {
+        $webspace = $this->createWebspaceWithPortal('example', 'Example', ['en'], 'example.com');
+        $webspace->setNavigation(new Navigation([
+            new NavigationContext('footer', ['title' => ['de' => 'Fusszeile']]),
+        ]));
+
+        $this->webspaceManager->getWebspaceCollection()->willReturn(new WebspaceCollection([$webspace]));
+
+        $result = $this->resource->getWebspaces();
+
+        $this->assertSame(['footer' => 'Footer'], $result[0]['navigationContexts']);
+    }
+
+    public function testGetWebspacesReturnsNoNavigationContextsWhenTheWebspaceHasNoNavigation(): void
+    {
+        $webspace = $this->createWebspaceWithPortal('example', 'Example', ['en'], 'example.com');
+
+        $this->webspaceManager->getWebspaceCollection()->willReturn(new WebspaceCollection([$webspace]));
+
+        $result = $this->resource->getWebspaces();
+
+        $this->assertSame([], $result[0]['navigationContexts']);
     }
 
     /**

@@ -18,12 +18,14 @@ use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
+use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\Mcp\Application\AdminLink\AdminLinkGeneratorInterface;
 use Sulu\Mcp\Application\Content\BlockDataNormalizerTrait;
 use Sulu\Mcp\Application\Content\BlockDataValidator;
 use Sulu\Mcp\Application\Content\ContentMetadataMapper;
+use Sulu\Mcp\Application\Content\NavigationContextTrait;
 use Sulu\Mcp\Application\Security\ToolPermissionCheckerInterface;
 use Sulu\Mcp\Domain\Exception\PermissionDeniedException;
 use Sulu\Mcp\Domain\Security\PermissionRequirement;
@@ -42,8 +44,9 @@ use Symfony\Component\Messenger\MessageBusInterface;
  */
 class PageCreateTool
 {
-    use HandleTrait;
     use BlockDataNormalizerTrait;
+    use HandleTrait;
+    use NavigationContextTrait;
 
     public function __construct(
         MessageBusInterface $messageBus,
@@ -54,6 +57,7 @@ class PageCreateTool
         private readonly AdminLinkGeneratorInterface $adminLinkGenerator,
         private readonly PageRepositoryInterface $pageRepository,
         private readonly ToolPermissionCheckerInterface $permissionChecker,
+        private readonly WebspaceManagerInterface $webspaceManager,
     ) {
         $this->messageBus = $messageBus;
     }
@@ -62,6 +66,7 @@ class PageCreateTool
      * @param array<string, mixed>|null $content
      * @param array<string, mixed>|null $excerpt
      * @param array<string, mixed>|null $seo
+     * @param list<string>|null $navigationContexts
      *
      * @return array<string, mixed>
      */
@@ -90,6 +95,8 @@ class PageCreateTool
         ?array $excerpt = null,
         #[Schema(type: 'object', description: 'Optional SEO fields keyed by the project\'s SEO field names (e.g. title, description, keywords, canonicalUrl, seoNoIndex, seoNoFollow, seoHideInSitemap). Call sulu_get_context for the exact field list.', additionalProperties: true)]
         ?array $seo = null,
+        #[Schema(type: 'array', description: 'Optional navigation context keys to assign the page to, e.g. ["main", "footer"]. Call sulu_get_context for the keys declared by the webspace. Navigation contexts exist on pages only.', items: ['type' => 'string'])]
+        ?array $navigationContexts = null,
     ): array {
         try {
             // An unchecked parentId could attach the page under a parent in a different
@@ -131,6 +138,14 @@ class PageCreateTool
                 'title' => $title,
                 'url' => $url ?? '/' . \mb_strtolower(\str_replace(' ', '-', $title)),
             ]);
+
+            if (null !== $navigationContexts) {
+                if ($validationError = $this->validateNavigationContexts($this->webspaceManager, $webspace, $navigationContexts)) {
+                    return $validationError;
+                }
+
+                $data['navigationContexts'] = $navigationContexts;
+            }
 
             $data = $this->contentMetadataMapper->applyExcerpt($data, $excerpt, $locale);
             if (isset($data['error'])) {

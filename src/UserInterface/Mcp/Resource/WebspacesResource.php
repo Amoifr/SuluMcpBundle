@@ -32,7 +32,7 @@ class WebspacesResource
     #[McpResource(
         uri: 'sulu://webspaces',
         name: 'sulu_webspaces',
-        description: 'Available Sulu webspaces with their locales and primary URLs.',
+        description: 'Available Sulu webspaces with their locales, primary URLs and navigation contexts.',
         mimeType: 'application/json',
     )]
     public function getWebspaces(): array
@@ -49,10 +49,39 @@ class WebspacesResource
                 'name' => $webspace->getName(),
                 'locales' => $locales,
                 'url' => $this->getPrimaryUrl($webspace),
+                'navigationContexts' => $this->getNavigationContexts($webspace),
             ];
         }
 
         return $result;
+    }
+
+    /**
+     * The navigation contexts declared for a webspace, as key => title.
+     *
+     * Titles are read in the webspace's default locale: the resource is not locale-aware,
+     * and NavigationContext::getTitle() falls back to the capitalised key when a locale
+     * carries no title, so a key is always readable.
+     *
+     * @return array<string, string>
+     */
+    private function getNavigationContexts(Webspace $webspace): array
+    {
+        // Sulu's own Webspace::toArray() guards the same way: the property is untyped
+        // and a programmatically built webspace can reach here without a navigation,
+        // whatever the @return annotation promises.
+        if (!$navigation = $webspace->getNavigation()) { // @phpstan-ignore booleanNot.alwaysFalse
+            return [];
+        }
+
+        $locale = $webspace->getDefaultLocalization()->getLocale();
+
+        $contexts = [];
+        foreach ($navigation->getContexts() as $context) {
+            $contexts[$context->getKey()] = $context->getTitle($locale) ?? \ucfirst($context->getKey());
+        }
+
+        return $contexts;
     }
 
     /**

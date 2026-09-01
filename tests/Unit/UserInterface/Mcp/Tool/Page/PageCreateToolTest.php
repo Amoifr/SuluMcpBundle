@@ -24,6 +24,10 @@ use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FieldMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\TypedFormMetadata;
 use Sulu\Component\Security\Authorization\PermissionTypes;
+use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
+use Sulu\Component\Webspace\Navigation;
+use Sulu\Component\Webspace\NavigationContext;
+use Sulu\Component\Webspace\Webspace;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\Mcp\Application\Content\BlockDataValidator;
@@ -73,8 +77,12 @@ final class PageCreateToolTest extends TestCase
     private AdminLinkGenerator $adminLinkGenerator;
     private PageCreateTool $tool;
 
+    /** @var ObjectProphecy<WebspaceManagerInterface> */
+    private ObjectProphecy $webspaceManager;
+
     protected function setUp(): void
     {
+        $this->webspaceManager = $this->prophesize(WebspaceManagerInterface::class);
         $this->messageBus = $this->prophesize(MessageBusInterface::class);
         $this->contentManager = $this->prophesize(ContentManagerInterface::class);
         $this->formMetadataProvider = new ArrayMetadataProvider();
@@ -108,6 +116,7 @@ final class PageCreateToolTest extends TestCase
             $this->adminLinkGenerator,
             $this->pageRepository->reveal(),
             $this->permissionChecker,
+            $this->webspaceManager->reveal(),
         );
     }
 
@@ -183,6 +192,67 @@ final class PageCreateToolTest extends TestCase
         $this->tool->createPage('example', 'en', 'default', 'Test', 'parent-uuid');
 
         $this->assertInstanceOf(CreatePageMessage::class, $capturedEnvelope->getMessage());
+    }
+
+    public function testCreatePagePassesTheNavigationContextsDeclaredByTheWebspace(): void
+    {
+        $webspace = new Webspace();
+        $webspace->setKey('example');
+        $webspace->setNavigation(new Navigation([
+            new NavigationContext('main', []),
+            new NavigationContext('footer', []),
+        ]));
+        $this->webspaceManager->findWebspaceByKey('example')->willReturn($webspace);
+
+        $mockPage = new Page('uuid-1');
+        $mockPage->setWebspaceKey('example');
+
+        $capturedMessage = null;
+        $this->messageBus->dispatch(Argument::cetera())
+            ->shouldBeCalledOnce()
+            ->will(function(array $args) use ($mockPage, &$capturedMessage) {
+                $capturedMessage = $args[0]->getMessage();
+
+                return $args[0]->with(new HandledStamp($mockPage, 'handler'));
+            });
+
+        $this->contentManager->resolve(Argument::cetera())->willReturn(new PageDimensionContent(new Page()));
+        $this->contentManager->normalize(Argument::cetera())->willReturn([]);
+
+        $this->tool->createPage('example', 'en', 'default', 'Test', 'parent-uuid', navigationContexts: ['main', 'footer']);
+
+        $this->assertInstanceOf(CreatePageMessage::class, $capturedMessage);
+        $this->assertSame(['main', 'footer'], $capturedMessage->getData()['navigationContexts']);
+    }
+
+    public function testCreatePageRejectsAnUndeclaredNavigationContext(): void
+    {
+        $webspace = new Webspace();
+        $webspace->setKey('example');
+        $webspace->setNavigation(new Navigation([new NavigationContext('main', [])]));
+        $this->webspaceManager->findWebspaceByKey('example')->willReturn($webspace);
+
+        $this->messageBus->dispatch(Argument::cetera())->shouldNotBeCalled();
+
+        $result = $this->tool->createPage('example', 'en', 'default', 'Test', 'parent-uuid', navigationContexts: ['footer']);
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('footer', $result['error']);
+        $this->assertStringContainsString('Declared contexts: main.', $result['error']);
+    }
+
+    public function testCreatePageHintsAtTheWebspaceXmlWhenNoContextIsDeclared(): void
+    {
+        $webspace = new Webspace();
+        $webspace->setKey('example');
+        $this->webspaceManager->findWebspaceByKey('example')->willReturn($webspace);
+
+        $this->messageBus->dispatch(Argument::cetera())->shouldNotBeCalled();
+
+        $result = $this->tool->createPage('example', 'en', 'default', 'Test', 'parent-uuid', navigationContexts: ['main']);
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('<navigation><contexts>', $result['error']);
     }
 
     public function testCreatePageGeneratesUrlFromTitleWhenUrlIsNull(): void
@@ -381,6 +451,7 @@ final class PageCreateToolTest extends TestCase
             $this->adminLinkGenerator,
             $this->pageRepository->reveal(),
             $this->permissionChecker,
+            $this->webspaceManager->reveal(),
         );
 
         $this->messageBus->dispatch(Argument::cetera())->shouldNotBeCalled();
@@ -492,6 +563,7 @@ final class PageCreateToolTest extends TestCase
             $this->adminLinkGenerator,
             $this->pageRepository->reveal(),
             $this->permissionChecker,
+            $this->webspaceManager->reveal(),
         );
 
         $this->messageBus->dispatch(Argument::cetera())
@@ -543,6 +615,7 @@ final class PageCreateToolTest extends TestCase
             $this->adminLinkGenerator,
             $this->pageRepository->reveal(),
             $this->permissionChecker,
+            $this->webspaceManager->reveal(),
         );
 
         $this->messageBus->dispatch(Argument::cetera())->shouldNotBeCalled();
@@ -576,6 +649,7 @@ final class PageCreateToolTest extends TestCase
             $this->adminLinkGenerator,
             $this->pageRepository->reveal(),
             $this->permissionChecker,
+            $this->webspaceManager->reveal(),
         );
 
         $capturedEnvelope = null;

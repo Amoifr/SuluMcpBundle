@@ -24,6 +24,10 @@ use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FieldMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormMetadata;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\TypedFormMetadata;
 use Sulu\Component\Security\Authorization\PermissionTypes;
+use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
+use Sulu\Component\Webspace\Navigation;
+use Sulu\Component\Webspace\NavigationContext;
+use Sulu\Component\Webspace\Webspace;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\Mcp\Application\Content\BlockDataValidator;
@@ -73,8 +77,12 @@ final class PageUpdateToolTest extends TestCase
     private FakeToolPermissionChecker $permissionChecker;
     private PageUpdateTool $tool;
 
+    /** @var ObjectProphecy<WebspaceManagerInterface> */
+    private ObjectProphecy $webspaceManager;
+
     protected function setUp(): void
     {
+        $this->webspaceManager = $this->prophesize(WebspaceManagerInterface::class);
         $this->messageBus = $this->prophesize(MessageBusInterface::class);
         $this->contentManager = $this->prophesize(ContentManagerInterface::class);
         $this->pageRepository = $this->prophesize(PageRepositoryInterface::class);
@@ -101,6 +109,7 @@ final class PageUpdateToolTest extends TestCase
             new ContentMetadataMapper($this->mapperMetadataProvider),
             $this->adminLinkGenerator,
             $this->permissionChecker,
+            $this->webspaceManager->reveal(),
         );
     }
 
@@ -204,6 +213,71 @@ final class PageUpdateToolTest extends TestCase
 
         $this->assertSame('default', $capturedData['template']);
         $this->assertSame('<p>Updated</p>', $capturedData['article']);
+    }
+
+    public function testUpdatePageReplacesTheNavigationContexts(): void
+    {
+        $this->setUpReadModifyWrite('uuid-1', 'en', ['template' => 'default', 'title' => 'Existing']);
+
+        $webspace = new Webspace();
+        $webspace->setKey('example');
+        $webspace->setNavigation(new Navigation([
+            new NavigationContext('main', []),
+            new NavigationContext('footer', []),
+        ]));
+        $this->webspaceManager->findWebspaceByKey('example')->willReturn($webspace);
+
+        $mockPage = new Page('uuid-1');
+        $mockPage->setWebspaceKey('example');
+
+        $capturedEnvelope = null;
+        $this->messageBus->dispatch(Argument::that(function(Envelope $envelope) use (&$capturedEnvelope): bool {
+            $capturedEnvelope = $envelope;
+
+            return true;
+        }), Argument::cetera())->shouldBeCalledOnce()
+            ->willReturn(new Envelope($mockPage, [new HandledStamp($mockPage, 'handler')]));
+
+        $this->tool->updatePage('uuid-1', 'en', navigationContexts: ['footer']);
+
+        $this->assertSame(['footer'], $capturedEnvelope->getMessage()->getData()['navigationContexts']);
+    }
+
+    public function testUpdatePageLeavesTheNavigationContextsUntouchedWhenOmitted(): void
+    {
+        $this->setUpReadModifyWrite('uuid-1', 'en', ['template' => 'default', 'title' => 'Existing']);
+
+        $mockPage = new Page('uuid-1');
+        $mockPage->setWebspaceKey('example');
+
+        $capturedEnvelope = null;
+        $this->messageBus->dispatch(Argument::that(function(Envelope $envelope) use (&$capturedEnvelope): bool {
+            $capturedEnvelope = $envelope;
+
+            return true;
+        }), Argument::cetera())->shouldBeCalledOnce()
+            ->willReturn(new Envelope($mockPage, [new HandledStamp($mockPage, 'handler')]));
+
+        $this->tool->updatePage('uuid-1', 'en', 'New title');
+
+        $this->assertArrayNotHasKey('navigationContexts', $capturedEnvelope->getMessage()->getData());
+    }
+
+    public function testUpdatePageRejectsAnUndeclaredNavigationContext(): void
+    {
+        $this->setUpReadModifyWrite('uuid-1', 'en', ['template' => 'default', 'title' => 'Existing']);
+
+        $webspace = new Webspace();
+        $webspace->setKey('example');
+        $webspace->setNavigation(new Navigation([new NavigationContext('main', [])]));
+        $this->webspaceManager->findWebspaceByKey('example')->willReturn($webspace);
+
+        $this->messageBus->dispatch(Argument::cetera())->shouldNotBeCalled();
+
+        $result = $this->tool->updatePage('uuid-1', 'en', navigationContexts: ['footer']);
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('Declared contexts: main.', $result['error']);
     }
 
     public function testUpdatePageMergesContentWithExistingData(): void
@@ -429,6 +503,7 @@ final class PageUpdateToolTest extends TestCase
             new ContentMetadataMapper($this->mapperMetadataProvider),
             $this->adminLinkGenerator,
             $this->permissionChecker,
+            $this->webspaceManager->reveal(),
         );
 
         // Set up the read side so we reach the content branch
