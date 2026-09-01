@@ -127,17 +127,10 @@ class BlockAddTool
             // Normalize blockData: [{"content": "..."}] -> {"content": "..."} or pass through if already flat
             $blockData = $this->normalizeBlockData($blockData);
 
-            $templateKey = isset($currentData['template']) && \is_string($currentData['template'])
-                ? $currentData['template']
-                : null;
-            if ($validationError = $this->blockDataValidator->validate($type, $templateKey, $blockType, $blockData)) {
-                return $validationError;
-            }
-
-            $newBlock = $this->stringifyKeys($this->assignBlockIds(\array_merge(['type' => $blockType], $blockData), $this->blockIdGenerator));
-
+            // Nested insert: locate the parent before validating, so the new block is
+            // validated against the type its target property actually declares.
+            $parentPath = null;
             if (null !== $parentBlockId) {
-                // Nested insert: find the parent block and add inside it
                 $parentPath = $this->findBlockPath($currentData, $parentBlockId);
                 if (null === $parentPath) {
                     return [
@@ -145,7 +138,23 @@ class BlockAddTool
                         'hint' => 'Use sulu_page_get, sulu_article_get, or sulu_snippet_get to see block summaries with _id values.',
                     ];
                 }
-                $result = $this->insertBlockAtPath($blocks, $parentPath['indices'], $newBlock, $position);
+            }
+
+            $templateKey = isset($currentData['template']) && \is_string($currentData['template'])
+                ? $currentData['template']
+                : null;
+            $nestedProperty = null !== $parentPath
+                ? $this->nestedTargetProperty($currentData, $type, $templateKey, $blockType, $parentPath)
+                : null;
+            $blockPath = $this->newBlockTypePath($currentData, $blockProperty, $blockType, $parentPath, $nestedProperty);
+            if ($validationError = $this->blockDataValidator->validate($type, $templateKey, $blockType, $blockPath, $blockData)) {
+                return $validationError;
+            }
+
+            $newBlock = $this->stringifyKeys($this->assignBlockIds(\array_merge(['type' => $blockType], $blockData), $this->blockIdGenerator));
+
+            if (null !== $parentPath) {
+                $result = $this->insertBlockAtPath($blocks, $parentPath['indices'], $newBlock, $position, $nestedProperty);
                 if (null === $result) {
                     return ['error' => \sprintf('Could not insert block into parent "%s" — no nested block list found.', $parentBlockId)];
                 }
@@ -189,5 +198,63 @@ class BlockAddTool
                 'hint' => 'Verify the UUID exists (use sulu_page_get, sulu_article_get, or sulu_snippet_get), the blockProperty matches a block field in the template, and blockType is a valid block type (use sulu_get_context to see available types).',
             ];
         }
+    }
+
+    /**
+     * The property of the parent block the added block belongs in. Asks the template
+     * metadata which of the parent's block properties declares $blockType, because the
+     * current content cannot tell an empty list from an absent one, which is exactly
+     * the state a card list is in before its first item is added. Falls back to the
+     * first populated list only when the metadata gives no single answer.
+     *
+     * @param array<string, mixed> $currentData
+     * @param array{property: string, indices: list<int>} $parentPath
+     */
+    private function nestedTargetProperty(
+        array $currentData,
+        string $type,
+        ?string $templateKey,
+        string $blockType,
+        array $parentPath,
+    ): ?string {
+        $parentChain = $this->blockTypePath($currentData, $parentPath['property'], $parentPath['indices']);
+
+        $resolved = $this->blockDataValidator->resolveBlockProperty($type, $templateKey, $parentChain, $blockType);
+        if (null !== $resolved) {
+            return $resolved;
+        }
+
+        /** @var list<array<string, mixed>> $parentBlocks */
+        $parentBlocks = $currentData[$parentPath['property']];
+
+        return $this->findNestedBlockKey($this->getBlockAtPath($parentBlocks, $parentPath['indices']));
+    }
+
+    /**
+     * The (block property, block type) chain the added block will sit at: the target
+     * property of the entity, or $nestedProperty inside the parent block.
+     *
+     * @param array<string, mixed> $currentData
+     * @param array{property: string, indices: list<int>}|null $parentPath
+     *
+     * @return list<array{property: string, type: string}>
+     */
+    private function newBlockTypePath(
+        array $currentData,
+        string $blockProperty,
+        string $blockType,
+        ?array $parentPath,
+        ?string $nestedProperty,
+    ): array {
+        if (null === $parentPath) {
+            return [['property' => $blockProperty, 'type' => $blockType]];
+        }
+
+        $parentChain = $this->blockTypePath($currentData, $parentPath['property'], $parentPath['indices']);
+        if ([] === $parentChain || null === $nestedProperty) {
+            return [];
+        }
+
+        return [...$parentChain, ['property' => $nestedProperty, 'type' => $blockType]];
     }
 }

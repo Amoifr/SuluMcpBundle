@@ -214,6 +214,54 @@ trait ContentNormalizerTrait
     }
 
     /**
+     * Describe the block at a path as the chain of (block property, block type) steps
+     * leading to it, which is what BlockDataValidator needs to look a block type up in
+     * the template metadata, where a nested type name such as "item" only identifies
+     * a schema together with the property that declares it. Returns an empty chain when
+     * a step cannot be described, which the validator reads as "not discoverable".
+     *
+     * @param array<string, mixed> $data
+     * @param list<int> $indices
+     *
+     * @return list<array{property: string, type: string}>
+     */
+    private function blockTypePath(array $data, string $property, array $indices): array
+    {
+        $blocks = $data[$property] ?? null;
+        if (!\is_array($blocks)) {
+            return [];
+        }
+
+        /** @var list<array<string, mixed>> $blocks */
+        $block = $blocks[$indices[0]] ?? null;
+
+        if (!\is_array($block) || !\is_string($block['type'] ?? null)) {
+            return [];
+        }
+
+        $path = [['property' => $property, 'type' => $block['type']]];
+
+        foreach (\array_slice($indices, 1) as $index) {
+            $nestedKey = $this->findNestedBlockKey($block);
+            if (null === $nestedKey) {
+                return [];
+            }
+
+            /** @var list<array<string, mixed>> $nestedBlocks */
+            $nestedBlocks = $block[$nestedKey];
+            $block = $nestedBlocks[$index] ?? null;
+
+            if (!\is_array($block) || !\is_string($block['type'] ?? null)) {
+                return [];
+            }
+
+            $path[] = ['property' => $nestedKey, 'type' => $block['type']];
+        }
+
+        return $path;
+    }
+
+    /**
      * Return a new blocks array with the block at $indices replaced/merged with $updated.
      *
      * @param list<array<string, mixed>> $blocks
@@ -251,13 +299,15 @@ trait ContentNormalizerTrait
      * @param list<array<string, mixed>> $blocks
      * @param list<int> $parentIndices
      * @param array<string, mixed> $newBlock
+     * @param string|null $nestedKey Target property, when the caller resolved it from the
+     *                               template metadata; otherwise it is guessed from $parent
      *
      * @return array{blocks: list<array<string, mixed>>, nestedKey: string, addedAt: int}|null
      */
-    private function insertBlockAtPath(array $blocks, array $parentIndices, array $newBlock, ?int $position): ?array
+    private function insertBlockAtPath(array $blocks, array $parentIndices, array $newBlock, ?int $position, ?string $nestedKey = null): ?array
     {
         $parent = $this->getBlockAtPath($blocks, $parentIndices);
-        $nestedKey = $this->findNestedBlockKey($parent);
+        $nestedKey ??= $this->findNestedBlockKey($parent);
 
         if (null === $nestedKey) {
             // Parent has no nested block list — use first block-like key or default to 'blocks'

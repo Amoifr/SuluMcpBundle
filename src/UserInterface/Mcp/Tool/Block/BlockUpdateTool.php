@@ -144,7 +144,8 @@ class BlockUpdateTool
             $templateKey = isset($currentData['template']) && \is_string($currentData['template'])
                 ? $currentData['template']
                 : null;
-            if (null !== $blockType && $validationError = $this->blockDataValidator->validate($type, $templateKey, $blockType, $blockData)) {
+            $blockPath = $this->blockTypePath($currentData, $foundProperty, $foundIndices);
+            if (null !== $blockType && $validationError = $this->blockDataValidator->validate($type, $templateKey, $blockType, $blockPath, $blockData)) {
                 return $validationError;
             }
 

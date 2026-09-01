@@ -438,4 +438,200 @@ final class BlockAddToolTest extends TestCase
         $this->assertStringContainsString('sulu_page_update', $result['hint']);
         $this->assertStringContainsString('de', $result['hint']);
     }
+
+    public function testNestedAddValidatesAgainstTheItemTypeOfItsParentProperty(): void
+    {
+        $this->setupPageWithDuplicateItemTypes();
+
+        $updatedPage = new Page('test-uuid');
+        $updatedPage->setWebspaceKey('example');
+        $this->messageBus->dispatch(Argument::cetera())->shouldBeCalledOnce()
+            ->willReturn(new Envelope($updatedPage, [new HandledStamp($updatedPage, 'handler')]));
+
+        $result = $this->tool->addBlock(
+            'page',
+            'test-uuid',
+            'en',
+            'item',
+            'blocks',
+            ['eyebrow' => 'B', 'headline' => 'Card B', 'text' => '<p>…</p>'],
+            parentBlockId: 'cards-1',
+        );
+
+        $this->assertTrue($result['success'], 'a "feature_cards" item must not be validated against the "trust_bar" item schema');
+    }
+
+    public function testNestedAddRejectsKeysOfAForeignItemTypeOfTheSameName(): void
+    {
+        $this->setupPageWithDuplicateItemTypes();
+
+        $this->messageBus->dispatch(Argument::cetera())->shouldNotBeCalled();
+
+        $result = $this->tool->addBlock(
+            'page',
+            'test-uuid',
+            'en',
+            'item',
+            'blocks',
+            ['value' => '15', 'label' => 'Jahre'],
+            parentBlockId: 'cards-1',
+        );
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('value', $result['error']);
+        $this->assertStringContainsString('eyebrow', $result['error']);
+    }
+
+    public function testNestedAddIntoAnEmptyListStillValidatesAgainstTheSchema(): void
+    {
+        // The first item of a card list: the parent declares "items" but holds nothing
+        // there yet, so the target property has to come from the template metadata.
+        $this->setupPageWithDuplicateItemTypes([
+            ['_id' => 'cards-1', 'type' => 'feature_cards', 'headline' => 'Cards'],
+        ]);
+
+        $this->messageBus->dispatch(Argument::cetera())->shouldNotBeCalled();
+
+        $result = $this->tool->addBlock(
+            'page',
+            'test-uuid',
+            'en',
+            'item',
+            'blocks',
+            ['bogus_key' => 'x'],
+            parentBlockId: 'cards-1',
+        );
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('bogus_key', $result['error']);
+        $this->assertStringContainsString('eyebrow', $result['error']);
+    }
+
+    public function testNestedAddIntoAnEmptyListTargetsThePropertyThatDeclaresTheType(): void
+    {
+        $this->setupPageWithDuplicateItemTypes([
+            ['_id' => 'cards-1', 'type' => 'feature_cards', 'headline' => 'Cards'],
+        ]);
+
+        $captured = null;
+        $updatedPage = new Page('test-uuid');
+        $updatedPage->setWebspaceKey('example');
+        $this->messageBus->dispatch(Argument::that(function(Envelope $envelope) use (&$captured): bool {
+            $captured = $envelope->getMessage();
+
+            return true;
+        }), Argument::cetera())->shouldBeCalledOnce()
+            ->willReturn(new Envelope($updatedPage, [new HandledStamp($updatedPage, 'handler')]));
+
+        $result = $this->tool->addBlock(
+            'page',
+            'test-uuid',
+            'en',
+            'item',
+            'blocks',
+            ['eyebrow' => 'B'],
+            parentBlockId: 'cards-1',
+        );
+
+        $this->assertTrue($result['success']);
+
+        $parent = $captured->getData()['blocks'][0];
+        $this->assertArrayHasKey('items', $parent, 'the block must land in the property that declares its type, not in a guessed "blocks" key');
+        $this->assertSame('B', $parent['items'][0]['eyebrow']);
+    }
+
+    public function testNestedAddRejectsNameValueShapeEvenWhenTheTargetPropertyIsUnknown(): void
+    {
+        // The parent has no nested block list yet, so the property the block would land
+        // in cannot be inferred and the schema stays unresolved. The storage-shape
+        // guard does not depend on metadata and must still fire.
+        $this->setupEntityWithBlocks('page', [
+            ['_id' => 'cards-1', 'type' => 'feature_cards', 'headline' => 'Cards'],
+        ]);
+
+        $this->messageBus->dispatch(Argument::cetera())->shouldNotBeCalled();
+
+        $result = $this->tool->addBlock(
+            'page',
+            'test-uuid',
+            'en',
+            'item',
+            'blocks',
+            ['name' => 'title', 'value' => 'X'],
+            parentBlockId: 'cards-1',
+        );
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('storage shape', $result['error']);
+    }
+
+    /**
+     * A page holding a "feature_cards" block, with a template whose "trust_bar" declares
+     * a differently shaped nested type of the same name "item", and declares it first.
+     *
+     * @param list<array<string, mixed>>|null $blocks
+     */
+    private function setupPageWithDuplicateItemTypes(?array $blocks = null): void
+    {
+        $this->setupEntityWithBlocks('page', $blocks ?? [
+            ['_id' => 'cards-1', 'type' => 'feature_cards', 'headline' => 'Cards', 'items' => [
+                ['_id' => 'item-1', 'type' => 'item', 'eyebrow' => 'A', 'headline' => 'Card A', 'text' => '<p>…</p>'],
+            ]],
+        ]);
+
+        $blocksField = new FieldMetadata('blocks');
+        $blocksField->setType('block');
+        $blocksField->addType($this->blockType('trust_bar', [
+            $this->nestedItemsField(['value', 'label']),
+        ]));
+        $blocksField->addType($this->blockType('feature_cards', [
+            $this->textField('headline'),
+            $this->nestedItemsField(['eyebrow', 'headline', 'text']),
+        ]));
+
+        $template = new FormMetadata();
+        $template->setKey('default');
+        $template->addItem($blocksField);
+
+        $typed = new TypedFormMetadata();
+        $typed->addForm('default', $template);
+
+        $this->formMetadataProvider->set('page', $typed);
+    }
+
+    /**
+     * @param list<string> $fieldNames
+     */
+    private function nestedItemsField(array $fieldNames): FieldMetadata
+    {
+        $item = $this->blockType('item', \array_map($this->textField(...), $fieldNames));
+
+        $items = new FieldMetadata('items');
+        $items->setType('block');
+        $items->addType($item);
+
+        return $items;
+    }
+
+    /**
+     * @param list<FieldMetadata> $fields
+     */
+    private function blockType(string $key, array $fields): FormMetadata
+    {
+        $type = new FormMetadata();
+        $type->setKey($key);
+        foreach ($fields as $field) {
+            $type->addItem($field);
+        }
+
+        return $type;
+    }
+
+    private function textField(string $name): FieldMetadata
+    {
+        $field = new FieldMetadata($name);
+        $field->setType('text_line');
+
+        return $field;
+    }
 }
