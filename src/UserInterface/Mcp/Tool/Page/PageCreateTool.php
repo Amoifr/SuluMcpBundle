@@ -27,6 +27,7 @@ use Sulu\Mcp\Application\Content\BlockDataValidator;
 use Sulu\Mcp\Application\Content\ContentMetadataMapper;
 use Sulu\Mcp\Application\Content\LinkDataTrait;
 use Sulu\Mcp\Application\Content\NavigationContextTrait;
+use Sulu\Mcp\Application\Content\ShadowTrait;
 use Sulu\Mcp\Application\Security\ToolPermissionCheckerInterface;
 use Sulu\Mcp\Domain\Exception\PermissionDeniedException;
 use Sulu\Mcp\Domain\Security\PermissionRequirement;
@@ -48,6 +49,7 @@ class PageCreateTool
     use BlockDataNormalizerTrait;
     use HandleTrait;
     use LinkDataTrait;
+    use ShadowTrait;
     use NavigationContextTrait;
 
     public function __construct(
@@ -102,6 +104,10 @@ class PageCreateTool
         ?array $navigationContexts = null,
         #[Schema(type: 'object', description: 'Optional "Link" setting, which turns the page into a redirect instead of showing its own content. Needs a "provider" key naming the kind of target, e.g. {"provider": "page", "page": "<uuid>"} for internal content or {"provider": "external", "href": "https://example.com"}. Links exist on pages only.', additionalProperties: true)]
         ?array $linkData = null,
+        #[Schema(type: 'boolean', description: 'Optional "Shadow" setting: when true this locale serves the content of "shadowLocale" instead of its own. Omit to leave it unchanged, pass false to remove the shadow. Cannot be combined with a link.')]
+        ?bool $shadowOn = null,
+        #[Schema(type: 'string', description: 'The locale mirrored when shadowOn is true, e.g. "en". The eligible locales are returned as "shadowLocales" by the matching get tool.')]
+        ?string $shadowLocale = null,
     ): array {
         try {
             // An unchecked parentId could attach the page under a parent in a different
@@ -177,6 +183,12 @@ class PageCreateTool
                 unset($data['navigationContexts']);
             }
             $data = $this->applyLinkData($data, $linkData);
+
+            if ($validationError = $this->validateShadow($shadowOn, $shadowLocale, $locale, [])) {
+                return $validationError;
+            }
+
+            $data = $this->applyShadow($data, $shadowOn, $shadowLocale);
 
             $message = new CreatePageMessage($webspace, $parentId, $data);
 

@@ -29,6 +29,7 @@ use Sulu\Mcp\Application\Content\ContentMetadataMapper;
 use Sulu\Mcp\Application\Content\ContentNormalizerTrait;
 use Sulu\Mcp\Application\Content\LinkDataTrait;
 use Sulu\Mcp\Application\Content\NavigationContextTrait;
+use Sulu\Mcp\Application\Content\ShadowTrait;
 use Sulu\Mcp\Application\Security\ToolPermissionCheckerInterface;
 use Sulu\Mcp\Application\Security\WebspacePermissionResolver;
 use Sulu\Mcp\Domain\Exception\PermissionDeniedException;
@@ -50,6 +51,7 @@ class PageUpdateTool
 {
     use BlockDataNormalizerTrait;
     use LinkDataTrait;
+    use ShadowTrait;
     use ContentLocaleTrait;
     use ContentNormalizerTrait;
     use HandleTrait;
@@ -104,6 +106,10 @@ class PageUpdateTool
         ?array $navigationContexts = null,
         #[Schema(type: 'object', description: 'Optional "Link" setting, which turns the page into a redirect instead of showing its own content. Needs a "provider" key naming the kind of target, e.g. {"provider": "page", "page": "<uuid>"} for internal content or {"provider": "external", "href": "https://example.com"}. Omit to leave it unchanged, pass {} to remove the redirect. Cannot be combined with a shadow locale. Links exist on pages only.', additionalProperties: true)]
         ?array $linkData = null,
+        #[Schema(type: 'boolean', description: 'Optional "Shadow" setting: when true this locale serves the content of "shadowLocale" instead of its own. Omit to leave it unchanged, pass false to remove the shadow. Cannot be combined with a link.')]
+        ?bool $shadowOn = null,
+        #[Schema(type: 'string', description: 'The locale mirrored when shadowOn is true, e.g. "en". The eligible locales are returned as "shadowLocales" by the matching get tool.')]
+        ?string $shadowLocale = null,
     ): array {
         try {
             // Read current page state to get template and existing content.
@@ -212,6 +218,12 @@ class PageUpdateTool
                 unset($data['navigationContexts']);
             }
             $data = $this->applyLinkData($data, $linkData);
+
+            if ($validationError = $this->validateShadow($shadowOn, $shadowLocale, $locale, $currentData)) {
+                return $validationError;
+            }
+
+            $data = $this->applyShadow($data, $shadowOn, $shadowLocale);
 
             $message = new ModifyPageMessage(['uuid' => $uuid], $data);
 
