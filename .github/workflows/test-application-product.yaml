@@ -1,11 +1,8 @@
 name: Test application (product bundle)
 
-# SuluProductBundle is an optional dependency and cannot be installed by the default
-# dependency set: since sulu/SuluProductBundle#407 it requires an unreleased sulu/sulu
-# from a fork, and Composer honours a "repositories" entry and an inline alias only in
-# the root package. This workflow reproduces that root setup, so the sulu_product_*
-# tools and everything gated behind them keep their coverage. Drop the composer config
-# step once sulu/sulu#9046 is released and the product bundle points at a tag again.
+# SuluProductBundle is an optional dependency and not part of the default dependency set.
+# This workflow adds it together with the sulu/sulu 3.1 it requires, so the
+# sulu_product_* tools and everything gated behind them keep their coverage.
 
 on:
     pull_request:
