@@ -194,6 +194,54 @@ final class ArticleUpdateToolTest extends TestCase
         $this->assertSame('https://example.com/admin/#/en/default/uuid-1', $result['admin_url']);
     }
 
+    public function testUpdateArticleSetsTheShadow(): void
+    {
+        $currentArticle = new Article('uuid-1');
+        $updatedArticle = new Article('uuid-1');
+
+        $this->articleRepository->getOneBy(Argument::cetera())->willReturn($currentArticle);
+
+        $dimensionContent = new ArticleDimensionContent(new Article());
+        $dimensionContent->setLocale('en');
+        $dimensionContent->setTemplateKey('blog');
+        $this->contentManager->resolve(Argument::cetera())->willReturn($dimensionContent);
+        $this->contentManager->normalize(Argument::cetera())->willReturn(['title' => 'Old Title', 'template' => 'blog']);
+
+        $capturedEnvelope = null;
+        $this->messageBus->dispatch(Argument::cetera())
+            ->shouldBeCalledOnce()
+            ->will(function(array $args) use ($updatedArticle, &$capturedEnvelope) {
+                $capturedEnvelope = $args[0];
+
+                return $args[0]->with(new HandledStamp($updatedArticle, 'handler'));
+            });
+
+        $this->tool->updateArticle('uuid-1', 'en', shadowOn: true, shadowLocale: 'de');
+
+        $data = $capturedEnvelope->getMessage()->getData();
+        $this->assertTrue($data['shadowOn']);
+        $this->assertSame('de', $data['shadowLocale']);
+    }
+
+    public function testUpdateArticleRejectsALocaleShadowingItselfWhenShadowOnIsOmitted(): void
+    {
+        $currentArticle = new Article('uuid-1');
+        $this->articleRepository->getOneBy(Argument::cetera())->willReturn($currentArticle);
+
+        $dimensionContent = new ArticleDimensionContent(new Article());
+        $dimensionContent->setLocale('en');
+        $dimensionContent->setTemplateKey('blog');
+        $this->contentManager->resolve(Argument::cetera())->willReturn($dimensionContent);
+        $this->contentManager->normalize(Argument::cetera())->willReturn(['title' => 'Old Title', 'template' => 'blog']);
+
+        $this->messageBus->dispatch(Argument::cetera())->shouldNotBeCalled();
+
+        $result = $this->tool->updateArticle('uuid-1', 'en', shadowLocale: 'en');
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('itself', $result['error']);
+    }
+
     public function testUpdateArticleMergesContentOverCurrentData(): void
     {
         $currentArticle = new Article();

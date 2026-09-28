@@ -32,7 +32,12 @@ trait ShadowTrait
         string $locale,
         array $currentData,
     ): ?array {
-        if (true !== $shadowOn) {
+        // Mirrors applyShadow(): omitting shadowOn does not mean "off", it means "on" as soon as
+        // shadowLocale is given. Checking `true === $shadowOn` here would let that same case
+        // skip every validation below instead of being validated like an explicit shadowOn: true.
+        $shadowRequested = $shadowOn ?? (null !== $shadowLocale && '' !== $shadowLocale);
+
+        if (!$shadowRequested) {
             return null;
         }
 

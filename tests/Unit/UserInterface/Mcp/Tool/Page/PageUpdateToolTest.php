@@ -331,6 +331,19 @@ final class PageUpdateToolTest extends TestCase
         $this->assertStringContainsString('itself', $result['error']);
     }
 
+    public function testUpdatePageRejectsALocaleShadowingItselfWhenShadowOnIsOmitted(): void
+    {
+        // Omitting shadowOn while passing shadowLocale still turns the shadow on (see
+        // applyShadow()), so the same checks must run as when shadowOn: true is explicit.
+        $this->setUpReadModifyWrite('uuid-1', 'en', ['template' => 'default', 'title' => 'Existing']);
+        $this->messageBus->dispatch(Argument::cetera())->shouldNotBeCalled();
+
+        $result = $this->tool->updatePage('uuid-1', 'en', shadowLocale: 'en');
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('itself', $result['error']);
+    }
+
     public function testUpdatePageRejectsAShadowOnALinkedPage(): void
     {
         $this->setUpReadModifyWrite('uuid-1', 'en', ['template' => 'default', 'title' => 'Existing', 'linkOn' => true]);

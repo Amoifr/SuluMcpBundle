@@ -114,6 +114,41 @@ final class ProductCreateToolTest extends TestCase
         $this->assertSame(['12' => 'red'], $data['attributes']);
     }
 
+    public function testCreateProductSetsTheShadow(): void
+    {
+        $product = new Product('new-uuid');
+        $captured = null;
+
+        $this->messageBus->dispatch(Argument::type(Envelope::class), Argument::cetera())
+            ->will(function(array $args) use ($product, &$captured): Envelope {
+                /** @var Envelope $envelope */
+                $envelope = $args[0];
+                $captured = $envelope->getMessage();
+
+                return $envelope->with(new HandledStamp($product, 'handler'));
+            });
+
+        $this->contentManager->resolve(Argument::cetera())->willReturn(new ProductDimensionContent(new Product()));
+        $this->contentManager->normalize(Argument::cetera())->willReturn([]);
+
+        $this->tool->createProduct('en', 'family-uuid', 'Shirt', shadowOn: true, shadowLocale: 'de');
+
+        $this->assertInstanceOf(CreateProductMessage::class, $captured);
+        $data = $captured->getData();
+        $this->assertTrue($data['shadowOn']);
+        $this->assertSame('de', $data['shadowLocale']);
+    }
+
+    public function testCreateProductRejectsALocaleShadowingItselfWhenShadowOnIsOmitted(): void
+    {
+        $this->messageBus->dispatch(Argument::cetera())->shouldNotBeCalled();
+
+        $result = $this->tool->createProduct('en', 'family-uuid', 'Shirt', shadowLocale: 'en');
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('itself', $result['error']);
+    }
+
     public function testCreateProductRefusesToCreateAVariant(): void
     {
         $this->messageBus->dispatch(Argument::cetera())->shouldNotBeCalled();

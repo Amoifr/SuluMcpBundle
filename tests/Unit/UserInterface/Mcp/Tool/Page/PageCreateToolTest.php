@@ -273,6 +273,55 @@ final class PageCreateToolTest extends TestCase
         $this->assertStringContainsString('provider', $result['error']);
     }
 
+    public function testCreatePageSetsTheShadow(): void
+    {
+        $mockPage = new Page('uuid-1');
+        $mockPage->setWebspaceKey('example');
+
+        $capturedMessage = null;
+        $this->messageBus->dispatch(Argument::cetera())
+            ->shouldBeCalledOnce()
+            ->will(function(array $args) use ($mockPage, &$capturedMessage) {
+                $capturedMessage = $args[0]->getMessage();
+
+                return $args[0]->with(new HandledStamp($mockPage, 'handler'));
+            });
+
+        $this->contentManager->resolve(Argument::cetera())->willReturn(new PageDimensionContent(new Page()));
+        $this->contentManager->normalize(Argument::cetera())->willReturn([]);
+
+        $this->tool->createPage(
+            'example',
+            'en',
+            'default',
+            'Test',
+            'parent-uuid',
+            shadowOn: true,
+            shadowLocale: 'de',
+        );
+
+        $this->assertInstanceOf(CreatePageMessage::class, $capturedMessage);
+        $this->assertTrue($capturedMessage->getData()['shadowOn']);
+        $this->assertSame('de', $capturedMessage->getData()['shadowLocale']);
+    }
+
+    public function testCreatePageRejectsALocaleShadowingItselfWhenShadowOnIsOmitted(): void
+    {
+        $this->messageBus->dispatch(Argument::cetera())->shouldNotBeCalled();
+
+        $result = $this->tool->createPage(
+            'example',
+            'en',
+            'default',
+            'Test',
+            'parent-uuid',
+            shadowLocale: 'en',
+        );
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('itself', $result['error']);
+    }
+
     public function testCreatePageRejectsAnUndeclaredNavigationContext(): void
     {
         $webspace = new Webspace();

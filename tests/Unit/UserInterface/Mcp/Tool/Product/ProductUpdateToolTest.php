@@ -107,6 +107,16 @@ final class ProductUpdateToolTest extends TestCase
         $this->assertStringContainsString('mirrored', $result['error']);
     }
 
+    public function testUpdateProductRejectsALocaleShadowingItselfWhenShadowOnIsOmitted(): void
+    {
+        $this->givenProduct(['title' => 'Shirt']);
+
+        $result = $this->tool->updateProduct('uuid-1', 'en', shadowLocale: 'en');
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('itself', $result['error']);
+    }
+
     public function testUpdateProductOnlyChangesWhatWasPassed(): void
     {
         $captured = $this->givenProduct(['title' => 'Shirt', 'code' => 'SHIRT-1']);
