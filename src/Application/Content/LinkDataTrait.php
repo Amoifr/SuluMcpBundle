@@ -38,7 +38,7 @@ trait LinkDataTrait
         if (!\is_string($provider) || '' === $provider) {
             return [
                 'error' => 'The "linkData" object needs a non-empty "provider" string.',
-                'hint' => 'Use the provider of the link target, e.g. "page" or "article" for internal content and "external" for a url. Call sulu_get_context for the providers this project declares.',
+                'hint' => 'Use the provider of the link target, e.g. "page" or "article" for internal content and "external" for a url. sulu_get_context does not list link providers, and the value is not validated here, so pass one the project actually resolves.',
             ];
         }
 
