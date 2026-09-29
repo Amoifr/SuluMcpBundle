@@ -29,12 +29,16 @@ use PHPUnit\Framework\TestCase;
 use Prophecy\Argument;
 use Prophecy\PhpUnit\ProphecyTrait;
 use Prophecy\Prophecy\ObjectProphecy;
+use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Component\Security\Authorization\SecurityCheckerInterface;
 use Sulu\Component\Webspace\Manager\WebspaceCollection;
 use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
 use Sulu\Component\Webspace\Webspace;
 use Sulu\Mcp\Application\Security\ToolPermissionChecker;
+use Sulu\Mcp\Application\Security\ToolPermissionCheckerInterface;
 use Sulu\Mcp\Application\Security\WebspacePermissionResolver;
+use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
+use Sulu\Mcp\Tests\Application\TestBundle\Metadata\TestGroupProvider;
 use Sulu\Mcp\Tests\Unit\Fixture\TestUser;
 use Sulu\Mcp\UserInterface\Mcp\Tool\ContentSearchTool;
 
@@ -49,14 +53,27 @@ final class ContentSearchToolTest extends TestCase
     /** @var ObjectProphecy<SearcherInterface> */
     private ObjectProphecy $searcher;
 
+    /** @var ObjectProphecy<ToolPermissionCheckerInterface> */
+    private ObjectProphecy $permissionChecker;
+
+    private ArticleSecurityContextResolver $articleContextResolver;
+
     private ContentSearchTool $tool;
 
     protected function setUp(): void
     {
         $this->engine = $this->prophesize(EngineInterface::class);
         $this->searcher = $this->prophesize(SearcherInterface::class);
+        $this->permissionChecker = $this->prophesize(ToolPermissionCheckerInterface::class);
+        $this->articleContextResolver = new ArticleSecurityContextResolver(TestGroupProvider::singleGroup());
         // Grants EDIT on 'example' so existing happy-path tests are unaffected by the webspace filter.
-        $this->tool = new ContentSearchTool($this->engine->reveal(), $this->webspaceResolver(['example']));
+        // Grants VIEW on the article context so existing happy-path tests are unaffected by the
+        // article gate; tests that need to exercise the deny path re-stub this to false.
+        // productsIndexed defaults to false, same as when SuluProductBundle isn't installed. None
+        // of the existing tests below exercise a product resourceKey, so $permissionChecker->has()
+        // for the product context is never reached (short-circuited) and needs no stub.
+        $this->permissionChecker->has('sulu.article.articles', PermissionTypes::VIEW, 'en')->willReturn(true);
+        $this->tool = new ContentSearchTool($this->engine->reveal(), $this->webspaceResolver(['example']), $this->permissionChecker->reveal(), $this->articleContextResolver);
     }
 
     /**
@@ -227,28 +244,28 @@ final class ContentSearchToolTest extends TestCase
 
     public function testSearchReturnsEmptyResultsWhenNoWebspaceIsPermitted(): void
     {
-        $tool = new ContentSearchTool($this->engine->reveal(), $this->webspaceResolver([]));
+        $tool = new ContentSearchTool($this->engine->reveal(), $this->webspaceResolver([]), $this->permissionChecker->reveal(), $this->articleContextResolver);
 
         $this->engine->createSearchBuilder(Argument::cetera())->shouldNotBeCalled();
 
         $result = $tool->search('hello', 'en');
 
         $this->assertSame(
-            ['items' => [], 'total' => 0, 'hint' => 'No webspaces are readable with your permissions.'],
+            ['results' => [], 'total' => 0, 'hint' => 'No webspaces are readable with your permissions.'],
             $result,
         );
     }
 
     public function testSearchReturnsEmptyResultsWhenRequestedWebspaceIsNotPermitted(): void
     {
-        $tool = new ContentSearchTool($this->engine->reveal(), $this->webspaceResolver(['example']));
+        $tool = new ContentSearchTool($this->engine->reveal(), $this->webspaceResolver(['example']), $this->permissionChecker->reveal(), $this->articleContextResolver);
 
         $this->engine->createSearchBuilder(Argument::cetera())->shouldNotBeCalled();
 
         $result = $tool->search('hello', 'en', 'other');
 
         $this->assertSame(
-            ['items' => [], 'total' => 0, 'hint' => 'Webspace "other" is not readable with your permissions.'],
+            ['results' => [], 'total' => 0, 'hint' => 'Webspace "other" is not readable with your permissions.'],
             $result,
         );
     }
@@ -257,7 +274,7 @@ final class ContentSearchToolTest extends TestCase
     {
         $builder = $this->createSearchBuilder();
 
-        $tool = new ContentSearchTool($this->engine->reveal(), $this->webspaceResolver(['example', 'blog']));
+        $tool = new ContentSearchTool($this->engine->reveal(), $this->webspaceResolver(['example', 'blog']), $this->permissionChecker->reveal(), $this->articleContextResolver);
 
         $this->engine->createSearchBuilder('website')->willReturn($builder);
 
@@ -284,7 +301,7 @@ final class ContentSearchToolTest extends TestCase
     {
         $builder = $this->createSearchBuilder();
 
-        $tool = new ContentSearchTool($this->engine->reveal(), $this->webspaceResolver(['example', 'blog']));
+        $tool = new ContentSearchTool($this->engine->reveal(), $this->webspaceResolver(['example', 'blog']), $this->permissionChecker->reveal(), $this->articleContextResolver);
 
         $this->engine->createSearchBuilder('website')->willReturn($builder);
 
@@ -305,5 +322,108 @@ final class ContentSearchToolTest extends TestCase
             ->willReturn($this->createEmptyResult());
 
         $tool->search('hello', 'en', 'example');
+    }
+
+    public function testUntypedSearchExcludesProductsWithoutProductPermission(): void
+    {
+        $builder = $this->createSearchBuilder();
+
+        $this->engine->createSearchBuilder('website')->willReturn($builder);
+        $this->permissionChecker->has('sulu.product.products', PermissionTypes::VIEW, 'en')->willReturn(false);
+
+        $tool = new ContentSearchTool($this->engine->reveal(), $this->webspaceResolver(['example']), $this->permissionChecker->reveal(), $this->articleContextResolver, true);
+
+        $this->searcher
+            ->search(Argument::that(function(Search $search): bool {
+                foreach ($search->filters as $filter) {
+                    if ($filter instanceof InCondition
+                        && 'resourceKey' === $filter->field
+                        && ['pages', 'articles'] === $filter->values
+                    ) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }))
+            ->shouldBeCalledOnce()
+            ->willReturn($this->createEmptyResult());
+
+        $tool->search('hello', 'en');
+    }
+
+    public function testUntypedSearchIncludesProductsWithProductPermission(): void
+    {
+        $builder = $this->createSearchBuilder();
+
+        $this->engine->createSearchBuilder('website')->willReturn($builder);
+        $this->permissionChecker->has('sulu.product.products', PermissionTypes::VIEW, 'en')->willReturn(true);
+
+        $tool = new ContentSearchTool($this->engine->reveal(), $this->webspaceResolver(['example']), $this->permissionChecker->reveal(), $this->articleContextResolver, true);
+
+        $this->searcher
+            ->search(Argument::that(function(Search $search): bool {
+                foreach ($search->filters as $filter) {
+                    if ($filter instanceof InCondition
+                        && 'resourceKey' === $filter->field
+                        && ['pages', 'articles', 'products'] === $filter->values
+                    ) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }))
+            ->shouldBeCalledOnce()
+            ->willReturn($this->createEmptyResult());
+
+        $tool->search('hello', 'en');
+    }
+
+    public function testTypeArticleIsDeniedWithoutArticlePermission(): void
+    {
+        $this->permissionChecker->has('sulu.article.articles', PermissionTypes::VIEW, 'en')->willReturn(false);
+
+        $tool = new ContentSearchTool($this->engine->reveal(), $this->webspaceResolver(['example']), $this->permissionChecker->reveal(), $this->articleContextResolver);
+
+        $this->engine->createSearchBuilder(Argument::cetera())->shouldNotBeCalled();
+
+        $result = $tool->search('hello', 'en', null, 'article');
+
+        $this->assertSame(
+            [
+                'error' => 'Permission denied: no accessible security context grants the required permissions.',
+                'hint' => 'Requires VIEW on "sulu.article.articles" (or the matching article group context).',
+            ],
+            $result,
+        );
+    }
+
+    public function testUntypedSearchExcludesArticlesWithoutArticlePermission(): void
+    {
+        $builder = $this->createSearchBuilder();
+
+        $this->engine->createSearchBuilder('website')->willReturn($builder);
+        $this->permissionChecker->has('sulu.article.articles', PermissionTypes::VIEW, 'en')->willReturn(false);
+
+        $tool = new ContentSearchTool($this->engine->reveal(), $this->webspaceResolver(['example']), $this->permissionChecker->reveal(), $this->articleContextResolver);
+
+        $this->searcher
+            ->search(Argument::that(function(Search $search): bool {
+                foreach ($search->filters as $filter) {
+                    if ($filter instanceof InCondition
+                        && 'resourceKey' === $filter->field
+                        && ['pages'] === $filter->values
+                    ) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }))
+            ->shouldBeCalledOnce()
+            ->willReturn($this->createEmptyResult());
+
+        $tool->search('hello', 'en');
     }
 }
