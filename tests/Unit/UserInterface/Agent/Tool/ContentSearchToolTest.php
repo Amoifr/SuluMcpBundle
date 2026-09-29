@@ -11,7 +11,7 @@ declare(strict_types=1);
  * with this source code in the file LICENSE.
  */
 
-namespace Sulu\Mcp\Tests\Unit\UserInterface\Mcp\Tool;
+namespace Sulu\Mcp\Tests\Unit\UserInterface\Agent\Tool;
 
 use CmsIg\Seal\Adapter\SearcherInterface;
 use CmsIg\Seal\EngineInterface;
@@ -20,8 +20,8 @@ use CmsIg\Seal\Schema\Index;
 use CmsIg\Seal\Schema\Schema;
 use CmsIg\Seal\Search\Result;
 use CmsIg\Seal\Search\SearchBuilder;
-use Mcp\Capability\Attribute\McpTool;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Prophecy\Argument;
 use Prophecy\PhpUnit\ProphecyTrait;
@@ -34,10 +34,9 @@ use Sulu\Mcp\Application\Search\WebsiteSearch;
 use Sulu\Mcp\Application\Security\ToolPermissionChecker;
 use Sulu\Mcp\Application\Security\ToolPermissionCheckerInterface;
 use Sulu\Mcp\Application\Security\WebspacePermissionResolver;
-use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
-use Sulu\Mcp\Tests\Application\TestBundle\Metadata\TestGroupProvider;
 use Sulu\Mcp\Tests\Unit\Fixture\TestUser;
-use Sulu\Mcp\UserInterface\Mcp\Tool\ContentSearchTool;
+use Sulu\Mcp\UserInterface\Agent\Tool\ContentSearchTool;
+use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 
 /**
  * ContentSearch (final, so Prophecy can't double it directly) is real here, built over a
@@ -45,11 +44,12 @@ use Sulu\Mcp\UserInterface\Mcp\Tool\ContentSearchTool;
  * proves the adapter threads every argument to it in the right order.
  */
 #[CoversClass(ContentSearchTool::class)]
+#[Group('ai-agent')]
 final class ContentSearchToolTest extends TestCase
 {
     use ProphecyTrait;
 
-    public function testSearchDelegatesToContentSearch(): void
+    public function testInvokeDelegatesToContentSearch(): void
     {
         $engine = $this->prophesize(EngineInterface::class);
         $searcher = $this->prophesize(SearcherInterface::class);
@@ -68,25 +68,21 @@ final class ContentSearchToolTest extends TestCase
         $engine->createSearchBuilder('website')->willReturn($builder);
         $searcher->search(Argument::cetera())->willReturn(Result::createEmpty());
 
-        $articleContextResolver = new ArticleSecurityContextResolver(TestGroupProvider::singleGroup());
-        $permissionChecker = $this->prophesize(ToolPermissionCheckerInterface::class);
-        $permissionChecker->has(Argument::cetera())->willReturn(true);
-        $contentSearch = new ContentSearch(new WebsiteSearch($engine->reveal()), $webspaceResolver, $permissionChecker->reveal(), $articleContextResolver);
+        $contentSearch = new ContentSearch(new WebsiteSearch($engine->reveal()), $webspaceResolver, $this->prophesize(ToolPermissionCheckerInterface::class)->reveal());
         $tool = new ContentSearchTool($contentSearch);
 
-        $result = $tool->search('hello', 'en', 'example', 'page', 2, 10);
+        $result = $tool('hello', 'en', 'example', 'page', 2, 10);
 
         $this->assertSame(2, $result['page']);
         $this->assertSame(10, $result['limit']);
         $this->assertArrayHasKey('results', $result);
     }
 
-    public function testSearchMethodHasMcpToolAttribute(): void
+    public function testClassHasAsToolAttribute(): void
     {
-        $reflection = new \ReflectionMethod(ContentSearchTool::class, 'search');
-        $attributes = $reflection->getAttributes(McpTool::class);
+        $attributes = (new \ReflectionClass(ContentSearchTool::class))->getAttributes(AsTool::class);
 
-        $this->assertCount(1, $attributes, 'search() method must have exactly one #[McpTool] attribute');
+        $this->assertCount(1, $attributes, 'ContentSearchTool must have exactly one #[AsTool] attribute');
 
         $instance = $attributes[0]->newInstance();
         $this->assertSame('sulu_content_search', $instance->name);
