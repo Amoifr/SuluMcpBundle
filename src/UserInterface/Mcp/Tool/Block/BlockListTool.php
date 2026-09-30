@@ -21,6 +21,7 @@ use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\Mcp\Application\Content\ContentLocaleTrait;
 use Sulu\Mcp\Application\Content\ContentNormalizerTrait;
+use Sulu\Mcp\Application\Content\ContentTypeExtensionRegistry;
 use Sulu\Mcp\Application\Content\ContentTypeResolver;
 use Sulu\Mcp\Application\Security\ContentSecurityContextResolver;
 use Sulu\Mcp\Application\Security\ToolPermissionCheckerInterface;
@@ -29,7 +30,6 @@ use Sulu\Mcp\Domain\Exception\PermissionDeniedException;
 use Sulu\Mcp\Domain\Security\PermissionRequirement;
 use Sulu\Mcp\Domain\Security\RequiresPermission;
 use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
-use Sulu\Page\Domain\Model\Page;
 
 /**
  * @internal
@@ -53,13 +53,13 @@ class BlockListTool
     #[McpTool(
         name: 'sulu_block_list',
         title: 'List Blocks',
-        description: 'Get paginated block content for a page, article, or snippet. Pass "type" ("page", "article", "snippet", or "product" when SuluProductBundle is installed) and the entity "uuid". Use this after sulu_page_get / sulu_article_get / sulu_snippet_get which return block summaries (index, _id, type, title). Pass the "blockProperty" name (e.g. "blocks", "homeBlocks") and paginate with "page" and "limit". To list blocks inside a parent block (nested blocks), pass parentBlockId with the _id of the parent block — blockProperty is still required to locate the top-level blocks. Returns full block content including HTML for the requested range.',
+        description: 'Get paginated block content for a page, article, snippet, or any type a bundle registers. Pass "type" ("page", "article", "snippet", or another registered type) and the entity "uuid". Use this after sulu_page_get / sulu_article_get / sulu_snippet_get which return block summaries (index, _id, type, title). Pass the "blockProperty" name (e.g. "blocks", "homeBlocks") and paginate with "page" and "limit". To list blocks inside a parent block (nested blocks), pass parentBlockId with the _id of the parent block — blockProperty is still required to locate the top-level blocks. Returns full block content including HTML for the requested range.',
         annotations: new ToolAnnotations(readOnlyHint: true, openWorldHint: false),
     )]
     #[RequiresPermission(
         requirements: [new PermissionRequirement('#context#', PermissionTypes::VIEW)],
         objectResolved: true,
-        discoveryContexts: ['sulu.snippet.snippets', 'sulu.product.products', ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
+        discoveryContexts: [ContentTypeExtensionRegistry::ANY_EXTENSION_CONTEXT, ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
     )]
     public function listBlocks(
         string $type,
@@ -82,18 +82,13 @@ class BlockListTool
         ]);
 
         try {
-            $context = $this->contentSecurityContextResolver->forEntityInLocale(
-                $type,
-                $entity,
-                $dimensionContent,
-                $locale,
-            );
+            $security = $this->contentSecurityContextResolver->forEntity($type, $entity, $locale);
             $this->permissionChecker->check(
-                $context,
+                $security->context,
                 PermissionTypes::VIEW,
                 $locale,
-                'page' === $type ? Page::class : null,
-                'page' === $type ? $uuid : null,
+                $security->aclObjectType,
+                null !== $security->aclObjectType ? $uuid : null,
             );
 
             if ($missingTranslation = self::missingBlockTranslationError($dimensionContent, $type, $uuid, $locale)) {

@@ -17,21 +17,18 @@ use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 use Mcp\Schema\ToolAnnotations;
 use Sulu\Component\Security\Authorization\PermissionTypes;
-use Sulu\Content\Application\ContentManager\ContentManagerInterface;
-use Sulu\Content\Domain\Model\DimensionContentInterface;
-use Sulu\Content\Domain\Model\TemplateInterface;
+use Sulu\Mcp\Application\Content\ContentTypeExtensionRegistry;
 use Sulu\Mcp\Application\Content\ContentTypeResolver;
 use Sulu\Mcp\Application\Security\ContentSecurityContextResolver;
-use Sulu\Mcp\Application\Security\PageDescendantPermissionChecker;
 use Sulu\Mcp\Application\Security\ToolPermissionCheckerInterface;
 use Sulu\Mcp\Application\Security\WebspacePermissionResolver;
+use Sulu\Mcp\Domain\Content\RemovalGuardInterface;
 use Sulu\Mcp\Domain\Exception\PermissionDeniedException;
 use Sulu\Mcp\Domain\Security\DangerousTool;
 use Sulu\Mcp\Domain\Security\PermissionRequirement;
 use Sulu\Mcp\Domain\Security\RequiresPermission;
 use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
-use Sulu\Page\Domain\Model\Page;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\HandleTrait;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -46,10 +43,8 @@ class ContentDeleteTool
     public function __construct(
         MessageBusInterface $messageBus,
         private readonly ContentTypeResolver $contentTypeResolver,
-        private readonly ContentManagerInterface $contentManager,
         private readonly ToolPermissionCheckerInterface $permissionChecker,
         private readonly ContentSecurityContextResolver $contentSecurityContextResolver,
-        private readonly PageDescendantPermissionChecker $pageDescendantPermissionChecker,
     ) {
         $this->messageBus = $messageBus;
     }
@@ -60,7 +55,7 @@ class ContentDeleteTool
     #[McpTool(
         name: 'sulu_content_delete',
         title: 'Delete Content',
-        description: 'Permanently delete a page, article, or snippet by UUID. Set "type" to "page", "article", "snippet", or "product" when SuluProductBundle is installed. Removes both draft and published versions — this cannot be undone. For pages with children, set forceRemoveChildren=true to delete the whole subtree (ignored for articles/snippets). Deleting a product of type "product_with_variants" also deletes every variant under it — there is no separate confirmation flag for that, so check sulu_product_variant_list first. Snippets may be referenced by other content; deleting one removes that shared content everywhere it is used.',
+        description: 'Permanently delete a page, article, snippet, or any type a bundle registers, by UUID. Set "type" to "page", "article", "snippet", or another registered type. Removes both draft and published versions — this cannot be undone. For pages with children, set forceRemoveChildren=true to delete the whole subtree (ignored for articles/snippets). Snippets may be referenced by other content; deleting one removes that shared content everywhere it is used. A registered type may cascade the deletion to related entities; check that type\'s own list tool first if unsure.',
         annotations: new ToolAnnotations(readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false),
     )]
     #[DangerousTool('delete')]
@@ -70,7 +65,7 @@ class ContentDeleteTool
             new PermissionRequirement('#context#', PermissionTypes::DELETE),
         ],
         objectResolved: true,
-        discoveryContexts: ['sulu.snippet.snippets', 'sulu.product.products', ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
+        discoveryContexts: [ContentTypeExtensionRegistry::ANY_EXTENSION_CONTEXT, ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
     )]
     public function deleteContent(
         string $type,
@@ -94,25 +89,19 @@ class ContentDeleteTool
                 ];
             }
 
-            $dimensionContent = 'article' === $type
-                ? $this->contentManager->resolve($entity, ['locale' => $locale, 'stage' => DimensionContentInterface::STAGE_DRAFT]) // @phpstan-ignore argument.type, argument.templateType (upstream generic is invariant; loadDraft() returns a bare object)
-                : null;
-            $context = $this->contentSecurityContextResolver->forEntity(
-                $type,
-                $entity,
-                $dimensionContent instanceof TemplateInterface ? $dimensionContent : null,
-            );
+            $extension = $this->contentTypeResolver->get($type);
+            $security = $this->contentSecurityContextResolver->forEntity($type, $entity, $locale);
 
             $this->permissionChecker->check(
-                $context,
+                $security->context,
                 [PermissionTypes::EDIT, PermissionTypes::DELETE],
                 $locale,
-                'page' === $type ? Page::class : null,
-                'page' === $type ? $uuid : null,
+                $security->aclObjectType,
+                null !== $security->aclObjectType ? $uuid : null,
             );
 
-            if ('page' === $type) {
-                $this->pageDescendantPermissionChecker->assertCanDeleteDescendants($uuid);
+            if ($extension instanceof RemovalGuardInterface) {
+                $extension->assertCanRemove($uuid);
             }
 
             $message = $this->contentTypeResolver->createRemoveMessage($type, $uuid, $locale, $forceRemoveChildren);

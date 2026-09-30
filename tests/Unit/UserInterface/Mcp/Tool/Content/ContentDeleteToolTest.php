@@ -27,12 +27,9 @@ use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
 use Sulu\Component\Security\Authorization\AccessControl\AccessControlRepositoryInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
-use Sulu\Content\Application\ContentManager\ContentManagerInterface;
-use Sulu\Mcp\Application\Content\ContentTypeResolver;
-use Sulu\Mcp\Application\Security\ContentSecurityContextResolver;
 use Sulu\Mcp\Application\Security\PageDescendantPermissionChecker;
-use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
 use Sulu\Mcp\Tests\Application\TestBundle\Metadata\TestGroupProvider;
+use Sulu\Mcp\Tests\Unit\Fixture\ContentTypes;
 use Sulu\Mcp\Tests\Unit\Fixture\FakeToolPermissionChecker;
 use Sulu\Mcp\Tests\Unit\Fixture\TestUser;
 use Sulu\Mcp\UserInterface\Mcp\Tool\Content\ContentDeleteTool;
@@ -65,9 +62,6 @@ final class ContentDeleteToolTest extends TestCase
     /** @var ObjectProphecy<SnippetRepositoryInterface> */
     private ObjectProphecy $snippetRepository;
 
-    /** @var ObjectProphecy<ContentManagerInterface> */
-    private ObjectProphecy $contentManager;
-
     private FakeToolPermissionChecker $permissionChecker;
 
     /** @var ObjectProphecy<AccessControlRepositoryInterface> */
@@ -84,7 +78,6 @@ final class ContentDeleteToolTest extends TestCase
         $this->pageRepository = $this->prophesize(PageRepositoryInterface::class);
         $this->articleRepository = $this->prophesize(ArticleRepositoryInterface::class);
         $this->snippetRepository = $this->prophesize(SnippetRepositoryInterface::class);
-        $this->contentManager = $this->prophesize(ContentManagerInterface::class);
         $this->permissionChecker = FakeToolPermissionChecker::grantingAll();
         $this->accessControlRepository = $this->prophesize(AccessControlRepositoryInterface::class);
         $this->security = $this->prophesize(Security::class);
@@ -102,11 +95,9 @@ final class ContentDeleteToolTest extends TestCase
 
         $this->tool = new ContentDeleteTool(
             $this->messageBus->reveal(),
-            new ContentTypeResolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal()),
-            $this->contentManager->reveal(),
+            ContentTypes::resolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal(), $groupProvider, $pageDescendantPermissionChecker),
             $this->permissionChecker,
-            new ContentSecurityContextResolver(new ArticleSecurityContextResolver($groupProvider), $this->contentManager->reveal()),
-            $pageDescendantPermissionChecker,
+            ContentTypes::securityResolver($groupProvider),
         );
     }
 
@@ -297,7 +288,7 @@ final class ContentDeleteToolTest extends TestCase
         if ('article' === $type) {
             $dimensionContent = new ArticleDimensionContent($entity);
             $dimensionContent->setTemplateKey('default');
-            $this->contentManager->resolve(Argument::cetera())->willReturn($dimensionContent);
+            $entity->addDimensionContent($dimensionContent);
         }
     }
 }

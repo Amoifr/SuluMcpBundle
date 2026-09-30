@@ -16,6 +16,8 @@ namespace Sulu\Mcp\Tests\Unit\Infrastructure\Symfony\HttpKernel;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Sulu\Mcp\Application\Content\ContentTypeResolver;
+use Sulu\Mcp\Domain\Content\ContentTypeExtensionInterface;
+use Sulu\Mcp\Infrastructure\Sulu\Content\ProductContentTypeExtension;
 use Sulu\Mcp\Infrastructure\Symfony\HttpKernel\SuluMcpBundle;
 use Sulu\Mcp\UserInterface\Mcp\Tool\PingTool;
 use Sulu\Product\Infrastructure\Symfony\HttpKernel\SuluProductBundle;
@@ -77,22 +79,12 @@ final class SuluMcpBundleProductGatingTest extends TestCase
         return $ids;
     }
 
-    public function testContentTypeResolverGetsNoProductRepositoryWithoutTheProductBundle(): void
-    {
-        $builder = $this->loadExtensionWithBundles([]);
-
-        $definition = $builder->getDefinition(ContentTypeResolver::class);
-
-        self::assertNull($definition->getArgument('$productRepository'));
-    }
-
-    public function testContentTypeResolverGetsTheProductRepositoryWithTheProductBundle(): void
+    public function testProductContentTypeExtensionIsAutoconfiguredWithTheProductBundle(): void
     {
         $builder = $this->loadExtensionWithBundles(['SuluProductBundle' => SuluProductBundle::class]);
 
-        $definition = $builder->getDefinition(ContentTypeResolver::class);
-
-        self::assertNotNull($definition->getArgument('$productRepository'));
+        self::assertTrue($builder->getDefinition(ProductContentTypeExtension::class)->isAutoconfigured());
+        self::assertTrue($builder->getAutoconfiguredInstanceof()[ContentTypeExtensionInterface::class]->hasTag('sulu_mcp.content_type_extension'));
     }
 
     public function testCoreToolsAreRegisteredRegardlessOfTheProductBundle(): void

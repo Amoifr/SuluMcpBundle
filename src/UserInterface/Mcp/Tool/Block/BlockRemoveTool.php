@@ -22,6 +22,7 @@ use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\Mcp\Application\Content\BlockDataNormalizerTrait;
 use Sulu\Mcp\Application\Content\ContentLocaleTrait;
+use Sulu\Mcp\Application\Content\ContentTypeExtensionRegistry;
 use Sulu\Mcp\Application\Content\ContentTypeResolver;
 use Sulu\Mcp\Application\Security\ContentSecurityContextResolver;
 use Sulu\Mcp\Application\Security\ToolPermissionCheckerInterface;
@@ -32,7 +33,6 @@ use Sulu\Mcp\Domain\Security\PermissionRequirement;
 use Sulu\Mcp\Domain\Security\RequiresPermission;
 use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
-use Sulu\Page\Domain\Model\Page;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\HandleTrait;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -62,14 +62,14 @@ class BlockRemoveTool
     #[McpTool(
         name: 'sulu_block_remove',
         title: 'Remove Block',
-        description: 'Remove a block from a page, article or snippet by its 0-based index OR its _id (blockId). Pass "type" ("page", "article", "snippet", or "product" when SuluProductBundle is installed) and the entity "uuid". Provide EITHER "blockIndex" (0-based) OR "blockId" (the block _id value). Prefer blockId — it is robust because ids do not shift as blocks are added/removed. Call sulu_block_list (or sulu_page_get / sulu_article_get / sulu_snippet_get) first to see the current blocks array and identify which block to remove. The blockProperty must match the template property name that holds blocks. Remaining blocks shift down to fill the gap. The entity must be re-published after removing blocks.',
+        description: 'Remove a block from a page, article, snippet, or any type a bundle registers, by its 0-based index OR its _id (blockId). Pass "type" ("page", "article", "snippet", or another registered type) and the entity "uuid". Provide EITHER "blockIndex" (0-based) OR "blockId" (the block _id value). Prefer blockId — it is robust because ids do not shift as blocks are added/removed. Call sulu_block_list (or sulu_page_get / sulu_article_get / sulu_snippet_get) first to see the current blocks array and identify which block to remove. The blockProperty must match the template property name that holds blocks. Remaining blocks shift down to fill the gap. The entity must be re-published after removing blocks.',
         annotations: new ToolAnnotations(readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false),
     )]
     #[DangerousTool('block_remove')]
     #[RequiresPermission(
         requirements: [new PermissionRequirement('#context#', PermissionTypes::EDIT)],
         objectResolved: true,
-        discoveryContexts: ['sulu.snippet.snippets', 'sulu.product.products', ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
+        discoveryContexts: [ContentTypeExtensionRegistry::ANY_EXTENSION_CONTEXT, ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
     )]
     public function removeBlock(
         string $type,
@@ -106,18 +106,13 @@ class BlockRemoveTool
                 'stage' => DimensionContentInterface::STAGE_DRAFT,
             ]);
 
-            $context = $this->contentSecurityContextResolver->forEntityInLocale(
-                $type,
-                $entity,
-                $dimensionContent,
-                $locale,
-            );
+            $security = $this->contentSecurityContextResolver->forEntity($type, $entity, $locale);
             $this->permissionChecker->check(
-                $context,
+                $security->context,
                 PermissionTypes::EDIT,
                 $locale,
-                'page' === $type ? Page::class : null,
-                'page' === $type ? $uuid : null,
+                $security->aclObjectType,
+                null !== $security->aclObjectType ? $uuid : null,
             );
 
             if ($missingTranslation = self::missingBlockTranslationError($dimensionContent, $type, $uuid, $locale)) {

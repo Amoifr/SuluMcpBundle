@@ -22,17 +22,15 @@ use Prophecy\Argument;
 use Prophecy\PhpUnit\ProphecyTrait;
 use Prophecy\Prophecy\ObjectProphecy;
 use Sulu\Article\Domain\Model\Article;
+use Sulu\Article\Domain\Model\ArticleDimensionContent;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Bundle\PreviewBundle\Application\Manager\PreviewLinkManagerInterface;
-use Sulu\Content\Application\ContentManager\ContentManagerInterface;
-use Sulu\Mcp\Application\Content\ContentTypeResolver;
-use Sulu\Mcp\Application\Security\ContentSecurityContextResolver;
-use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
 use Sulu\Mcp\Tests\Application\TestBundle\Metadata\TestGroupProvider;
+use Sulu\Mcp\Tests\Unit\Fixture\ContentTypes;
+use Sulu\Mcp\Tests\Unit\Fixture\FakeContentTypeExtension;
 use Sulu\Mcp\Tests\Unit\Fixture\FakeToolPermissionChecker;
 use Sulu\Mcp\UserInterface\Mcp\Tool\Preview\PreviewLinkRevokeTool;
 use Sulu\Page\Domain\Model\Page;
-use Sulu\Page\Domain\Model\PageDimensionContent;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Sulu\Snippet\Domain\Repository\SnippetRepositoryInterface;
 
@@ -50,9 +48,6 @@ final class PreviewLinkRevokeToolTest extends TestCase
     /** @var ObjectProphecy<ArticleRepositoryInterface> */
     private ObjectProphecy $articleRepository;
 
-    /** @var ObjectProphecy<ContentManagerInterface> */
-    private ObjectProphecy $contentManager;
-
     private FakeToolPermissionChecker $permissionChecker;
     private PreviewLinkRevokeTool $tool;
 
@@ -61,7 +56,6 @@ final class PreviewLinkRevokeToolTest extends TestCase
         $this->previewLinkManager = $this->prophesize(PreviewLinkManagerInterface::class);
         $this->pageRepository = $this->prophesize(PageRepositoryInterface::class);
         $this->articleRepository = $this->prophesize(ArticleRepositoryInterface::class);
-        $this->contentManager = $this->prophesize(ContentManagerInterface::class);
         $this->permissionChecker = FakeToolPermissionChecker::grantingAll();
         $groupProvider = new TestGroupProvider([]);
 
@@ -69,10 +63,9 @@ final class PreviewLinkRevokeToolTest extends TestCase
 
         $this->tool = new PreviewLinkRevokeTool(
             $this->previewLinkManager->reveal(),
-            new ContentTypeResolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $snippetRepository->reveal()),
-            $this->contentManager->reveal(),
+            ContentTypes::resolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $snippetRepository->reveal(), $groupProvider),
             $this->permissionChecker,
-            new ContentSecurityContextResolver(new ArticleSecurityContextResolver($groupProvider), $this->contentManager->reveal()),
+            ContentTypes::securityResolver($groupProvider),
         );
     }
 
@@ -85,10 +78,24 @@ final class PreviewLinkRevokeToolTest extends TestCase
         } else {
             $article = new Article('article-uuid');
             $this->articleRepository->getOneBy(Argument::cetera())->willReturn($article);
-            $dimensionContent = new PageDimensionContent(new Page());
+            $dimensionContent = new ArticleDimensionContent($article);
             $dimensionContent->setTemplateKey('default');
-            $this->contentManager->resolve(Argument::cetera())->willReturn($dimensionContent);
+            $article->addDimensionContent($dimensionContent);
         }
+    }
+
+    public function testRevokeResolvesTheResourceKeyFromAnExtension(): void
+    {
+        $this->previewLinkManager->revoke('widgets', 'w-1', 'en')->shouldBeCalledOnce();
+
+        $tool = new PreviewLinkRevokeTool(
+            $this->previewLinkManager->reveal(),
+            ContentTypes::inertResolver([new FakeContentTypeExtension(draft: new \stdClass())]),
+            $this->permissionChecker,
+            ContentTypes::securityResolver(null, [new FakeContentTypeExtension(draft: new \stdClass())]),
+        );
+
+        $this->assertSame('widgets', $tool->revokePreviewLink('widget', 'w-1', 'en')['resourceKey']);
     }
 
     public function testRevokePreviewLinkSuccess(): void

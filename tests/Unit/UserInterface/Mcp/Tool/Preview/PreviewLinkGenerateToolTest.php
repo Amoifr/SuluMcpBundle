@@ -22,18 +22,16 @@ use Prophecy\Argument;
 use Prophecy\PhpUnit\ProphecyTrait;
 use Prophecy\Prophecy\ObjectProphecy;
 use Sulu\Article\Domain\Model\Article;
+use Sulu\Article\Domain\Model\ArticleDimensionContent;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Bundle\PreviewBundle\Application\Manager\PreviewLinkManagerInterface;
 use Sulu\Bundle\PreviewBundle\Domain\Model\PreviewLink;
-use Sulu\Content\Application\ContentManager\ContentManagerInterface;
-use Sulu\Mcp\Application\Content\ContentTypeResolver;
-use Sulu\Mcp\Application\Security\ContentSecurityContextResolver;
-use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
 use Sulu\Mcp\Tests\Application\TestBundle\Metadata\TestGroupProvider;
+use Sulu\Mcp\Tests\Unit\Fixture\ContentTypes;
+use Sulu\Mcp\Tests\Unit\Fixture\FakeContentTypeExtension;
 use Sulu\Mcp\Tests\Unit\Fixture\FakeToolPermissionChecker;
 use Sulu\Mcp\UserInterface\Mcp\Tool\Preview\PreviewLinkGenerateTool;
 use Sulu\Page\Domain\Model\Page;
-use Sulu\Page\Domain\Model\PageDimensionContent;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Sulu\Snippet\Domain\Repository\SnippetRepositoryInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -56,9 +54,6 @@ final class PreviewLinkGenerateToolTest extends TestCase
     /** @var ObjectProphecy<ArticleRepositoryInterface> */
     private ObjectProphecy $articleRepository;
 
-    /** @var ObjectProphecy<ContentManagerInterface> */
-    private ObjectProphecy $contentManager;
-
     private FakeToolPermissionChecker $permissionChecker;
     private PreviewLinkGenerateTool $tool;
 
@@ -68,7 +63,6 @@ final class PreviewLinkGenerateToolTest extends TestCase
         $this->router = $this->prophesize(RouterInterface::class);
         $this->pageRepository = $this->prophesize(PageRepositoryInterface::class);
         $this->articleRepository = $this->prophesize(ArticleRepositoryInterface::class);
-        $this->contentManager = $this->prophesize(ContentManagerInterface::class);
         $this->permissionChecker = FakeToolPermissionChecker::grantingAll();
         $groupProvider = new TestGroupProvider([]);
 
@@ -77,10 +71,9 @@ final class PreviewLinkGenerateToolTest extends TestCase
         $this->tool = new PreviewLinkGenerateTool(
             $this->previewLinkManager->reveal(),
             $this->router->reveal(),
-            new ContentTypeResolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $snippetRepository->reveal()),
-            $this->contentManager->reveal(),
+            ContentTypes::resolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $snippetRepository->reveal(), $groupProvider),
             $this->permissionChecker,
-            new ContentSecurityContextResolver(new ArticleSecurityContextResolver($groupProvider), $this->contentManager->reveal()),
+            ContentTypes::securityResolver($groupProvider),
         );
     }
 
@@ -93,10 +86,26 @@ final class PreviewLinkGenerateToolTest extends TestCase
         } else {
             $article = new Article('article-uuid-1');
             $this->articleRepository->getOneBy(Argument::cetera())->willReturn($article);
-            $dimensionContent = new PageDimensionContent(new Page());
+            $dimensionContent = new ArticleDimensionContent($article);
             $dimensionContent->setTemplateKey('default');
-            $this->contentManager->resolve(Argument::cetera())->willReturn($dimensionContent);
+            $article->addDimensionContent($dimensionContent);
         }
+    }
+
+    public function testGenerateResolvesTheResourceKeyFromAnExtension(): void
+    {
+        $this->previewLinkManager->generate('widgets', 'w-1', 'en', ['webspaceKey' => 'example'])->shouldBeCalledOnce()->willReturn(new PreviewLink('tok', 'widgets', 'w-1', 'en', []));
+        $this->router->generate(Argument::cetera())->willReturn('https://example.com/preview/tok');
+
+        $tool = new PreviewLinkGenerateTool(
+            $this->previewLinkManager->reveal(),
+            $this->router->reveal(),
+            ContentTypes::inertResolver([new FakeContentTypeExtension(draft: new \stdClass())]),
+            $this->permissionChecker,
+            ContentTypes::securityResolver(null, [new FakeContentTypeExtension(draft: new \stdClass())]),
+        );
+
+        $this->assertTrue($tool->generatePreviewLink('widget', 'w-1', 'en', 'example')['success']);
     }
 
     public function testGeneratePreviewLinkForPage(): void

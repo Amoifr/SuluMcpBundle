@@ -15,176 +15,107 @@ namespace Sulu\Mcp\Tests\Unit\Application\Security;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Prophecy\Argument;
-use Prophecy\PhpUnit\ProphecyTrait;
+use Sulu\Article\Domain\Model\Article;
+use Sulu\Article\Domain\Model\ArticleDimensionContent;
 use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormGroup;
-use Sulu\Content\Application\ContentManager\ContentManagerInterface;
-use Sulu\Content\Domain\Model\ContentRichEntityInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
-use Sulu\Content\Domain\Model\TemplateInterface;
 use Sulu\Mcp\Application\Security\ContentSecurityContextResolver;
-use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
+use Sulu\Mcp\Domain\Content\ContentSecurity;
 use Sulu\Mcp\Tests\Application\TestBundle\Metadata\TestGroupProvider;
+use Sulu\Mcp\Tests\Unit\Fixture\ContentTypes;
+use Sulu\Mcp\Tests\Unit\Fixture\FakeContentTypeExtension;
 use Sulu\Page\Domain\Model\Page;
 
 #[CoversClass(ContentSecurityContextResolver::class)]
 final class ContentSecurityContextResolverTest extends TestCase
 {
-    use ProphecyTrait;
-
-    public function testForEntityReturnsPageWebspaceContext(): void
+    public function testForEntityReturnsPageSecurity(): void
     {
         $page = new Page();
         $page->setWebspaceKey('example');
 
-        $resolver = $this->resolver();
-
-        self::assertSame('sulu.webspaces.example', $resolver->forEntity('page', $page));
-    }
-
-    public function testForEntityReturnsEmptyStringWhenPageAggregateIsNotAPage(): void
-    {
-        $resolver = $this->resolver();
-
-        self::assertSame('', $resolver->forEntity('page', new \stdClass()));
-    }
-
-    public function testForEntityDelegatesArticleTemplateKeyToArticleResolver(): void
-    {
-        $groupProvider = new TestGroupProvider([
-            (new FormGroup('default', 'Default'))->withTemplate('default'),
-            (new FormGroup('blog', 'Blog'))->withTemplate('blog_article'),
-        ]);
-        $resolver = new ContentSecurityContextResolver(
-            new ArticleSecurityContextResolver($groupProvider),
-            $this->prophesize(ContentManagerInterface::class)->reveal(),
+        self::assertEquals(
+            new ContentSecurity('sulu.webspaces.example', Page::class, 'example'),
+            $this->resolver()->forEntity('page', $page, 'en'),
         );
-
-        $dimensionContent = $this->prophesize(TemplateInterface::class);
-        $dimensionContent->getTemplateKey(Argument::cetera())->willReturn('blog_article');
-
-        self::assertSame('sulu.article.articles_blog', $resolver->forEntity('article', new \stdClass(), $dimensionContent->reveal()));
     }
 
-    public function testForEntityUsesEmptyTemplateKeyWhenDimensionContentIsMissing(): void
+    public function testForEntityReturnsEmptyContextWhenPageAggregateIsNotAPage(): void
     {
-        $resolver = $this->resolver();
+        self::assertSame('', $this->resolver()->forEntity('page', new \stdClass(), 'en')->context);
+    }
 
-        self::assertSame('sulu.article.articles', $resolver->forEntity('article', new \stdClass()));
+    public function testForEntityDerivesTheArticleGroupFromTheAggregateTemplateKey(): void
+    {
+        $article = $this->articleWithTemplateKey('blog_article');
+
+        self::assertEquals(new ContentSecurity('sulu.article.articles_blog'), $this->multiGroupResolver()->forEntity('article', $article, 'en'));
+    }
+
+    public function testForEntityIgnoresLiveDimensionContentsOfAnArticle(): void
+    {
+        $article = new Article();
+        $live = new ArticleDimensionContent($article);
+        $live->setStage(DimensionContentInterface::STAGE_LIVE);
+        $live->setTemplateKey('blog_article');
+        $article->addDimensionContent($live);
+
+        self::assertSame('', $this->multiGroupResolver()->forEntity('article', $article, 'en')->context);
+    }
+
+    public function testForEntityFailsClosedForAnArticleWithoutTemplateKeyInAMultiGroupInstall(): void
+    {
+        self::assertSame('', $this->multiGroupResolver()->forEntity('article', new Article(), 'en')->context);
+    }
+
+    public function testForEntityUsesTheBaseContextForAnArticleWithoutTemplateKeyInASingleGroupInstall(): void
+    {
+        self::assertSame('sulu.article.articles', $this->resolver()->forEntity('article', new Article(), 'en')->context);
     }
 
     public function testForEntityReturnsSnippetsContextRegardlessOfAggregate(): void
     {
-        $resolver = $this->resolver();
-
-        self::assertSame('sulu.snippet.snippets', $resolver->forEntity('snippet', new \stdClass()));
+        self::assertEquals(new ContentSecurity('sulu.snippet.snippets'), $this->resolver()->forEntity('snippet', new \stdClass(), 'en'));
     }
 
-    public function testForEntityDefaultsToEmptyStringForUnknownType(): void
+    public function testForEntityDefaultsToEmptyContextForUnknownType(): void
     {
-        $resolver = $this->resolver();
-
-        self::assertSame('', $resolver->forEntity('unknown', new \stdClass()));
+        self::assertEquals(new ContentSecurity(''), $this->resolver()->forEntity('unknown', new \stdClass(), 'en'));
     }
 
-    public function testForEntityInLocaleResolvesArticleGroupFromTheGhostSourceLocale(): void
+    public function testForEntityDelegatesToARegisteredExtension(): void
     {
-        $article = $this->prophesize(ContentRichEntityInterface::class)->reveal();
+        $groupProvider = new TestGroupProvider([
+            (new FormGroup('default', 'Default'))->withTemplate('default'),
+        ]);
+        $resolver = ContentTypes::securityResolver($groupProvider, [new FakeContentTypeExtension()]);
 
-        $sourceDimensionContent = $this->prophesize(DimensionContentInterface::class);
-        $sourceDimensionContent->willImplement(TemplateInterface::class);
-        $sourceDimensionContent->getTemplateKey(Argument::cetera())->willReturn('blog_article');
-
-        $contentManager = $this->prophesize(ContentManagerInterface::class);
-        $contentManager->resolve($article, ['locale' => 'en', 'stage' => DimensionContentInterface::STAGE_DRAFT])
-            ->willReturn($sourceDimensionContent->reveal())
-            ->shouldBeCalled();
-
-        $ghost = $this->prophesize(DimensionContentInterface::class);
-        $ghost->getLocale(Argument::cetera())->willReturn(null);
-        $ghost->getGhostLocale(Argument::cetera())->willReturn('en');
-
-        $resolver = $this->multiGroupResolver($contentManager->reveal());
-
-        self::assertSame(
-            'sulu.article.articles_blog',
-            $resolver->forEntityInLocale('article', $article, $ghost->reveal(), 'de'),
-        );
+        self::assertSame('sulu.widget.widgets', $resolver->forEntity('widget', new \stdClass(), 'en')->context);
     }
 
-    public function testForEntityInLocaleUsesTheRequestedLocaleWhenTheTranslationExists(): void
+    private function articleWithTemplateKey(string $templateKey): Article
     {
-        $article = $this->prophesize(ContentRichEntityInterface::class)->reveal();
+        $article = new Article();
+        $dimensionContent = new ArticleDimensionContent($article);
+        $dimensionContent->setLocale('en');
+        $dimensionContent->setTemplateKey($templateKey);
+        $article->addDimensionContent($dimensionContent);
 
-        $contentManager = $this->prophesize(ContentManagerInterface::class);
-        $contentManager->resolve(Argument::cetera())->shouldNotBeCalled();
-
-        $dimensionContent = $this->prophesize(DimensionContentInterface::class);
-        $dimensionContent->willImplement(TemplateInterface::class);
-        $dimensionContent->getLocale(Argument::cetera())->willReturn('de');
-        $dimensionContent->getGhostLocale(Argument::cetera())->willReturn('en');
-        $dimensionContent->getTemplateKey(Argument::cetera())->willReturn('blog_article');
-
-        $resolver = $this->multiGroupResolver($contentManager->reveal());
-
-        self::assertSame(
-            'sulu.article.articles_blog',
-            $resolver->forEntityInLocale('article', $article, $dimensionContent->reveal(), 'de'),
-        );
-    }
-
-    public function testForEntityInLocaleFailsClosedForAnArticleWithoutAnySourceLocale(): void
-    {
-        $article = $this->prophesize(ContentRichEntityInterface::class)->reveal();
-
-        $contentManager = $this->prophesize(ContentManagerInterface::class);
-        $contentManager->resolve(Argument::cetera())->shouldNotBeCalled();
-
-        $ghost = $this->prophesize(DimensionContentInterface::class);
-        $ghost->getLocale(Argument::cetera())->willReturn(null);
-        $ghost->getGhostLocale(Argument::cetera())->willReturn(null);
-
-        $resolver = $this->multiGroupResolver($contentManager->reveal());
-
-        self::assertSame('', $resolver->forEntityInLocale('article', $article, $ghost->reveal(), 'de'));
-    }
-
-    public function testForEntityInLocaleKeepsThePageContextOnTheAggregateForAGhost(): void
-    {
-        $page = new Page();
-        $page->setWebspaceKey('example');
-
-        $contentManager = $this->prophesize(ContentManagerInterface::class);
-        $contentManager->resolve(Argument::cetera())->shouldNotBeCalled();
-
-        $ghost = $this->prophesize(DimensionContentInterface::class);
-        $ghost->getLocale(Argument::cetera())->willReturn(null);
-        $ghost->getGhostLocale(Argument::cetera())->willReturn('en');
-
-        $resolver = $this->multiGroupResolver($contentManager->reveal());
-
-        self::assertSame('sulu.webspaces.example', $resolver->forEntityInLocale('page', $page, $ghost->reveal(), 'de'));
+        return $article;
     }
 
     private function resolver(): ContentSecurityContextResolver
     {
-        $groupProvider = new TestGroupProvider([
+        return ContentTypes::securityResolver(new TestGroupProvider([
             (new FormGroup('default', 'Default'))->withTemplate('default'),
-        ]);
-
-        return new ContentSecurityContextResolver(
-            new ArticleSecurityContextResolver($groupProvider),
-            $this->prophesize(ContentManagerInterface::class)->reveal(),
-        );
+        ]));
     }
 
-    private function multiGroupResolver(ContentManagerInterface $contentManager): ContentSecurityContextResolver
+    private function multiGroupResolver(): ContentSecurityContextResolver
     {
-        $groupProvider = new TestGroupProvider([
+        return ContentTypes::securityResolver(new TestGroupProvider([
             (new FormGroup('default', 'Default'))->withTemplate('default'),
             (new FormGroup('blog', 'Blog'))->withTemplate('blog_article'),
-        ]);
-
-        return new ContentSecurityContextResolver(new ArticleSecurityContextResolver($groupProvider), $contentManager);
+        ]));
     }
 }

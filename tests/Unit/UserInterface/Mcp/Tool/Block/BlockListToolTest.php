@@ -28,8 +28,8 @@ use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\Mcp\Application\Content\ContentTypeResolver;
 use Sulu\Mcp\Application\Security\ContentSecurityContextResolver;
-use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
 use Sulu\Mcp\Tests\Application\TestBundle\Metadata\TestGroupProvider;
+use Sulu\Mcp\Tests\Unit\Fixture\ContentTypes;
 use Sulu\Mcp\Tests\Unit\Fixture\FakeToolPermissionChecker;
 use Sulu\Mcp\UserInterface\Mcp\Tool\Block\BlockListTool;
 use Sulu\Page\Domain\Model\Page;
@@ -63,9 +63,9 @@ final class BlockListToolTest extends TestCase
         $this->contentManager = $this->prophesize(ContentManagerInterface::class);
         $this->permissionChecker = FakeToolPermissionChecker::grantingAll();
         $groupProvider = new TestGroupProvider([]);
-        $this->contentSecurityContextResolver = new ContentSecurityContextResolver(new ArticleSecurityContextResolver($groupProvider), $this->contentManager->reveal());
+        $this->contentSecurityContextResolver = ContentTypes::securityResolver($groupProvider);
         $this->tool = new BlockListTool(
-            new ContentTypeResolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal()),
+            ContentTypes::resolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal(), $groupProvider),
             $this->contentManager->reveal(),
             $this->permissionChecker,
             $this->contentSecurityContextResolver,
@@ -247,33 +247,30 @@ final class BlockListToolTest extends TestCase
 
         // A ghost carries no template key, so the article's group comes from the locale it
         // is a ghost of -- otherwise the context is unresolvable and fails closed.
-        $ghost = new ArticleDimensionContent(new Article());
+        $ghost = new ArticleDimensionContent($article);
         $ghost->setGhostLocale('de');
         $ghost->addAvailableLocale('de');
-        $source = new ArticleDimensionContent(new Article());
+        $article->addDimensionContent($ghost);
+        $source = new ArticleDimensionContent($article);
         $source->setLocale('de');
         $source->setTemplateKey('blog_article');
+        $article->addDimensionContent($source);
 
         $this->contentManager->resolve(Argument::any(), ['locale' => 'en', 'stage' => DimensionContentInterface::STAGE_DRAFT])
             ->willReturn($ghost);
-        $this->contentManager->resolve(Argument::any(), ['locale' => 'de', 'stage' => DimensionContentInterface::STAGE_DRAFT])
-            ->willReturn($source);
 
         $permissionChecker = FakeToolPermissionChecker::grantingAll()
             ->grantingNoneExcept()
             ->grantContext('sulu.article.articles_blog');
 
         $tool = new BlockListTool(
-            new ContentTypeResolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal()),
+            ContentTypes::resolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal()),
             $this->contentManager->reveal(),
             $permissionChecker,
-            new ContentSecurityContextResolver(
-                new ArticleSecurityContextResolver(new TestGroupProvider([
-                    (new FormGroup('default', 'Default'))->withTemplate('default'),
-                    (new FormGroup('blog', 'Blog'))->withTemplate('blog_article'),
-                ])),
-                $this->contentManager->reveal(),
-            ),
+            ContentTypes::securityResolver(new TestGroupProvider([
+                (new FormGroup('default', 'Default'))->withTemplate('default'),
+                (new FormGroup('blog', 'Blog'))->withTemplate('blog_article'),
+            ])),
         );
 
         $result = $tool->listBlocks('article', 'article-uuid', 'en', 'blocks');
