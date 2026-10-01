@@ -55,6 +55,26 @@ final class SnippetGroupScopingTest extends FunctionalTestCase
     }
 
     /**
+     * The flag comes from a class probe in the bundle; core's own registered contexts say whether it is right.
+     */
+    public function testGroupContextFlagMatchesTheSecurityContextsCoreRegisters(): void
+    {
+        $registered = [];
+        foreach (self::getContainer()->get('sulu_admin.admin_pool')->getSecurityContexts() as $sections) {
+            foreach ($sections as $contexts) {
+                \array_push($registered, ...\array_keys($contexts));
+            }
+        }
+
+        self::assertContains('sulu.snippet.snippets', $registered);
+        self::assertSame(
+            \in_array('sulu.snippet.snippets_marketing', $registered, true),
+            self::coreHasGroupContexts(),
+            'sulu_mcp.core.snippet_group_contexts must equal whether core registers the "marketing" group context.',
+        );
+    }
+
+    /**
      * Guards the premise of the tests below: if the dev app ever collapses back to a
      * single snippet group, they would pass vacuously.
      */
