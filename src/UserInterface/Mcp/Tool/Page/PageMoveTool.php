@@ -140,9 +140,9 @@ class PageMoveTool
                 ];
             }
 
-            // MovePageMessageHandler dereferences the previous parent's title in this
-            // locale without a null check.
-            if (!$this->hasTranslation($previousParent, $locale)) {
+            // MovePageMessageHandler dereferences the previous parent's title in this locale without
+            // a null check. getParent() is an uninitialised proxy, which ContentAggregator refuses in debug mode.
+            if (!$this->hasTranslation($this->loadPage($previousParent->getUuid(), $locale) ?? $previousParent, $locale)) {
                 return [
                     'error' => \sprintf('The current parent page %s has no "%s" translation.', $previousParent->getUuid(), $locale),
                     'hint' => \sprintf('Call sulu_page_move with a locale the parent exists in, or create the "%s" translation of the parent first (sulu_page_update).', $locale),
