@@ -17,10 +17,14 @@ use Sulu\Mcp\Domain\Content\ContentSecurity;
 use Sulu\Mcp\Domain\Content\ContentTypeExtensionInterface;
 
 /**
- * Stands in for a bundle like SuluProductBundle, deliberately named "widgets".
+ * Stands in for a content type from another bundle, deliberately named "widgets".
  */
 final class WidgetContentTypeExtension implements ContentTypeExtensionInterface
 {
+    public const UNKNOWN_UUID = 'unknown-widget';
+    // Differs from the view context so a tool cannot pass by checking the wrong one.
+    public const OBJECT_CONTEXT = 'sulu.mcp_test.widget_objects';
+
     public function getTemplateType(): string
     {
         return 'widget';
@@ -38,17 +42,17 @@ final class WidgetContentTypeExtension implements ContentTypeExtensionInterface
 
     public function getSecurity(object $aggregate, string $locale): ContentSecurity
     {
-        return new ContentSecurity('sulu.mcp_test.widgets');
+        return new ContentSecurity(self::OBJECT_CONTEXT);
     }
 
     public function loadDraft(string $uuid, string $locale, bool $loadGhost = false): ?object
     {
-        return null;
+        return self::UNKNOWN_UUID === $uuid ? null : (object) ['uuid' => $uuid];
     }
 
     public function loadForTransition(string $uuid, string $locale): ?object
     {
-        return null;
+        return self::UNKNOWN_UUID === $uuid ? null : (object) ['uuid' => $uuid];
     }
 
     /**
@@ -56,16 +60,16 @@ final class WidgetContentTypeExtension implements ContentTypeExtensionInterface
      */
     public function createModifyMessage(string $uuid, array $data): object
     {
-        return (object) ['kind' => 'modify', 'uuid' => $uuid, 'data' => $data];
+        return new WidgetMessage('modify', $uuid, data: $data);
     }
 
     public function createRemoveMessage(string $uuid, string $locale, bool $forceRemoveChildren = false): object
     {
-        return (object) ['kind' => 'remove', 'uuid' => $uuid, 'locale' => $locale];
+        return new WidgetMessage('remove', $uuid, $locale);
     }
 
     public function createTransitionMessage(string $uuid, string $locale, string $transition): object
     {
-        return (object) ['kind' => 'transition', 'uuid' => $uuid, 'locale' => $locale, 'transition' => $transition];
+        return new WidgetMessage('transition', $uuid, $locale, $transition);
     }
 }

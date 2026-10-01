@@ -241,20 +241,20 @@ final class BlockListToolTest extends TestCase
         $this->assertStringContainsString('de', $result['hint']);
     }
 
-    public function testPointsAProductWithoutContentToTheProductUpdateTool(): void
+    public function testPointsAnExtensionContentTypeWithoutContentToItsUpdateTool(): void
     {
         $groupProvider = new TestGroupProvider([]);
         $tool = new BlockListTool(
-            ContentTypes::resolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal(), $groupProvider, null, [new FakeContentTypeExtension('product', 'products', draft: new Page('uuid-1'))]),
+            ContentTypes::resolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal(), $groupProvider, null, [new FakeContentTypeExtension('widget', 'widgets', draft: new Page('uuid-1'))]),
             $this->contentManager->reveal(),
             $this->permissionChecker,
-            ContentTypes::securityResolver($groupProvider, [new FakeContentTypeExtension('product', 'products')]),
+            ContentTypes::securityResolver($groupProvider, [new FakeContentTypeExtension('widget', 'widgets')]),
         );
         $this->contentManager->resolve(Argument::cetera())->willReturn(new PageDimensionContent(new Page()));
 
-        $result = $tool->listBlocks('products', 'uuid-1', 'en', 'blocks');
+        $result = $tool->listBlocks('widgets', 'uuid-1', 'en', 'blocks');
 
-        $this->assertStringContainsString('sulu_product_update', $result['hint']);
+        $this->assertStringContainsString('update tool of the "widgets" resourceKey', $result['hint']);
     }
 
     public function testRejectsArticleLocaleWithoutContentInAMultiGroupInstall(): void

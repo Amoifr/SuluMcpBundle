@@ -53,24 +53,18 @@ composer test    # phpunit
 Never skip `composer fix` — the license header and code style are enforced by
 `composer lint`, and a missing header fails the build.
 
-## The optional product bundle
+## Product tools
 
-`sulu/product-bundle` is a suggestion, not a dependency, and the default dependency set
-does not install it. So `composer lint` leaves PHPStan out — `src/` references the
-bundle's classes, and analysing without them reports each of them as unknown — and
-`composer test` skips the tests carrying `#[Group('product')]`.
+This bundle has no product tools. [`sulu/product-bundle`](https://github.com/sulu/SuluProductBundle)
+registers its tools as `#[McpTool]` services. `ContentTypeExtensionInterface` only adds the
+`products` content type. Work on them in that repository.
 
-To work on the `sulu_product_*` tools, put the bundle and the `sulu/sulu` 3.1 it requires
-in place the way CI does and use the commands that cover it:
+## Extension API
 
-```bash
-.github/scripts/require-product-bundle.sh   # edits composer.json, do not commit it
-composer update
-composer lint-with-product   # composer lint + phpstan
-composer test-with-product   # phpunit, product tests included
-```
-
-The `Test application (product bundle)` workflow runs both on every pull request.
+A bundle that adds a content type or its own tools may use `ContentTypeExtensionInterface`,
+`RequiresPermission`, `PermissionRequirement`, `DangerousTool`, `ContentSecurity`, the admin link
+interfaces and traits, and the block, content and shadow helpers that tools reuse. These classes are
+the extension API and carry no `@internal` tag. Services that implement `ContentTypeExtensionInterface` or `AdminLinkProviderInterface` are tagged by autoconfiguration. Everything else marked `@internal` can change in any release.
 
 Useful links:
 
