@@ -22,6 +22,7 @@ use Mcp\Schema\Request\CallToolRequest;
 use Mcp\Schema\Result\CallToolResult;
 use Mcp\Server\Session\SessionInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Prophecy\Argument;
 use Prophecy\PhpUnit\ProphecyTrait;
@@ -38,11 +39,13 @@ use Sulu\Mcp\Application\Security\WebspacePermissionResolver;
 use Sulu\Mcp\Infrastructure\Mcp\PermissionAwareCallToolHandler;
 use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
 use Sulu\Mcp\Infrastructure\Sulu\Security\SnippetSecurityContextResolver;
+use Sulu\Mcp\Infrastructure\Symfony\HttpKernel\Compiler\ToolPermissionMapPass;
 use Sulu\Mcp\Tests\Application\TestBundle\Metadata\TestGroupProvider;
 use Sulu\Mcp\Tests\Unit\Fixture\FakeContentTypeExtension;
 use Sulu\Mcp\Tests\Unit\Fixture\FakeNotSearchableContentTypeExtension;
 use Sulu\Mcp\Tests\Unit\Fixture\FakeToolPermissionChecker;
 use Sulu\Mcp\Tests\Unit\Fixture\TestUser;
+use Sulu\Mcp\UserInterface\Mcp\Tool\Snippet\SnippetCreateTool;
 
 #[CoversClass(PermissionAwareCallToolHandler::class)]
 final class PermissionAwareCallToolHandlerTest extends TestCase
@@ -112,16 +115,18 @@ final class PermissionAwareCallToolHandlerTest extends TestCase
         ?SnippetSecurityContextResolver $snippetContextResolver = null,
         ?ContentTypeExtensionRegistry $extensionRegistry = null,
     ): PermissionAwareCallToolHandler {
+        $snippetContextResolver ??= new SnippetSecurityContextResolver(TestGroupProvider::singleGroup());
+
         return new PermissionAwareCallToolHandler(
             $this->registry->reveal(),
             new ReferenceHandler(null),
             $this->checker,
             $webspacePermissionResolver ?? $this->webspacePermissionResolver,
             new ArticleSecurityContextResolver(TestGroupProvider::singleGroup()),
-            $snippetContextResolver ?? new SnippetSecurityContextResolver(TestGroupProvider::singleGroup()),
+            $snippetContextResolver,
             $extensionRegistry ?? new ContentTypeExtensionRegistry([]),
             $map,
-            [],
+            ['sulu_mcp.snippet_context_resolver' => $snippetContextResolver],
             ['sulu_ping', 'sulu_get_context'],
         );
     }
@@ -359,6 +364,42 @@ final class PermissionAwareCallToolHandlerTest extends TestCase
         $result = $response->result;
         self::assertInstanceOf(CallToolResult::class, $result);
         self::assertTrue($result->isError);
+    }
+
+    /**
+     * The map entry is read off the real tool, so its contextResolver is part of what is tested.
+     *
+     * @return iterable<string, array{string, string, bool}>
+     */
+    public static function snippetCreateGroupCases(): iterable
+    {
+        yield 'marketing role creates a promo snippet' => ['sulu.snippet.snippets_marketing', 'promo', true];
+        yield 'marketing role creates a default snippet' => ['sulu.snippet.snippets_marketing', 'default', false];
+        yield 'base role creates a promo snippet' => ['sulu.snippet.snippets', 'promo', false];
+    }
+
+    #[DataProvider('snippetCreateGroupCases')]
+    public function testSnippetCreateIsGatedByTheGroupOfTheTemplate(string $grantedContext, string $template, bool $allowed): void
+    {
+        $this->checker->grantingNoneExcept()->grantContext($grantedContext);
+        $this->registry->getTool(Argument::any())->willThrow(new ToolNotFoundException('sulu_snippet_create'));
+        $entry = ToolPermissionMapPass::extract(SnippetCreateTool::class);
+        self::assertNotNull($entry);
+
+        $handler = $this->handler([$entry['name'] => $entry], null, $this->twoSnippetGroups());
+
+        $response = $handler->handle($this->request('sulu_snippet_create', ['locale' => 'en', 'template' => $template, 'title' => 'x']), $this->session());
+
+        if ($allowed) {
+            // Reached the inner handler, which reports METHOD_NOT_FOUND for the unregistered tool.
+            self::assertInstanceOf(Error::class, $response);
+
+            return;
+        }
+
+        self::assertInstanceOf(Response::class, $response);
+        self::assertInstanceOf(CallToolResult::class, $response->result);
+        self::assertTrue($response->result->isError);
     }
 
     public function testAnyExtensionSentinelDelegatesWhenAnExtensionIsGranted(): void
