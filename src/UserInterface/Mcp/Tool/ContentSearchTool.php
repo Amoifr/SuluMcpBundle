@@ -13,28 +13,26 @@ declare(strict_types=1);
 
 namespace Sulu\Mcp\UserInterface\Mcp\Tool;
 
-use CmsIg\Seal\EngineInterface;
-use CmsIg\Seal\Search\Condition\Condition;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
+use Mcp\Schema\ToolAnnotations;
 use Sulu\Component\Security\Authorization\PermissionTypes;
+use Sulu\Mcp\Application\Content\ContentTypeSchemaExpander;
+use Sulu\Mcp\Application\Search\ContentSearch;
 use Sulu\Mcp\Application\Security\WebspacePermissionResolver;
 use Sulu\Mcp\Domain\Security\PermissionRequirement;
 use Sulu\Mcp\Domain\Security\RequiresPermission;
 
 /**
+ * MCP adapter for ContentSearch: declares the tool's schema and permission gate, everything
+ * else is that class's job.
+ *
  * @internal
  */
 class ContentSearchTool
 {
-    private const TYPE_MAP = [
-        'page' => 'pages',
-        'article' => 'articles',
-    ];
-
     public function __construct(
-        private readonly EngineInterface $engine,
-        private readonly WebspacePermissionResolver $webspacePermissionResolver,
+        private readonly ContentSearch $contentSearch,
     ) {
     }
 
@@ -44,7 +42,8 @@ class ContentSearchTool
     #[McpTool(
         name: 'sulu_content_search',
         title: 'Search Content',
-        description: 'Search published website content (articles and pages) by keyword. Searches both titles and full content text. Returns matching items with their UUID and resource type — use resourceKey to pick the right get tool (sulu_article_get or sulu_page_get) and resourceId as the UUID. Filter by type ("page" or "article") to restrict results to one content type. Filter by webspace to scope results to one site. Only published content is searchable.',
+        description: 'Search published website content by keyword. Searches the resource keys {searchableResourceKeys}. Searches titles and full content text as free text, not a structured attribute filter. Returns matching items with their UUID and resource key. Use the returned resourceKey to pick the right get tool (e.g. sulu_page_get for "pages", sulu_article_get for "articles", or a registered type\'s own get tool) and resourceId as the UUID. Pass "resourceKey" to restrict results to one content type. The parameter is named "resourceKey". The former "type" is no longer accepted: it is ignored and the search covers all types. Filter by webspace to scope results to one site. Only published content is searchable.',
+        annotations: new ToolAnnotations(readOnlyHint: true, openWorldHint: false),
     )]
     #[RequiresPermission(
         requirements: [new PermissionRequirement('#context#', PermissionTypes::VIEW)],
@@ -56,64 +55,11 @@ class ContentSearchTool
         string $locale,
         #[Schema(description: 'Webspace key to restrict results to one site (e.g. "example"). Omit to search all webspaces.')]
         ?string $webspace = null,
-        #[Schema(description: 'Content type to search. Valid values: "page" or "article". Omit to search both.', enum: ['page', 'article'])]
-        ?string $type = null,
+        #[Schema(description: 'ResourceKey of the content type to search: {searchableResourceKeys}. Omit to search all.', enum: [ContentTypeSchemaExpander::SEARCHABLE_RESOURCE_KEYS])]
+        ?string $resourceKey = null,
         int $page = 1,
         int $limit = 20,
     ): array {
-        // The `website` index carries only `webspaces`, no securityContext,
-        // so per-object ACL filtering isn't possible here. Constraining to the webspaces
-        // the caller may EDIT is the best available mirror.
-        $permitted = $this->webspacePermissionResolver->permittedWebspaceKeys(PermissionTypes::VIEW, $locale);
-        if ([] === $permitted) {
-            return ['items' => [], 'total' => 0, 'hint' => 'No webspaces are readable with your permissions.'];
-        }
-
-        $effective = null !== $webspace ? \array_values(\array_intersect($permitted, [$webspace])) : $permitted;
-        if ([] === $effective) {
-            return ['items' => [], 'total' => 0, 'hint' => \sprintf('Webspace "%s" is not readable with your permissions.', $webspace)];
-        }
-
-        try {
-            $builder = $this->engine->createSearchBuilder('website')
-                ->addFilter(Condition::search($query))
-                ->addFilter(Condition::equal('locale', $locale))
-                ->addFilter(Condition::in('webspaces', $effective))
-                ->limit($limit)
-                ->offset(($page - 1) * $limit);
-
-            if (null !== $type) {
-                $resourceKey = self::TYPE_MAP[$type] ?? $type;
-                $builder->addFilter(Condition::equal('resourceKey', $resourceKey));
-            }
-
-            $result = $builder->getResult();
-
-            $results = [];
-            foreach ($result as $document) {
-                $results[] = [
-                    'resourceKey' => $document['resourceKey'] ?? null,
-                    'resourceId' => $document['resourceId'] ?? null,
-                    'locale' => $document['locale'] ?? null,
-                    'title' => $document['title'] ?? null,
-                    'url' => $document['url'] ?? null,
-                    'webspaces' => $document['webspaces'] ?? [],
-                    'authoredAt' => $document['authoredAt'] ?? null,
-                    'metadata' => $document['metadata'] ?? [],
-                ];
-            }
-
-            return [
-                'results' => $results,
-                'total' => $result->total(),
-                'page' => $page,
-                'limit' => $limit,
-            ];
-        } catch (\Throwable $e) {
-            return [
-                'error' => \sprintf('Content search failed: %s', $e->getMessage()),
-                'hint' => 'Only published content is indexed. Verify the locale is correct and type is "page" or "article" (or omit to search both).',
-            ];
-        }
+        return $this->contentSearch->search($query, $locale, $webspace, $resourceKey, $page, $limit);
     }
 }

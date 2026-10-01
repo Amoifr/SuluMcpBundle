@@ -29,6 +29,7 @@ use Sulu\Component\Security\Authorization\SecurityCheckerInterface;
 use Sulu\Component\Webspace\Manager\WebspaceCollection;
 use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
 use Sulu\Component\Webspace\Webspace;
+use Sulu\Mcp\Application\Content\ContentTypeExtensionRegistry;
 use Sulu\Mcp\Application\Security\ToolPermissionChecker;
 use Sulu\Mcp\Application\Security\ToolVisibilityResolver;
 use Sulu\Mcp\Application\Security\WebspacePermissionResolver;
@@ -36,6 +37,7 @@ use Sulu\Mcp\Infrastructure\Mcp\PermissionAwareCallToolHandler;
 use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
 use Sulu\Mcp\Infrastructure\Sulu\Security\SnippetSecurityContextResolver;
 use Sulu\Mcp\Tests\Application\TestBundle\Metadata\TestGroupProvider;
+use Sulu\Mcp\Tests\Unit\Fixture\FakeContentTypeExtension;
 use Sulu\Mcp\Tests\Unit\Fixture\FakeToolPermissionChecker;
 use Sulu\Mcp\Tests\Unit\Fixture\TestUser;
 
@@ -87,6 +89,7 @@ final class SentinelContextWiringTest extends TestCase
             $this->webspaceResolver(),
             new ArticleSecurityContextResolver(TestGroupProvider::singleGroup()),
             new SnippetSecurityContextResolver(TestGroupProvider::singleGroup()),
+            new ContentTypeExtensionRegistry([new FakeContentTypeExtension()]),
             [],
             [],
         );
@@ -107,6 +110,7 @@ final class SentinelContextWiringTest extends TestCase
             $this->webspaceResolver(),
             new ArticleSecurityContextResolver(TestGroupProvider::singleGroup()),
             new SnippetSecurityContextResolver(TestGroupProvider::singleGroup()),
+            new ContentTypeExtensionRegistry([new FakeContentTypeExtension()]),
             $this->permissionMap($sentinel),
             [],
             [],

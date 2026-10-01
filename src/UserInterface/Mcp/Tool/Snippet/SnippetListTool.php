@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Sulu\Mcp\UserInterface\Mcp\Tool\Snippet;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Schema\ToolAnnotations;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
@@ -31,7 +32,6 @@ class SnippetListTool
         'published', 'publishedState', 'workflowPlace',
         'authored', 'author', 'created', 'changed',
         'availableLocales', 'contentLocales', 'ghostLocale',
-        'shadowOn', 'shadowLocale',
         'mainWebspace',
     ];
 
@@ -48,6 +48,7 @@ class SnippetListTool
         name: 'sulu_snippet_list',
         title: 'List Snippets',
         description: 'List snippets with optional template filter. Snippets are global reusable content. Returns lightweight summaries (title, template, workflow state, dates) — no blocks or HTML content. Use sulu_snippet_get with a UUID to fetch the full content of a specific snippet. Results are paginated — use "page" and "limit" to control.',
+        annotations: new ToolAnnotations(readOnlyHint: true, openWorldHint: false),
     )]
     // Stays on the base context on purpose: the rows are not constrained to the groups the
     // user may read yet, so widening the check to "any group" would expose other groups.

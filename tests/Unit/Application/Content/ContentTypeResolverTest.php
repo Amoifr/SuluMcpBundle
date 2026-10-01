@@ -14,7 +14,6 @@ declare(strict_types=1);
 namespace Sulu\Mcp\Tests\Unit\Application\Content;
 
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Prophecy\Argument;
 use Prophecy\PhpUnit\ProphecyTrait;
@@ -27,16 +26,13 @@ use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\Content\Infrastructure\Doctrine\DimensionContentQueryEnhancer;
 use Sulu\Mcp\Application\Content\ContentTypeResolver;
+use Sulu\Mcp\Tests\Unit\Fixture\ContentTypes;
+use Sulu\Mcp\Tests\Unit\Fixture\FakeContentTypeExtension;
 use Sulu\Page\Application\Message\ApplyWorkflowTransitionPageMessage;
 use Sulu\Page\Application\Message\ModifyPageMessage;
 use Sulu\Page\Application\Message\RemovePageMessage;
 use Sulu\Page\Domain\Model\Page;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
-use Sulu\Product\Application\Message\ApplyWorkflowTransitionProductMessage;
-use Sulu\Product\Application\Message\ModifyProductMessage;
-use Sulu\Product\Application\Message\RemoveProductMessage;
-use Sulu\Product\Domain\Model\Product;
-use Sulu\Product\Domain\Repository\ProductRepositoryInterface;
 use Sulu\Snippet\Application\Message\ApplyWorkflowTransitionSnippetMessage;
 use Sulu\Snippet\Application\Message\ModifySnippetMessage;
 use Sulu\Snippet\Application\Message\RemoveSnippetMessage;
@@ -44,7 +40,6 @@ use Sulu\Snippet\Domain\Model\Snippet;
 use Sulu\Snippet\Domain\Repository\SnippetRepositoryInterface;
 
 #[CoversClass(ContentTypeResolver::class)]
-#[Group('product')]
 final class ContentTypeResolverTest extends TestCase
 {
     use ProphecyTrait;
@@ -62,18 +57,14 @@ final class ContentTypeResolverTest extends TestCase
         $this->pageRepository = $this->prophesize(PageRepositoryInterface::class);
         $this->articleRepository = $this->prophesize(ArticleRepositoryInterface::class);
         $this->snippetRepository = $this->prophesize(SnippetRepositoryInterface::class);
-        $this->resolver = new ContentTypeResolver(
-            $this->pageRepository->reveal(),
-            $this->articleRepository->reveal(),
-            $this->snippetRepository->reveal(),
-        );
+        $this->resolver = ContentTypes::resolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal());
     }
 
     public function testSupportsKnownContentTypes(): void
     {
-        $this->assertTrue($this->resolver->supports('page'));
-        $this->assertTrue($this->resolver->supports('article'));
-        $this->assertTrue($this->resolver->supports('snippet'));
+        $this->assertTrue($this->resolver->supports('pages'));
+        $this->assertTrue($this->resolver->supports('articles'));
+        $this->assertTrue($this->resolver->supports('snippets'));
         $this->assertFalse($this->resolver->supports('media'));
         $this->assertFalse($this->resolver->supports(''));
     }
@@ -86,7 +77,7 @@ final class ContentTypeResolverTest extends TestCase
         $this->articleRepository->getOneBy(Argument::cetera())->shouldNotBeCalled();
         $this->snippetRepository->getOneBy(Argument::cetera())->shouldNotBeCalled();
 
-        $this->assertSame($page, $this->resolver->loadDraft('page', 'uuid-1', 'en'));
+        $this->assertSame($page, $this->resolver->loadDraft('pages', 'uuid-1', 'en'));
     }
 
     public function testLoadDraftLoadsArticleFromArticleRepository(): void
@@ -96,7 +87,7 @@ final class ContentTypeResolverTest extends TestCase
         $this->pageRepository->getOneBy(Argument::cetera())->shouldNotBeCalled();
         $this->snippetRepository->getOneBy(Argument::cetera())->shouldNotBeCalled();
 
-        $this->assertSame($article, $this->resolver->loadDraft('article', 'uuid-1', 'en'));
+        $this->assertSame($article, $this->resolver->loadDraft('articles', 'uuid-1', 'en'));
     }
 
     public function testLoadDraftLoadsSnippetFromSnippetRepository(): void
@@ -106,7 +97,7 @@ final class ContentTypeResolverTest extends TestCase
         $this->pageRepository->getOneBy(Argument::cetera())->shouldNotBeCalled();
         $this->articleRepository->getOneBy(Argument::cetera())->shouldNotBeCalled();
 
-        $this->assertSame($snippet, $this->resolver->loadDraft('snippet', 'uuid-1', 'en'));
+        $this->assertSame($snippet, $this->resolver->loadDraft('snippets', 'uuid-1', 'en'));
     }
 
     public function testLoadForTransitionHydratesDraftAndLiveDimensionContents(): void
@@ -133,7 +124,7 @@ final class ContentTypeResolverTest extends TestCase
 
         $this->assertSame(
             $page,
-            $this->resolver->loadForTransition('page', 'uuid-1', 'en'),
+            $this->resolver->loadForTransition('pages', 'uuid-1', 'en'),
             'a transition aggregate hydrated with draft rows only makes the publish copy duplicate the live rows instead of updating them',
         );
     }
@@ -146,8 +137,8 @@ final class ContentTypeResolverTest extends TestCase
         $this->snippetRepository->getOneBy(Argument::cetera())->shouldBeCalledOnce()->willReturn($snippet);
         $this->pageRepository->getOneBy(Argument::cetera())->shouldNotBeCalled();
 
-        $this->assertSame($article, $this->resolver->loadForTransition('article', 'uuid-1', 'en'));
-        $this->assertSame($snippet, $this->resolver->loadForTransition('snippet', 'uuid-1', 'en'));
+        $this->assertSame($article, $this->resolver->loadForTransition('articles', 'uuid-1', 'en'));
+        $this->assertSame($snippet, $this->resolver->loadForTransition('snippets', 'uuid-1', 'en'));
     }
 
     public function testLoadForTransitionReturnsNullForUnsupportedTypeAndOnRepositoryErrors(): void
@@ -155,7 +146,7 @@ final class ContentTypeResolverTest extends TestCase
         $this->pageRepository->getOneBy(Argument::cetera())->willThrow(new \RuntimeException('not found'));
 
         $this->assertNull($this->resolver->loadForTransition('media', 'uuid-1', 'en'));
-        $this->assertNull($this->resolver->loadForTransition('page', 'missing', 'en'));
+        $this->assertNull($this->resolver->loadForTransition('pages', 'missing', 'en'));
     }
 
     public function testLoadDraftReturnsNullForUnsupportedType(): void
@@ -171,12 +162,12 @@ final class ContentTypeResolverTest extends TestCase
     {
         $this->pageRepository->getOneBy(Argument::cetera())->willThrow(new \RuntimeException('not found'));
 
-        $this->assertNull($this->resolver->loadDraft('page', 'missing', 'en'));
+        $this->assertNull($this->resolver->loadDraft('pages', 'missing', 'en'));
     }
 
     public function testCreateModifyMessageReturnsPageMessage(): void
     {
-        $message = $this->resolver->createModifyMessage('page', 'uuid-1', ['locale' => 'en']);
+        $message = $this->resolver->createModifyMessage('pages', 'uuid-1', ['locale' => 'en']);
 
         $this->assertInstanceOf(ModifyPageMessage::class, $message);
         $this->assertSame(['uuid' => 'uuid-1'], $message->getIdentifier());
@@ -185,14 +176,14 @@ final class ContentTypeResolverTest extends TestCase
 
     public function testCreateModifyMessageReturnsArticleMessage(): void
     {
-        $message = $this->resolver->createModifyMessage('article', 'uuid-1', ['locale' => 'en']);
+        $message = $this->resolver->createModifyMessage('articles', 'uuid-1', ['locale' => 'en']);
 
         $this->assertInstanceOf(ModifyArticleMessage::class, $message);
     }
 
     public function testCreateModifyMessageReturnsSnippetMessage(): void
     {
-        $message = $this->resolver->createModifyMessage('snippet', 'uuid-1', ['locale' => 'en']);
+        $message = $this->resolver->createModifyMessage('snippets', 'uuid-1', ['locale' => 'en']);
 
         $this->assertInstanceOf(ModifySnippetMessage::class, $message);
     }
@@ -208,15 +199,15 @@ final class ContentTypeResolverTest extends TestCase
     {
         $this->assertInstanceOf(
             RemovePageMessage::class,
-            $this->resolver->createRemoveMessage('page', 'uuid-1', 'en', true),
+            $this->resolver->createRemoveMessage('pages', 'uuid-1', 'en', true),
         );
         $this->assertInstanceOf(
             RemoveArticleMessage::class,
-            $this->resolver->createRemoveMessage('article', 'uuid-1', 'en'),
+            $this->resolver->createRemoveMessage('articles', 'uuid-1', 'en'),
         );
         $this->assertInstanceOf(
             RemoveSnippetMessage::class,
-            $this->resolver->createRemoveMessage('snippet', 'uuid-1', 'en'),
+            $this->resolver->createRemoveMessage('snippets', 'uuid-1', 'en'),
         );
     }
 
@@ -224,15 +215,15 @@ final class ContentTypeResolverTest extends TestCase
     {
         $this->assertInstanceOf(
             ApplyWorkflowTransitionPageMessage::class,
-            $this->resolver->createTransitionMessage('page', 'uuid-1', 'en', 'publish'),
+            $this->resolver->createTransitionMessage('pages', 'uuid-1', 'en', 'publish'),
         );
         $this->assertInstanceOf(
             ApplyWorkflowTransitionArticleMessage::class,
-            $this->resolver->createTransitionMessage('article', 'uuid-1', 'en', 'publish'),
+            $this->resolver->createTransitionMessage('articles', 'uuid-1', 'en', 'publish'),
         );
         $this->assertInstanceOf(
             ApplyWorkflowTransitionSnippetMessage::class,
-            $this->resolver->createTransitionMessage('snippet', 'uuid-1', 'en', 'unpublish'),
+            $this->resolver->createTransitionMessage('snippets', 'uuid-1', 'en', 'unpublish'),
         );
     }
 
@@ -262,7 +253,7 @@ final class ContentTypeResolverTest extends TestCase
             [PageRepositoryInterface::GROUP_SELECT_PAGE_ADMIN => true],
         )->shouldBeCalledOnce()->willReturn($page);
 
-        $this->assertSame($page, $this->resolver->loadDraft('page', 'uuid-1', 'en', loadGhost: true));
+        $this->assertSame($page, $this->resolver->loadDraft('pages', 'uuid-1', 'en', loadGhost: true));
     }
 
     public function testLoadDraftKeepsUntranslatedLocalesUnfindableByDefault(): void
@@ -279,67 +270,69 @@ final class ContentTypeResolverTest extends TestCase
             [PageRepositoryInterface::GROUP_SELECT_PAGE_ADMIN => true],
         )->shouldBeCalledOnce()->willReturn($page);
 
-        $this->assertSame($page, $this->resolver->loadDraft('page', 'uuid-1', 'en'));
+        $this->assertSame($page, $this->resolver->loadDraft('pages', 'uuid-1', 'en'));
     }
 
-    public function testProductIsUnsupportedWithoutTheProductBundle(): void
+    public function testUnregisteredExtensionTypeIsUnsupported(): void
     {
-        self::assertFalse($this->resolver->supports('product'));
-        self::assertNotContains('product', $this->resolver->supportedTypes());
-        self::assertNull($this->resolver->loadDraft('product', 'uuid', 'en'));
+        self::assertFalse($this->resolver->supports('widgets'));
+        self::assertNotContains('widgets', $this->resolver->supportedResourceKeys());
+        self::assertNull($this->resolver->loadDraft('widgets', 'uuid', 'en'));
     }
 
-    public function testProductIsSupportedWhenTheProductRepositoryIsWired(): void
+    public function testExtensionTypeIsSupportedWhenRegistered(): void
     {
-        $resolver = $this->resolverWithProducts();
+        $resolver = $this->resolverWithExtension();
 
-        self::assertTrue($resolver->supports('product'));
-        self::assertContains('product', $resolver->supportedTypes());
+        self::assertTrue($resolver->supports('widgets'));
+        self::assertContains('widgets', $resolver->supportedResourceKeys());
     }
 
-    public function testCreateProductMessagesAreBuiltWhenTheProductBundleIsPresent(): void
+    public function testExtensionMessagesDelegateToTheExtension(): void
     {
-        $resolver = $this->resolverWithProducts();
+        $resolver = $this->resolverWithExtension();
 
-        self::assertInstanceOf(ModifyProductMessage::class, $resolver->createModifyMessage('product', 'uuid', ['locale' => 'en']));
-        self::assertInstanceOf(RemoveProductMessage::class, $resolver->createRemoveMessage('product', 'uuid', 'en'));
-        self::assertInstanceOf(ApplyWorkflowTransitionProductMessage::class, $resolver->createTransitionMessage('product', 'uuid', 'en', 'publish'));
+        $modify = $resolver->createModifyMessage('widgets', 'uuid', ['locale' => 'en']);
+        self::assertSame('modify', $modify->kind);
+        self::assertSame('uuid', $modify->uuid);
+
+        $remove = $resolver->createRemoveMessage('widgets', 'uuid', 'en');
+        self::assertSame('remove', $remove->kind);
+
+        $transition = $resolver->createTransitionMessage('widgets', 'uuid', 'en', 'publish');
+        self::assertSame('transition', $transition->kind);
+        self::assertSame('publish', $transition->transition);
     }
 
-    public function testProductMessagesAreRejectedWithoutTheProductBundle(): void
+    public function testExtensionMessagesAreRejectedWithoutTheExtensionRegistered(): void
     {
         $this->expectException(\InvalidArgumentException::class);
 
-        $this->resolver->createModifyMessage('product', 'uuid', ['locale' => 'en']);
+        $this->resolver->createModifyMessage('widgets', 'uuid', ['locale' => 'en']);
     }
 
-    public function testLoadDraftUsesTheProductAdminSelectGroup(): void
+    public function testLoadDraftDelegatesToTheRegisteredExtension(): void
     {
-        $productRepository = $this->prophesize(ProductRepositoryInterface::class);
-        $product = new Product('product-uuid');
+        $draft = (object) ['uuid' => 'widget-uuid'];
+        $extension = new FakeContentTypeExtension(draft: $draft);
 
-        $productRepository->getOneBy(
-            Argument::cetera(),
-            [ProductRepositoryInterface::GROUP_SELECT_PRODUCT_ADMIN => true],
-        )->shouldBeCalledOnce()->willReturn($product);
+        $resolver = ContentTypes::resolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal(), null, null, [$extension]);
 
-        $resolver = new ContentTypeResolver(
-            $this->pageRepository->reveal(),
-            $this->articleRepository->reveal(),
-            $this->snippetRepository->reveal(),
-            $productRepository->reveal(),
-        );
-
-        self::assertSame($product, $resolver->loadDraft('product', 'product-uuid', 'en'));
+        self::assertSame($draft, $resolver->loadDraft('widgets', 'widget-uuid', 'en'));
     }
 
-    private function resolverWithProducts(): ContentTypeResolver
+    public function testLoadForTransitionDelegatesToTheRegisteredExtension(): void
     {
-        return new ContentTypeResolver(
-            $this->pageRepository->reveal(),
-            $this->articleRepository->reveal(),
-            $this->snippetRepository->reveal(),
-            $this->prophesize(ProductRepositoryInterface::class)->reveal(),
-        );
+        $entity = (object) ['uuid' => 'widget-uuid'];
+        $extension = new FakeContentTypeExtension(transitionEntity: $entity);
+
+        $resolver = ContentTypes::resolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal(), null, null, [$extension]);
+
+        self::assertSame($entity, $resolver->loadForTransition('widgets', 'widget-uuid', 'en'));
+    }
+
+    private function resolverWithExtension(): ContentTypeResolver
+    {
+        return ContentTypes::resolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal(), null, null, [new FakeContentTypeExtension()]);
     }
 }

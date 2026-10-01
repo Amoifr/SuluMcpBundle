@@ -15,12 +15,17 @@ namespace Sulu\Mcp\Tests\Functional;
 
 use Mcp\Exception\ToolCallException;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Sulu\Bundle\SecurityBundle\System\SystemStoreInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Mcp\Application\Security\ToolVisibilityResolver;
 use Sulu\Mcp\Infrastructure\Sulu\Security\SnippetSecurityContextResolver;
+use Sulu\Mcp\UserInterface\Mcp\Tool\Content\ContentDeleteTool;
+use Sulu\Mcp\UserInterface\Mcp\Tool\Content\ContentPublishTool;
+use Sulu\Mcp\UserInterface\Mcp\Tool\Content\ContentUnpublishTool;
 use Sulu\Mcp\UserInterface\Mcp\Tool\Snippet\SnippetGetTool;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
+use Sulu\Snippet\Application\Message\ApplyWorkflowTransitionSnippetMessage;
 use Sulu\Snippet\Application\Message\CreateSnippetMessage;
 use Sulu\Snippet\Domain\Model\SnippetInterface;
 use Symfony\Component\Messenger\Envelope;
@@ -32,12 +37,14 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
  * group, `promo` in the `marketing` group). Group contexts exist from Sulu 3.1 on:
  * there the `marketing` group has its own context, while on 3.0 every snippet falls
  * back to `sulu.snippet.snippets`. Each test asserts the path of the installed core,
- * so the main workflow covers the fallback and the product workflow the groups.
+ * so a run on sulu/sulu 3.0 covers the fallback and a run on 3.1 the groups.
  */
 #[CoversNothing]
 final class SnippetGroupScopingTest extends FunctionalTestCase
 {
     private const SNIPPET_TOOLS = ['sulu_snippet_get', 'sulu_snippet_update', 'sulu_block_list'];
+
+    private const CONTENT_TOOL_PERMISSIONS = [PermissionTypes::VIEW, PermissionTypes::EDIT, PermissionTypes::DELETE, PermissionTypes::LIVE];
 
     private static function coreHasGroupContexts(): bool
     {
@@ -133,9 +140,77 @@ final class SnippetGroupScopingTest extends FunctionalTestCase
         self::assertSame($promoUuid, $tool->getSnippet('en', $promoUuid)['uuid'] ?? null);
     }
 
-    private function createSnippet(string $template): string
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function contentToolActions(): iterable
     {
-        $envelope = self::getContainer()->get(MessageBusInterface::class)->dispatch(new Envelope(
+        yield 'delete' => ['delete'];
+        yield 'publish' => ['publish'];
+        yield 'unpublish' => ['unpublish'];
+    }
+
+    /**
+     * The unified content tools resolve the snippet's group from its template, as the snippet tools do.
+     */
+    #[DataProvider('contentToolActions')]
+    public function testRoleWithOnlyTheMarketingGroupChangesAMarketingSnippetOnlyWhereTheGroupExists(string $action): void
+    {
+        $uuid = $this->createSnippet('promo', published: 'unpublish' === $action);
+        $this->authenticateWithSnippetContext('sulu.snippet.snippets_marketing', 'MarketingGroupEditor', 'marketing-group-editor', self::CONTENT_TOOL_PERMISSIONS);
+
+        if (!self::coreHasGroupContexts()) {
+            $this->expectException(ToolCallException::class);
+        }
+
+        // Reaching the next line means the MCP gate let the call through.
+        $result = $this->runContentTool($action, $uuid);
+
+        // Past that gate, sulu 3.1 guards a publish itself, on the flat context `sulu_admin.resources.snippets`
+        // declares, which a role holding only a group lacks.
+        if ('publish' === $action && isset($result['error'])) {
+            self::assertIsString($result['error']);
+            self::assertStringContainsString('Publishing "sulu.snippet.snippets" requires the "live" permission', $result['error']);
+
+            return;
+        }
+
+        self::assertArrayNotHasKey('error', $result, (string) \json_encode($result));
+    }
+
+    #[DataProvider('contentToolActions')]
+    public function testRoleWithOnlyTheBaseSnippetContextChangesAMarketingSnippetOnlyWhereTheGroupDoesNotExist(string $action): void
+    {
+        $uuid = $this->createSnippet('promo', published: 'unpublish' === $action);
+        $this->authenticateWithSnippetContext('sulu.snippet.snippets', 'BaseSnippetEditor', 'base-snippet-editor', self::CONTENT_TOOL_PERMISSIONS);
+
+        if (self::coreHasGroupContexts()) {
+            $this->expectException(ToolCallException::class);
+        }
+
+        $result = $this->runContentTool($action, $uuid);
+
+        self::assertArrayNotHasKey('error', $result, (string) \json_encode($result));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function runContentTool(string $action, string $uuid): array
+    {
+        $container = self::getContainer();
+
+        return match ($action) {
+            'delete' => $container->get(ContentDeleteTool::class)->deleteContent('snippets', $uuid, 'en'),
+            'publish' => $container->get(ContentPublishTool::class)->publishContent('snippets', $uuid, 'en'),
+            'unpublish' => $container->get(ContentUnpublishTool::class)->unpublishContent('snippets', $uuid, 'en'),
+        };
+    }
+
+    private function createSnippet(string $template, bool $published = false): string
+    {
+        $messageBus = self::getContainer()->get(MessageBusInterface::class);
+        $envelope = $messageBus->dispatch(new Envelope(
             new CreateSnippetMessage(['locale' => 'en', 'template' => $template, 'title' => \ucfirst($template) . ' snippet']),
             [new EnableFlushStamp()],
         ));
@@ -143,10 +218,22 @@ final class SnippetGroupScopingTest extends FunctionalTestCase
         /** @var SnippetInterface $snippet */
         $snippet = $envelope->last(HandledStamp::class)?->getResult();
 
+        if ($published) {
+            $messageBus->dispatch(new Envelope(
+                new ApplyWorkflowTransitionSnippetMessage(['uuid' => $snippet->getUuid()], 'en', 'publish'),
+                [new EnableFlushStamp()],
+            ));
+            // A tool call gets a fresh entity manager; the transition loads the live rows only then.
+            $this->entityManager->clear();
+        }
+
         return $snippet->getUuid();
     }
 
-    private function authenticateWithSnippetContext(string $context, string $roleName, string $username): void
+    /**
+     * @param list<string> $permissions
+     */
+    private function authenticateWithSnippetContext(string $context, string $roleName, string $username, array $permissions = [PermissionTypes::VIEW, PermissionTypes::EDIT]): void
     {
         $container = self::getContainer();
 
@@ -158,7 +245,7 @@ final class SnippetGroupScopingTest extends FunctionalTestCase
         );
 
         $role = $builder->role($roleName, [
-            $context => [PermissionTypes::VIEW => true, PermissionTypes::EDIT => true],
+            $context => \array_fill_keys($permissions, true),
         ]);
 
         $builder->authenticate($builder->user($username, $role));

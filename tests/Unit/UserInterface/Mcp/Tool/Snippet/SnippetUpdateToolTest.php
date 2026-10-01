@@ -28,16 +28,15 @@ use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\TypedFormMetadata;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\Mcp\Application\Content\BlockDataValidator;
-use Sulu\Mcp\Application\Content\ContentTypeResolver;
 use Sulu\Mcp\Application\Metadata\MetadataLocaleResolver;
 use Sulu\Mcp\Application\Security\ContentSecurityContextResolver;
 use Sulu\Mcp\Infrastructure\Sulu\AdminLink\SnippetAdminLinkProvider;
-use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
 use Sulu\Mcp\Infrastructure\Sulu\Security\SnippetSecurityContextResolver;
 use Sulu\Mcp\Infrastructure\Symfony\Routing\AdminLinkGenerator;
 use Sulu\Mcp\Tests\Application\TestBundle\Admin\TestViewRegistry;
 use Sulu\Mcp\Tests\Application\TestBundle\Metadata\TestGroupProvider;
 use Sulu\Mcp\Tests\Unit\Fixture\ArrayMetadataProvider;
+use Sulu\Mcp\Tests\Unit\Fixture\ContentTypes;
 use Sulu\Mcp\Tests\Unit\Fixture\FakeToolPermissionChecker;
 use Sulu\Mcp\Tests\Unit\Fixture\FixedBlockIdGenerator;
 use Sulu\Mcp\UserInterface\Mcp\Tool\Snippet\SnippetUpdateTool;
@@ -93,19 +92,16 @@ final class SnippetUpdateToolTest extends TestCase
         $router->generate(Argument::cetera())->willReturn('https://example.com/admin/');
         $adminLinkGenerator = new AdminLinkGenerator($router->reveal(), [new SnippetAdminLinkProvider(new TestViewRegistry())]);
 
+        $contentTypeResolver = ContentTypes::resolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal());
         $this->tool = new SnippetUpdateTool(
             $this->messageBus->reveal(),
             $this->contentManager->reveal(),
-            new ContentTypeResolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal()),
+            $contentTypeResolver,
             new BlockDataValidator($this->formMetadataProvider, new MetadataLocaleResolver(new TokenStorage(), 'en')),
             $this->blockIdGenerator,
             $adminLinkGenerator,
             FakeToolPermissionChecker::grantingAll(),
-            new ContentSecurityContextResolver(
-                new ArticleSecurityContextResolver(new TestGroupProvider([])),
-                new SnippetSecurityContextResolver(new TestGroupProvider([])),
-                $this->contentManager->reveal(),
-            ),
+            new ContentSecurityContextResolver($contentTypeResolver),
             new SnippetSecurityContextResolver(new TestGroupProvider([])),
         );
     }
@@ -124,9 +120,10 @@ final class SnippetUpdateToolTest extends TestCase
             [SnippetRepositoryInterface::GROUP_SELECT_SNIPPET_ADMIN => true],
         )->willReturn($existingSnippet);
 
-        $currentDimensionContent = new SnippetDimensionContent(new Snippet());
+        $currentDimensionContent = new SnippetDimensionContent($existingSnippet);
         $currentDimensionContent->setLocale($locale);
         $currentDimensionContent->setTemplateKey(\is_string($currentData['template'] ?? null) ? $currentData['template'] : null);
+        $existingSnippet->addDimensionContent($currentDimensionContent);
         $this->contentManager->resolve(Argument::cetera())->willReturn($currentDimensionContent);
         $this->contentManager->normalize(Argument::cetera())->willReturn($currentData);
 
@@ -147,19 +144,16 @@ final class SnippetUpdateToolTest extends TestCase
         $router = $this->prophesize(RouterInterface::class);
         $router->generate(Argument::cetera())->willReturn('https://example.com/admin/');
 
+        $contentTypeResolver = ContentTypes::snippetResolver($this->snippetRepository->reveal(), $snippetContextResolver);
         $this->tool = new SnippetUpdateTool(
             $this->messageBus->reveal(),
             $this->contentManager->reveal(),
-            new ContentTypeResolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal()),
+            $contentTypeResolver,
             new BlockDataValidator($this->formMetadataProvider, new MetadataLocaleResolver(new TokenStorage(), 'en')),
             $this->blockIdGenerator,
             new AdminLinkGenerator($router->reveal(), [new SnippetAdminLinkProvider(new TestViewRegistry())]),
             $permissionChecker,
-            new ContentSecurityContextResolver(
-                new ArticleSecurityContextResolver(new TestGroupProvider([])),
-                $snippetContextResolver,
-                $this->contentManager->reveal(),
-            ),
+            new ContentSecurityContextResolver($contentTypeResolver),
             $snippetContextResolver,
         );
     }
@@ -397,19 +391,16 @@ final class SnippetUpdateToolTest extends TestCase
 
         $router = $this->prophesize(RouterInterface::class);
         $router->generate(Argument::cetera())->willReturn('https://example.com/admin/');
+        $contentTypeResolver = ContentTypes::resolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal());
         $this->tool = new SnippetUpdateTool(
             $this->messageBus->reveal(),
             $this->contentManager->reveal(),
-            new ContentTypeResolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal()),
+            $contentTypeResolver,
             new BlockDataValidator($this->formMetadataProvider, new MetadataLocaleResolver(new TokenStorage(), 'en')),
             $this->blockIdGenerator,
             new AdminLinkGenerator($router->reveal(), [new SnippetAdminLinkProvider(new TestViewRegistry())]),
             FakeToolPermissionChecker::grantingAll(),
-            new ContentSecurityContextResolver(
-                new ArticleSecurityContextResolver(new TestGroupProvider([])),
-                new SnippetSecurityContextResolver(new TestGroupProvider([])),
-                $this->contentManager->reveal(),
-            ),
+            new ContentSecurityContextResolver($contentTypeResolver),
             new SnippetSecurityContextResolver(new TestGroupProvider([])),
         );
 

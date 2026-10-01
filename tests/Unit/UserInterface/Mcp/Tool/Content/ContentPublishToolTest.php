@@ -23,12 +23,11 @@ use Prophecy\Prophecy\ObjectProphecy;
 use Sulu\Article\Domain\Model\Article;
 use Sulu\Article\Domain\Model\ArticleDimensionContent;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
-use Sulu\Content\Application\ContentManager\ContentManagerInterface;
-use Sulu\Mcp\Application\Content\ContentTypeResolver;
+use Sulu\Bundle\AdminBundle\Metadata\FormMetadata\FormGroup;
 use Sulu\Mcp\Application\Security\ContentSecurityContextResolver;
-use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
 use Sulu\Mcp\Infrastructure\Sulu\Security\SnippetSecurityContextResolver;
 use Sulu\Mcp\Tests\Application\TestBundle\Metadata\TestGroupProvider;
+use Sulu\Mcp\Tests\Unit\Fixture\ContentTypes;
 use Sulu\Mcp\Tests\Unit\Fixture\FakeToolPermissionChecker;
 use Sulu\Mcp\UserInterface\Mcp\Tool\Content\ContentPublishTool;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
@@ -36,6 +35,7 @@ use Sulu\Page\Application\Message\ApplyWorkflowTransitionPageMessage;
 use Sulu\Page\Domain\Model\Page;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Sulu\Snippet\Domain\Model\Snippet;
+use Sulu\Snippet\Domain\Model\SnippetDimensionContent;
 use Sulu\Snippet\Domain\Repository\SnippetRepositoryInterface;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -58,9 +58,6 @@ final class ContentPublishToolTest extends TestCase
     /** @var ObjectProphecy<SnippetRepositoryInterface> */
     private ObjectProphecy $snippetRepository;
 
-    /** @var ObjectProphecy<ContentManagerInterface> */
-    private ObjectProphecy $contentManager;
-
     private FakeToolPermissionChecker $permissionChecker;
     private ContentPublishTool $tool;
 
@@ -70,22 +67,20 @@ final class ContentPublishToolTest extends TestCase
         $this->pageRepository = $this->prophesize(PageRepositoryInterface::class);
         $this->articleRepository = $this->prophesize(ArticleRepositoryInterface::class);
         $this->snippetRepository = $this->prophesize(SnippetRepositoryInterface::class);
-        $this->contentManager = $this->prophesize(ContentManagerInterface::class);
         $this->permissionChecker = FakeToolPermissionChecker::grantingAll();
         $groupProvider = new TestGroupProvider([]);
 
         $this->tool = new ContentPublishTool(
             $this->messageBus->reveal(),
-            new ContentTypeResolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal()),
-            $this->contentManager->reveal(),
+            ContentTypes::resolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal(), $groupProvider),
             $this->permissionChecker,
-            new ContentSecurityContextResolver(new ArticleSecurityContextResolver($groupProvider), new SnippetSecurityContextResolver($groupProvider), $this->contentManager->reveal()),
+            ContentTypes::securityResolver($groupProvider),
         );
     }
 
     public function testPublishPageDispatchesTransitionWithPublishName(): void
     {
-        $this->setupEntity('page');
+        $this->setupEntity('pages');
 
         $captured = null;
         $this->messageBus->dispatch(Argument::cetera())
@@ -96,12 +91,12 @@ final class ContentPublishToolTest extends TestCase
                 return $args[0]->with(new HandledStamp(null, 'handler'));
             });
 
-        $result = $this->tool->publishContent('page', 'uuid-1', 'en');
+        $result = $this->tool->publishContent('pages', 'uuid-1', 'en');
 
         $this->assertInstanceOf(Envelope::class, $captured);
         $this->assertInstanceOf(ApplyWorkflowTransitionPageMessage::class, $captured->getMessage());
         $this->assertArrayHasKey(EnableFlushStamp::class, $captured->all());
-        $this->assertSame(['success' => true, 'type' => 'page', 'uuid' => 'uuid-1', 'action' => 'published', 'locale' => 'en'], $result);
+        $this->assertSame(['success' => true, 'resourceKey' => 'pages', 'uuid' => 'uuid-1', 'action' => 'published', 'locale' => 'en'], $result);
     }
 
     public function testUnsupportedTypeReturnsError(): void
@@ -115,16 +110,16 @@ final class ContentPublishToolTest extends TestCase
         $this->pageRepository->getOneBy(Argument::cetera())->willThrow(new \RuntimeException('not found'));
         $this->messageBus->dispatch(Argument::cetera())->shouldNotBeCalled();
 
-        $result = $this->tool->publishContent('page', 'missing-uuid', 'en');
+        $result = $this->tool->publishContent('pages', 'missing-uuid', 'en');
 
         $this->assertArrayHasKey('error', $result);
     }
 
     public function testErrorOnException(): void
     {
-        $this->setupEntity('article');
+        $this->setupEntity('articles');
         $this->messageBus->dispatch(Argument::cetera())->willThrow(new \RuntimeException('boom'));
-        $this->assertStringContainsString('boom', $this->tool->publishContent('article', 'uuid-1', 'en')['error']);
+        $this->assertStringContainsString('boom', $this->tool->publishContent('articles', 'uuid-1', 'en')['error']);
     }
 
     public function testMethodHasMcpToolAttribute(): void
@@ -135,7 +130,7 @@ final class ContentPublishToolTest extends TestCase
 
     public function testPublishContentThrowsToolCallExceptionWhenPermissionDenied(): void
     {
-        $this->setupEntity('page');
+        $this->setupEntity('pages');
 
         $this->permissionChecker->denyAll();
 
@@ -143,27 +138,86 @@ final class ContentPublishToolTest extends TestCase
 
         $this->expectException(ToolCallException::class);
 
-        $this->tool->publishContent('page', 'uuid-1', 'en');
+        $this->tool->publishContent('pages', 'uuid-1', 'en');
+    }
+
+    public function testPublishSnippetOfAGroupTheRoleHolds(): void
+    {
+        $this->useTwoSnippetGroups();
+        $this->setupSnippetWithTemplate('promo');
+        $this->permissionChecker->grantingNoneExcept()->grantContext('sulu.snippet.snippets_marketing');
+
+        $this->messageBus->dispatch(Argument::cetera())
+            ->shouldBeCalledOnce()
+            ->will(fn (array $args) => $args[0]->with(new HandledStamp(null, 'handler')));
+
+        $result = $this->tool->publishContent('snippets', 'uuid-1', 'en');
+
+        $this->assertTrue($result['success']);
+    }
+
+    public function testPublishSnippetIsDeniedWithoutItsGroup(): void
+    {
+        $this->useTwoSnippetGroups();
+        $this->setupSnippetWithTemplate('promo');
+        $this->permissionChecker->grantingNoneExcept()->grantContext('sulu.snippet.snippets');
+
+        $this->messageBus->dispatch(Argument::cetera())->shouldNotBeCalled();
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('security context "sulu.snippet.snippets_marketing"');
+
+        $this->tool->publishContent('snippets', 'uuid-1', 'en');
+    }
+
+    /**
+     * Rebuilds the tool over a two-group install: `default` (template "default") and
+     * `marketing` (template "promo").
+     */
+    private function useTwoSnippetGroups(): void
+    {
+        $contentTypeResolver = ContentTypes::snippetResolver($this->snippetRepository->reveal(), new SnippetSecurityContextResolver(new TestGroupProvider([
+            (new FormGroup('default', 'Default'))->withTemplate('default'),
+            (new FormGroup('marketing', 'Marketing'))->withTemplate('promo'),
+        ]), true));
+
+        $this->tool = new ContentPublishTool(
+            $this->messageBus->reveal(),
+            $contentTypeResolver,
+            $this->permissionChecker,
+            new ContentSecurityContextResolver($contentTypeResolver),
+        );
+    }
+
+    private function setupSnippetWithTemplate(string $templateKey): void
+    {
+        $snippet = new Snippet('uuid-1');
+        $dimensionContent = new SnippetDimensionContent($snippet);
+        $dimensionContent->setLocale('en');
+        $dimensionContent->setTemplateKey($templateKey);
+        $snippet->addDimensionContent($dimensionContent);
+
+        $this->snippetRepository->getOneBy(Argument::cetera())->willReturn($snippet);
     }
 
     private function setupEntity(string $type): void
     {
         $entity = match ($type) {
-            'article' => new Article('uuid-1'),
-            'snippet' => new Snippet('uuid-1'),
+            'articles' => new Article('uuid-1'),
+            'snippets' => new Snippet('uuid-1'),
             default => (new Page('uuid-1'))->setWebspaceKey('example'),
         };
 
         match ($type) {
-            'article' => $this->articleRepository->getOneBy(Argument::cetera())->willReturn($entity),
-            'snippet' => $this->snippetRepository->getOneBy(Argument::cetera())->willReturn($entity),
+            'articles' => $this->articleRepository->getOneBy(Argument::cetera())->willReturn($entity),
+            'snippets' => $this->snippetRepository->getOneBy(Argument::cetera())->willReturn($entity),
             default => $this->pageRepository->getOneBy(Argument::cetera())->willReturn($entity),
         };
 
-        if ('article' === $type) {
+        if ('articles' === $type) {
             $dimensionContent = new ArticleDimensionContent($entity);
             $dimensionContent->setTemplateKey('default');
-            $this->contentManager->resolve(Argument::cetera())->willReturn($dimensionContent);
+            $entity->addDimensionContent($dimensionContent);
         }
     }
 }

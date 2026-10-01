@@ -16,6 +16,7 @@ namespace Sulu\Mcp\UserInterface\Mcp\Tool\Page;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
+use Mcp\Schema\ToolAnnotations;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
@@ -25,7 +26,9 @@ use Sulu\Mcp\Application\AdminLink\AdminLinkGeneratorInterface;
 use Sulu\Mcp\Application\Content\BlockDataNormalizerTrait;
 use Sulu\Mcp\Application\Content\BlockDataValidator;
 use Sulu\Mcp\Application\Content\ContentMetadataMapper;
+use Sulu\Mcp\Application\Content\LinkDataTrait;
 use Sulu\Mcp\Application\Content\NavigationContextTrait;
+use Sulu\Mcp\Application\Content\ShadowTrait;
 use Sulu\Mcp\Application\Security\ToolPermissionCheckerInterface;
 use Sulu\Mcp\Domain\Exception\PermissionDeniedException;
 use Sulu\Mcp\Domain\Security\PermissionRequirement;
@@ -46,6 +49,8 @@ class PageCreateTool
 {
     use BlockDataNormalizerTrait;
     use HandleTrait;
+    use LinkDataTrait;
+    use ShadowTrait;
     use NavigationContextTrait;
 
     public function __construct(
@@ -67,13 +72,15 @@ class PageCreateTool
      * @param array<string, mixed>|null $excerpt
      * @param array<string, mixed>|null $seo
      * @param list<string>|null $navigationContexts
+     * @param array<string, mixed>|null $linkData
      *
      * @return array<string, mixed>
      */
     #[McpTool(
         name: 'sulu_page_create',
         title: 'Create Page',
-        description: 'Create a new page in a webspace. Workflow: 1) Call sulu_get_context to discover templates and their fields. 2) Call sulu_page_tree to find the parentId (UUID of the parent page under which this page should be created). 3) Choose a template key (e.g. "default") and pass its field values in "content" as a flat object: content={"article": "<p>HTML here</p>"}. Content may also include a full "blocks" tree (nested blocks allowed), e.g. content={"blocks": [{"type": "text", "content": "<p>…</p>"}, {"type": "section", "blocks": [{"type": "text", "content": "<p>…</p>"}]}]} — block _ids are assigned automatically and unknown block fields are rejected before saving. The "title" is a separate parameter — do not repeat it in content. The "url" is auto-generated from the title if omitted. The page is created as a draft — call sulu_content_publish (type: page) afterward to make it live.',
+        description: 'Create a new page in a webspace. Workflow: 1) Call sulu_get_context to discover templates and their fields. 2) Call sulu_page_tree to find the parentId (UUID of the parent page under which this page should be created). 3) Choose a template key (e.g. "default") and pass its field values in "content" as a flat object: content={"article": "<p>HTML here</p>"}. Content may also include a full "blocks" tree (nested blocks allowed), e.g. content={"blocks": [{"type": "text", "content": "<p>…</p>"}, {"type": "section", "blocks": [{"type": "text", "content": "<p>…</p>"}]}]} — block _ids are assigned automatically and unknown block fields are rejected before saving. The "title" is a separate parameter — do not repeat it in content. The "url" is auto-generated from the title if omitted. The page is created as a draft — call sulu_content_publish (resourceKey: pages) afterward to make it live.',
+        annotations: new ToolAnnotations(readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false),
     )]
     #[RequiresPermission(
         requirements: [
@@ -97,6 +104,12 @@ class PageCreateTool
         ?array $seo = null,
         #[Schema(type: 'array', description: 'Optional navigation context keys to assign the page to, e.g. ["main", "footer"]. Call sulu_get_context for the keys declared by the webspace. Navigation contexts exist on pages only.', items: ['type' => 'string'])]
         ?array $navigationContexts = null,
+        #[Schema(type: 'object', description: 'Optional "Link" setting, which turns the page into a redirect instead of showing its own content. Needs a "provider" key naming the kind of target, e.g. {"provider": "page", "page": "<uuid>"} for internal content or {"provider": "external", "href": "https://example.com"}. Links exist on pages only.', additionalProperties: true)]
+        ?array $linkData = null,
+        #[Schema(type: 'boolean', description: 'Optional "Shadow" setting: when true this locale serves the content of "shadowLocale" instead of its own. Omit to leave it unchanged, pass false to remove the shadow. Cannot be combined with a link.')]
+        ?bool $shadowOn = null,
+        #[Schema(type: 'string', description: 'The locale mirrored when shadowOn is true, e.g. "en". The eligible locales are returned as "shadowLocales" by the matching get tool.')]
+        ?string $shadowLocale = null,
     ): array {
         try {
             // An unchecked parentId could attach the page under a parent in a different
@@ -145,6 +158,13 @@ class PageCreateTool
                 }
             }
 
+            // a page being created has no shadow yet, so only the provider is checked here
+            if (null !== $linkData) {
+                if ($validationError = $this->validateLinkData($linkData, [])) {
+                    return $validationError;
+                }
+            }
+
             $data = $this->contentMetadataMapper->applyExcerpt($data, $excerpt, $locale);
             if (isset($data['error'])) {
                 return $data;
@@ -164,6 +184,13 @@ class PageCreateTool
             } else {
                 unset($data['navigationContexts']);
             }
+            $data = $this->applyLinkData($data, $linkData);
+
+            if ($validationError = $this->validateShadow($shadowOn, $shadowLocale, $locale, [])) {
+                return $validationError;
+            }
+
+            $data = $this->applyShadow($data, $shadowOn, $shadowLocale);
 
             $message = new CreatePageMessage($webspace, $parentId, $data);
 

@@ -16,6 +16,7 @@ namespace Sulu\Mcp\UserInterface\Mcp\Tool\Block;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
+use Mcp\Schema\ToolAnnotations;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
@@ -24,7 +25,9 @@ use Sulu\Mcp\Application\Content\BlockDataNormalizerTrait;
 use Sulu\Mcp\Application\Content\BlockDataValidator;
 use Sulu\Mcp\Application\Content\ContentLocaleTrait;
 use Sulu\Mcp\Application\Content\ContentNormalizerTrait;
+use Sulu\Mcp\Application\Content\ContentTypeExtensionRegistry;
 use Sulu\Mcp\Application\Content\ContentTypeResolver;
+use Sulu\Mcp\Application\Content\ContentTypeSchemaExpander;
 use Sulu\Mcp\Application\Security\ContentSecurityContextResolver;
 use Sulu\Mcp\Application\Security\ToolPermissionCheckerInterface;
 use Sulu\Mcp\Application\Security\WebspacePermissionResolver;
@@ -32,9 +35,7 @@ use Sulu\Mcp\Domain\Exception\PermissionDeniedException;
 use Sulu\Mcp\Domain\Security\PermissionRequirement;
 use Sulu\Mcp\Domain\Security\RequiresPermission;
 use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
-use Sulu\Mcp\Infrastructure\Sulu\Security\SnippetSecurityContextResolver;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
-use Sulu\Page\Domain\Model\Page;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\HandleTrait;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -69,15 +70,17 @@ class BlockAddTool
     #[McpTool(
         name: 'sulu_block_add',
         title: 'Add Block',
-        description: 'Add a content block to a page, article, or snippet. Pass "type" ("page", "article", "snippet", or "product" when SuluProductBundle is installed) and the entity "uuid". Blocks are typed components (e.g. "text", "image", "quote") defined by the project. Workflow: 1) Call sulu_get_context to see available block types and their fields. 2) Find the block property name in the template (e.g. "blocks" or "content"). 3) Pass blockType, blockProperty, and blockData as a flat object mapping the block-type\'s template field names to values, e.g. blockData={"title": "Heading", "description": "<p>Body</p>"}. Unknown keys are rejected against the template schema; the internal {name, value} storage shape is rejected too. The block is appended or inserted at `position` (0-based). To add a block inside another, pass parentBlockId with the parent\'s _id. The entity must be re-published after adding blocks.',
+        description: 'Add a content block to a content entity. Pass "resourceKey" (one of {resourceKeys}) and the entity "uuid". Blocks are typed components (e.g. "text", "image", "quote") defined by the project. Workflow: 1) Call sulu_get_context to see available block types and their fields. 2) Find the block property name in the template (e.g. "blocks" or "content"). 3) Pass blockType, blockProperty, and blockData as a flat object mapping the block-type\'s template field names to values, e.g. blockData={"title": "Heading", "description": "<p>Body</p>"}. Unknown keys are rejected against the template schema; the internal {name, value} storage shape is rejected too. The block is appended or inserted at `position` (0-based). To add a block inside another, pass parentBlockId with the parent\'s _id. The entity must be re-published after adding blocks.',
+        annotations: new ToolAnnotations(readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false),
     )]
     #[RequiresPermission(
         requirements: [new PermissionRequirement('#context#', PermissionTypes::EDIT)],
         objectResolved: true,
-        discoveryContexts: [SnippetSecurityContextResolver::ANY_SNIPPET_GROUP_CONTEXT, 'sulu.product.products', ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
+        discoveryContexts: [ContentTypeExtensionRegistry::ANY_EXTENSION_CONTEXT, ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
     )]
     public function addBlock(
-        string $type,
+        #[Schema(description: 'The resourceKey of the content type: {resourceKeys}.', enum: [ContentTypeSchemaExpander::RESOURCE_KEYS])]
+        string $resourceKey,
         string $uuid,
         string $locale,
         string $blockType,
@@ -88,35 +91,31 @@ class BlockAddTool
         ?string $parentBlockId = null,
     ): array {
         try {
-            if (!$this->contentTypeResolver->supports($type)) {
-                return ['error' => \sprintf('Unsupported content type "%s". Supported: %s.', $type, \implode(', ', $this->contentTypeResolver->supportedTypes()))];
+            if (!$this->contentTypeResolver->supports($resourceKey)) {
+                return ['error' => \sprintf('Unsupported content type "%s". Supported: %s.', $resourceKey, \implode(', ', $this->contentTypeResolver->supportedResourceKeys()))];
             }
 
-            $entity = $this->contentTypeResolver->loadDraft($type, $uuid, $locale, loadGhost: true);
+            $entity = $this->contentTypeResolver->loadDraft($resourceKey, $uuid, $locale, loadGhost: true);
             if (null === $entity) {
-                return ['error' => \sprintf('%s not found: %s', \ucfirst($type), $uuid)];
+                return ['error' => \sprintf('%s not found: %s', \ucfirst($resourceKey), $uuid)];
             }
 
+            $extension = $this->contentTypeResolver->get($resourceKey);
             $dimensionContent = $this->contentManager->resolve($entity, [ // @phpstan-ignore argument.type, argument.templateType (upstream generic is invariant; loadDraft() returns a bare object)
                 'locale' => $locale,
                 'stage' => DimensionContentInterface::STAGE_DRAFT,
             ]);
 
-            $context = $this->contentSecurityContextResolver->forEntityInLocale(
-                $type,
-                $entity,
-                $dimensionContent,
-                $locale,
-            );
+            $security = $this->contentSecurityContextResolver->forEntity($resourceKey, $entity, $locale);
             $this->permissionChecker->check(
-                $context,
+                $security->context,
                 PermissionTypes::EDIT,
                 $locale,
-                'page' === $type ? Page::class : null,
-                'page' === $type ? $uuid : null,
+                $security->aclObjectType,
+                null !== $security->aclObjectType ? $uuid : null,
             );
 
-            if ($missingTranslation = self::missingBlockTranslationError($dimensionContent, $type, $uuid, $locale)) {
+            if ($missingTranslation = self::missingBlockTranslationError($dimensionContent, $resourceKey, $uuid, $locale)) {
                 return $missingTranslation;
             }
 
@@ -135,7 +134,7 @@ class BlockAddTool
                 $parentPath = $this->findBlockPath($currentData, $parentBlockId);
                 if (null === $parentPath) {
                     return [
-                        'error' => \sprintf('Parent block with _id "%s" not found in %s %s.', $parentBlockId, $type, $uuid),
+                        'error' => \sprintf('Parent block with _id "%s" not found in %s %s.', $parentBlockId, $resourceKey, $uuid),
                         'hint' => 'Use sulu_page_get, sulu_article_get, or sulu_snippet_get to see block summaries with _id values.',
                     ];
                 }
@@ -145,10 +144,10 @@ class BlockAddTool
                 ? $currentData['template']
                 : null;
             $nestedProperty = null !== $parentPath
-                ? $this->nestedTargetProperty($currentData, $type, $templateKey, $blockType, $parentPath)
+                ? $this->nestedTargetProperty($currentData, $extension->getTemplateType(), $templateKey, $blockType, $parentPath)
                 : null;
             $blockPath = $this->newBlockTypePath($currentData, $blockProperty, $blockType, $parentPath, $nestedProperty);
-            if ($validationError = $this->blockDataValidator->validate($type, $templateKey, $blockType, $blockPath, $blockData)) {
+            if ($validationError = $this->blockDataValidator->validate($extension->getTemplateType(), $templateKey, $blockType, $blockPath, $blockData)) {
                 return $validationError;
             }
 
@@ -179,7 +178,7 @@ class BlockAddTool
             // Ensure all array keys are strings (Sulu's MetadataResolver requires string keys)
             $data = $this->stringifyKeys($data);
 
-            $message = $this->contentTypeResolver->createModifyMessage($type, $uuid, $data);
+            $message = $this->contentTypeResolver->createModifyMessage($resourceKey, $uuid, $data);
 
             $this->handle(new Envelope($message, [new EnableFlushStamp()]));
 
@@ -195,7 +194,7 @@ class BlockAddTool
             throw new ToolCallException($e->getMessage(), 0, $e);
         } catch (\Throwable $e) {
             return [
-                'error' => \sprintf('Failed to add %s block to %s %s: %s', $blockType, $type, $uuid, $e->getMessage()),
+                'error' => \sprintf('Failed to add %s block to %s %s: %s', $blockType, $resourceKey, $uuid, $e->getMessage()),
                 'hint' => 'Verify the UUID exists (use sulu_page_get, sulu_article_get, or sulu_snippet_get), the blockProperty matches a block field in the template, and blockType is a valid block type (use sulu_get_context to see available types).',
             ];
         }
@@ -213,14 +212,14 @@ class BlockAddTool
      */
     private function nestedTargetProperty(
         array $currentData,
-        string $type,
+        string $templateType,
         ?string $templateKey,
         string $blockType,
         array $parentPath,
     ): ?string {
         $parentChain = $this->blockTypePath($currentData, $parentPath['property'], $parentPath['indices']);
 
-        $resolved = $this->blockDataValidator->resolveBlockProperty($type, $templateKey, $parentChain, $blockType);
+        $resolved = $this->blockDataValidator->resolveBlockProperty($templateType, $templateKey, $parentChain, $blockType);
         if (null !== $resolved) {
             return $resolved;
         }

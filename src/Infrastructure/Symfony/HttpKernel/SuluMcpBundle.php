@@ -14,11 +14,13 @@ declare(strict_types=1);
 namespace Sulu\Mcp\Infrastructure\Symfony\HttpKernel;
 
 use Composer\InstalledVersions;
+use Sulu\Mcp\Application\AdminLink\AdminLinkProviderInterface;
+use Sulu\Mcp\Domain\Content\ContentTypeExtensionInterface;
 use Sulu\Mcp\Infrastructure\Symfony\HttpKernel\Compiler\DangerousToolsPass;
 use Sulu\Mcp\Infrastructure\Symfony\HttpKernel\Compiler\ToolPermissionMapPass;
 use Sulu\Mcp\Infrastructure\Symfony\HttpKernel\Compiler\ToolReferenceHandlerPass;
-use Sulu\Product\Infrastructure\Symfony\HttpKernel\SuluProductBundle;
 use Sulu\Snippet\Infrastructure\Sulu\Admin\SnippetAdmin;
+use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Symfony\Component\Config\Definition\Configuration;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\Config\Definition\Processor;
@@ -31,7 +33,7 @@ use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
  * @phpstan-type SuluMcpConfig array{
  *     server_url: string,
  *     mcp_path: string,
- *     dangerous_tools: array{delete: bool, publish: bool, block_remove: bool, media_upload: bool},
+ *     dangerous_tools: array<string, bool>,
  *     media_upload: array{allowed_hosts: list<string>},
  * }
  */
@@ -84,26 +86,10 @@ class SuluMcpBundle extends AbstractBundle
                     ->end()
                 ->end()
                 ->arrayNode('dangerous_tools')
-                    ->addDefaultsIfNotSet()
-                    ->info('Opt-in flags for tools with hard-to-reverse side effects. All categories default to false.')
-                    ->children()
-                        ->booleanNode('delete')
-                            ->defaultFalse()
-                            ->info('Enable sulu_content_delete, sulu_tag_delete, and sulu_category_delete')
-                        ->end()
-                        ->booleanNode('publish')
-                            ->defaultFalse()
-                            ->info('Enable sulu_content_publish, sulu_content_unpublish, sulu_preview_link_revoke, sulu_page_move, and sulu_page_reorder')
-                        ->end()
-                        ->booleanNode('block_remove')
-                            ->defaultFalse()
-                            ->info('Enable sulu_block_remove')
-                        ->end()
-                        ->booleanNode('media_upload')
-                            ->defaultFalse()
-                            ->info('Enable sulu_media_upload')
-                        ->end()
-                    ->end()
+                    ->useAttributeAsKey('name')
+                    ->normalizeKeys(false)
+                    ->info('Enables tools with hard-to-reverse effects per #[DangerousTool] category (built in: delete, publish, block_remove, media_upload). Unlisted categories stay off; one that no tool declares fails the build.')
+                    ->booleanPrototype()->end()
                 ->end()
                 ->arrayNode('media_upload')
                     ->addDefaultsIfNotSet()
@@ -163,29 +149,24 @@ class SuluMcpBundle extends AbstractBundle
         $builder->setParameter('sulu_mcp.server_url', $config['server_url']);
         $builder->setParameter('sulu_mcp.mcp_path', $config['mcp_path']);
         $builder->setParameter('sulu_mcp.oauth.scopes', self::SCOPES);
-        $builder->setParameter('sulu_mcp.dangerous_tools.delete', $config['dangerous_tools']['delete']);
-        $builder->setParameter('sulu_mcp.dangerous_tools.publish', $config['dangerous_tools']['publish']);
-        $builder->setParameter('sulu_mcp.dangerous_tools.block_remove', $config['dangerous_tools']['block_remove']);
-        $builder->setParameter('sulu_mcp.dangerous_tools.media_upload', $config['dangerous_tools']['media_upload']);
+        $builder->setParameter('sulu_mcp.dangerous_tools', $config['dangerous_tools']);
 
         $builder->setParameter('sulu_mcp.media_upload.allowed_hosts', \array_map(
             static fn (string $host): string => \strtolower($host),
             $config['media_upload']['allowed_hosts'],
         ));
 
-        $builder->setParameter(
-            'sulu_mcp.disabled_tool_names',
-            DangerousToolsPass::resolveDisabledToolNames($config['dangerous_tools']),
-        );
+        $builder->registerForAutoconfiguration(ContentTypeExtensionInterface::class)->addTag('sulu_mcp.content_type_extension');
+        $builder->registerForAutoconfiguration(AdminLinkProviderInterface::class)->addTag('sulu_mcp.admin_link_provider');
 
         $builder->setParameter('sulu_mcp.core.snippet_group_contexts', self::hasSnippetGroupContexts());
 
         $container->import(\dirname(__DIR__, 4) . '/config/services.php');
 
-        // Tools reach the registry only as mcp.tool-tagged services, so skipping the import
-        // is all it takes to keep them out of an installation without SuluProductBundle.
-        if (self::isProductBundleLoaded($builder)) {
-            $container->import(\dirname(__DIR__, 4) . '/config/services_product.php');
+        // Agent-side counterparts of the MCP tools, only importable once symfony/ai-agent's
+        // own #[AsTool] attribute class can be resolved.
+        if (ContainerBuilder::willBeAvailable('symfony/ai-agent', AsTool::class, ['sulu/mcp-bundle'])) {
+            $container->import(\dirname(__DIR__, 4) . '/config/services_agent.php');
         }
     }
 
@@ -202,27 +183,12 @@ class SuluMcpBundle extends AbstractBundle
     }
 
     /**
-     * The bundle list rather than class_exists(): the classes can be installed without the
-     * bundle being registered, and then its services do not exist to wire against.
-     */
-    private static function isProductBundleLoaded(ContainerBuilder $builder): bool
-    {
-        if (!$builder->hasParameter('kernel.bundles')) {
-            return false;
-        }
-
-        $bundles = $builder->getParameter('kernel.bundles');
-
-        return \is_array($bundles) && \in_array(SuluProductBundle::class, $bundles, true);
-    }
-
-    /**
      * Per-group snippet contexts arrived with Sulu 3.1. Asked of the class rather than of
      * `%sulu.version%`: it reads `_._._` in tests/Application, and `3.1.x-dev` sorts below `3.1`.
      */
     private static function hasSnippetGroupContexts(): bool
     {
-        return \method_exists(SnippetAdmin::class, 'getSnippetSecurityContext'); // @phpstan-ignore function.alreadyNarrowedType (false on sulu/sulu 3.0)
+        return \method_exists(SnippetAdmin::class, 'getSnippetSecurityContext'); // @phpstan-ignore function.impossibleType, function.alreadyNarrowedType (false on sulu/sulu 3.0, true from 3.1)
     }
 
     public function build(ContainerBuilder $container): void

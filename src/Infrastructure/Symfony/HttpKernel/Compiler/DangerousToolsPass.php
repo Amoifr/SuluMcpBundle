@@ -13,100 +13,135 @@ declare(strict_types=1);
 
 namespace Sulu\Mcp\Infrastructure\Symfony\HttpKernel\Compiler;
 
-use Sulu\Mcp\UserInterface\Mcp\Tool\Block\BlockRemoveTool;
-use Sulu\Mcp\UserInterface\Mcp\Tool\Content\ContentDeleteTool;
-use Sulu\Mcp\UserInterface\Mcp\Tool\Content\ContentPublishTool;
-use Sulu\Mcp\UserInterface\Mcp\Tool\Content\ContentUnpublishTool;
-use Sulu\Mcp\UserInterface\Mcp\Tool\Media\MediaUploadTool;
-use Sulu\Mcp\UserInterface\Mcp\Tool\Page\PageMoveTool;
-use Sulu\Mcp\UserInterface\Mcp\Tool\Page\PageReorderTool;
-use Sulu\Mcp\UserInterface\Mcp\Tool\Preview\PreviewLinkRevokeTool;
-use Sulu\Mcp\UserInterface\Mcp\Tool\Taxonomy\CategoryDeleteTool;
-use Sulu\Mcp\UserInterface\Mcp\Tool\Taxonomy\TagDeleteTool;
+use Mcp\Capability\Attribute\McpTool;
+use Sulu\Mcp\Domain\Security\DangerousTool;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 /**
- * Removes tool service definitions for dangerous categories that are not enabled
- * in bundle configuration. Must run before symfony/mcp-bundle's McpPass so the
- * removed services are absent from the `mcp.tool` tagged-service iterator.
+ * Removes the `mcp.tool` tags of dangerous tools whose category is not enabled in bundle
+ * configuration, and a service with no MCP tag left. Must run before symfony/mcp-bundle's
+ * McpPass so the removed tools are absent from the registry.
  *
- * The disabled tool NAMES are additionally published as a container parameter and
- * consumed by `FilteredRegistry`, which refuses the same tools at registration
- * time -- covering any path that reaches the registry without going through DI.
+ * Categories come from each tool's `#[DangerousTool]`, so other bundles can gate their
+ * own tools. The disabled names also go to `FilteredRegistry`; they are collected here
+ * because `loadExtension()` runs before the tools are tagged.
  *
  * @internal
  */
 final class DangerousToolsPass implements CompilerPassInterface
 {
-    /**
-     * Map of dangerous-tools category -> [class-string => mcp tool name].
-     * The tool name matches each class's `#[McpTool(name: ...)]` attribute.
-     *
-     * @var array<string, array<class-string, string>>
-     */
-    private const TOOLS_BY_CATEGORY = [
-        'delete' => [
-            ContentDeleteTool::class => 'sulu_content_delete',
-            TagDeleteTool::class => 'sulu_tag_delete',
-            CategoryDeleteTool::class => 'sulu_category_delete',
-        ],
-        'publish' => [
-            ContentPublishTool::class => 'sulu_content_publish',
-            ContentUnpublishTool::class => 'sulu_content_unpublish',
-            PreviewLinkRevokeTool::class => 'sulu_preview_link_revoke',
-            PageMoveTool::class => 'sulu_page_move',
-            PageReorderTool::class => 'sulu_page_reorder',
-        ],
-        'block_remove' => [
-            BlockRemoveTool::class => 'sulu_block_remove',
-        ],
-        // Not destructive, but the only tool that makes the server fetch a model-supplied
-        // address. That egress is what the operator opts into here.
-        'media_upload' => [
-            MediaUploadTool::class => 'sulu_media_upload',
-        ],
-    ];
-
     public function process(ContainerBuilder $container): void
     {
-        foreach (self::TOOLS_BY_CATEGORY as $category => $tools) {
-            $parameter = \sprintf('sulu_mcp.dangerous_tools.%s', $category);
-            if (!$container->hasParameter($parameter) || true === $container->getParameter($parameter)) {
+        $config = $container->hasParameter('sulu_mcp.dangerous_tools')
+            ? $container->getParameter('sulu_mcp.dangerous_tools')
+            : [];
+        \assert(\is_array($config));
+
+        /** @var array<string, list<array{serviceId: string, tagIndex: int, toolName: string}>> $toolsByCategory */
+        $toolsByCategory = [];
+        foreach ($container->findTaggedServiceIds('mcp.tool') as $serviceId => $tags) {
+            $definition = $container->getDefinition($serviceId);
+            if ($definition->isAbstract()) {
                 continue;
             }
 
-            foreach (\array_keys($tools) as $class) {
-                if ($container->hasDefinition($class)) {
-                    $container->removeDefinition($class);
+            $class = $container->getParameterBag()->resolveValue($definition->getClass() ?? $serviceId);
+            if (!\is_string($class) || !\class_exists($class)) {
+                throw new \LogicException(\sprintf('The MCP service "%s" is tagged "mcp.tool" but maps to a class that does not exist.', $serviceId));
+            }
+
+            foreach (\array_values($tags) as $tagIndex => $tagAttributes) {
+                $method = \is_array($tagAttributes) ? ($tagAttributes['method'] ?? '__invoke') : '__invoke';
+                if (!\is_string($method) || !\method_exists($class, $method)) {
+                    continue;
                 }
+
+                $dangerous = self::readAttribute($class, $method, DangerousTool::class);
+                if (null === $dangerous) {
+                    continue;
+                }
+
+                $tool = self::readAttribute($class, $method, McpTool::class);
+                if (null === $tool?->name) {
+                    throw new \LogicException(\sprintf('Tool %s::%s() declares #[DangerousTool] without an explicit #[McpTool] name.', $class, $method));
+                }
+
+                $toolsByCategory[$dangerous->category][] = ['serviceId' => $serviceId, 'tagIndex' => $tagIndex, 'toolName' => $tool->name];
             }
         }
+
+        $unknownCategories = \array_diff(\array_keys($config), \array_keys($toolsByCategory));
+        if ([] !== $unknownCategories) {
+            throw new \LogicException(\sprintf(
+                'Unknown dangerous_tools categor%s "%s": no tool declares #[DangerousTool] for %s.',
+                1 === \count($unknownCategories) ? 'y' : 'ies',
+                \implode('", "', $unknownCategories),
+                1 === \count($unknownCategories) ? 'it' : 'them',
+            ));
+        }
+
+        $disabledToolNames = [];
+        /** @var array<string, list<int>> $tagIndexesToRemove */
+        $tagIndexesToRemove = [];
+        foreach ($toolsByCategory as $category => $tools) {
+            if (true === ($config[$category] ?? false)) {
+                continue;
+            }
+
+            foreach ($tools as $tool) {
+                $tagIndexesToRemove[$tool['serviceId']][] = $tool['tagIndex'];
+                $disabledToolNames[] = $tool['toolName'];
+            }
+        }
+
+        foreach ($tagIndexesToRemove as $serviceId => $tagIndexes) {
+            $definition = $container->getDefinition($serviceId);
+            $tags = $definition->getTags();
+            $remaining = [];
+            foreach (\array_values($definition->getTag('mcp.tool')) as $tagIndex => $tagAttributes) {
+                if (!\in_array($tagIndex, $tagIndexes, true)) {
+                    $remaining[] = $tagAttributes;
+                }
+            }
+
+            if ([] !== $remaining) {
+                $tags['mcp.tool'] = $remaining;
+                $definition->setTags($tags);
+
+                continue;
+            }
+
+            unset($tags['mcp.tool']);
+            if ([] !== \array_filter(\array_keys($tags), static fn (string $tag): bool => \str_starts_with($tag, 'mcp.'))) {
+                $definition->setTags($tags);
+
+                continue;
+            }
+
+            $container->removeDefinition($serviceId);
+        }
+
+        $container->setParameter('sulu_mcp.disabled_tool_names', $disabledToolNames);
     }
 
     /**
-     * Resolve the list of MCP tool names that must be hidden given the bundle's
-     * `dangerous_tools` configuration. Called from the bundle extension to
-     * populate the `sulu_mcp.disabled_tool_names` parameter used by
-     * `FilteredRegistry`.
+     * @template T of object
      *
-     * @param array<string, bool> $dangerousToolsConfig
+     * @param class-string $class
+     * @param class-string<T> $attributeClass
      *
-     * @return list<string>
+     * @return T|null
      */
-    public static function resolveDisabledToolNames(array $dangerousToolsConfig): array
+    private static function readAttribute(string $class, string $method, string $attributeClass): ?object
     {
-        $names = [];
-        foreach (self::TOOLS_BY_CATEGORY as $category => $tools) {
-            if (true === ($dangerousToolsConfig[$category] ?? false)) {
-                continue;
-            }
+        $reflection = new \ReflectionMethod($class, $method);
 
-            foreach ($tools as $toolName) {
-                $names[] = $toolName;
-            }
+        $attributes = $reflection->getAttributes($attributeClass, \ReflectionAttribute::IS_INSTANCEOF);
+        if ([] === $attributes) {
+            $attributes = (new \ReflectionClass($class))->getAttributes($attributeClass, \ReflectionAttribute::IS_INSTANCEOF);
         }
 
-        return $names;
+        return [] !== $attributes ? $attributes[0]->newInstance() : null;
     }
 }

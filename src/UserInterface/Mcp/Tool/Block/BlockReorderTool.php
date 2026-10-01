@@ -16,12 +16,15 @@ namespace Sulu\Mcp\UserInterface\Mcp\Tool\Block;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
+use Mcp\Schema\ToolAnnotations;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
 use Sulu\Mcp\Application\Content\BlockDataNormalizerTrait;
 use Sulu\Mcp\Application\Content\ContentLocaleTrait;
+use Sulu\Mcp\Application\Content\ContentTypeExtensionRegistry;
 use Sulu\Mcp\Application\Content\ContentTypeResolver;
+use Sulu\Mcp\Application\Content\ContentTypeSchemaExpander;
 use Sulu\Mcp\Application\Security\ContentSecurityContextResolver;
 use Sulu\Mcp\Application\Security\ToolPermissionCheckerInterface;
 use Sulu\Mcp\Application\Security\WebspacePermissionResolver;
@@ -29,9 +32,7 @@ use Sulu\Mcp\Domain\Exception\PermissionDeniedException;
 use Sulu\Mcp\Domain\Security\PermissionRequirement;
 use Sulu\Mcp\Domain\Security\RequiresPermission;
 use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
-use Sulu\Mcp\Infrastructure\Sulu\Security\SnippetSecurityContextResolver;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
-use Sulu\Page\Domain\Model\Page;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\HandleTrait;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -64,15 +65,17 @@ class BlockReorderTool
     #[McpTool(
         name: 'sulu_block_reorder',
         title: 'Reorder Blocks',
-        description: 'Reorder blocks on a page, article, or snippet. Pass "type" ("page", "article", "snippet", or "product" when SuluProductBundle is installed) and the entity "uuid", plus EITHER "newOrder" (every current 0-based index exactly once, e.g. [2,0,1]) OR "blockIds" (the block _id values in the desired order, e.g. ["c6c22b89","76541424"]). Prefer blockIds — it is robust because ids do not shift as blocks are added/removed. Get the current order/ids from sulu_block_list (or sulu_page_get / sulu_article_get / sulu_snippet_get). The entity must be re-published after reordering.',
+        description: 'Reorder blocks on a content entity. Pass "resourceKey" (one of {resourceKeys}) and the entity "uuid", plus EITHER "newOrder" (every current 0-based index exactly once, e.g. [2,0,1]) OR "blockIds" (the block _id values in the desired order, e.g. ["c6c22b89","76541424"]). Prefer blockIds — it is robust because ids do not shift as blocks are added/removed. Get the current order/ids from sulu_block_list (or sulu_page_get / sulu_article_get / sulu_snippet_get). The entity must be re-published after reordering.',
+        annotations: new ToolAnnotations(readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false),
     )]
     #[RequiresPermission(
         requirements: [new PermissionRequirement('#context#', PermissionTypes::EDIT)],
         objectResolved: true,
-        discoveryContexts: [SnippetSecurityContextResolver::ANY_SNIPPET_GROUP_CONTEXT, 'sulu.product.products', ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
+        discoveryContexts: [ContentTypeExtensionRegistry::ANY_EXTENSION_CONTEXT, ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
     )]
     public function reorderBlocks(
-        string $type,
+        #[Schema(description: 'The resourceKey of the content type: {resourceKeys}.', enum: [ContentTypeSchemaExpander::RESOURCE_KEYS])]
+        string $resourceKey,
         string $uuid,
         string $locale,
         string $blockProperty,
@@ -82,8 +85,8 @@ class BlockReorderTool
         ?array $blockIds = null,
     ): array {
         try {
-            if (!$this->contentTypeResolver->supports($type)) {
-                return ['error' => \sprintf('Unsupported content type "%s". Supported: %s.', $type, \implode(', ', $this->contentTypeResolver->supportedTypes()))];
+            if (!$this->contentTypeResolver->supports($resourceKey)) {
+                return ['error' => \sprintf('Unsupported content type "%s". Supported: %s.', $resourceKey, \implode(', ', $this->contentTypeResolver->supportedResourceKeys()))];
             }
 
             if (null === $newOrder && null === $blockIds) {
@@ -107,9 +110,9 @@ class BlockReorderTool
                 }
             }
 
-            $entity = $this->contentTypeResolver->loadDraft($type, $uuid, $locale, loadGhost: true);
+            $entity = $this->contentTypeResolver->loadDraft($resourceKey, $uuid, $locale, loadGhost: true);
             if (null === $entity) {
-                return ['error' => \sprintf('%s not found: %s', \ucfirst($type), $uuid)];
+                return ['error' => \sprintf('%s not found: %s', \ucfirst($resourceKey), $uuid)];
             }
 
             $dimensionContent = $this->contentManager->resolve($entity, [ // @phpstan-ignore argument.type, argument.templateType (upstream generic is invariant; loadDraft() returns a bare object)
@@ -117,21 +120,16 @@ class BlockReorderTool
                 'stage' => DimensionContentInterface::STAGE_DRAFT,
             ]);
 
-            $context = $this->contentSecurityContextResolver->forEntityInLocale(
-                $type,
-                $entity,
-                $dimensionContent,
-                $locale,
-            );
+            $security = $this->contentSecurityContextResolver->forEntity($resourceKey, $entity, $locale);
             $this->permissionChecker->check(
-                $context,
+                $security->context,
                 PermissionTypes::EDIT,
                 $locale,
-                'page' === $type ? Page::class : null,
-                'page' === $type ? $uuid : null,
+                $security->aclObjectType,
+                null !== $security->aclObjectType ? $uuid : null,
             );
 
-            if ($missingTranslation = self::missingBlockTranslationError($dimensionContent, $type, $uuid, $locale)) {
+            if ($missingTranslation = self::missingBlockTranslationError($dimensionContent, $resourceKey, $uuid, $locale)) {
                 return $missingTranslation;
             }
 
@@ -146,7 +144,7 @@ class BlockReorderTool
                 $order = $this->resolveBlockIdOrder($blockIds, $blocks);
                 if (\is_string($order)) {
                     return [
-                        'error' => \sprintf('Block _id "%s" not found in %s %s.', $order, $type, $uuid),
+                        'error' => \sprintf('Block _id "%s" not found in %s %s.', $order, $resourceKey, $uuid),
                         'hint' => 'Use sulu_block_list to see the current block _id values.',
                     ];
                 }
@@ -186,7 +184,7 @@ class BlockReorderTool
             // Ensure all array keys are strings (Sulu's MetadataResolver requires string keys)
             $data = $this->stringifyKeys($data);
 
-            $message = $this->contentTypeResolver->createModifyMessage($type, $uuid, $data);
+            $message = $this->contentTypeResolver->createModifyMessage($resourceKey, $uuid, $data);
 
             $this->handle(new Envelope($message, [new EnableFlushStamp()]));
 
@@ -200,7 +198,7 @@ class BlockReorderTool
             throw new ToolCallException($e->getMessage(), 0, $e);
         } catch (\Throwable $e) {
             return [
-                'error' => \sprintf('Failed to reorder blocks on %s %s: %s', $type, $uuid, $e->getMessage()),
+                'error' => \sprintf('Failed to reorder blocks on %s %s: %s', $resourceKey, $uuid, $e->getMessage()),
                 'hint' => 'Use sulu_block_list to see current blocks. Provide newOrder or blockIds covering every block exactly once.',
             ];
         }

@@ -15,12 +15,13 @@ namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 
 use Sulu\Bundle\PreviewBundle\Application\Manager\PreviewLinkManagerInterface;
 use Sulu\Mcp\Application\AdminLink\AdminLinkGeneratorInterface;
-use Sulu\Mcp\Application\AdminLink\AdminLinkProviderInterface;
 use Sulu\Mcp\Application\Article\ArticleGroupResolver;
 use Sulu\Mcp\Application\Article\ArticleRouteTypeResolver;
 use Sulu\Mcp\Application\Content\BlockDataValidator;
 use Sulu\Mcp\Application\Content\ContentMetadataMapper;
+use Sulu\Mcp\Application\Content\ContentTypeExtensionRegistry;
 use Sulu\Mcp\Application\Content\ContentTypeResolver;
+use Sulu\Mcp\Application\Content\ContentTypeSchemaExpander;
 use Sulu\Mcp\Application\Media\MediaDownloader;
 use Sulu\Mcp\Application\Media\MediaFileNamer;
 use Sulu\Mcp\Application\Media\MediaSourceUrlResolver;
@@ -28,6 +29,8 @@ use Sulu\Mcp\Application\Metadata\ExtensionFieldsProvider;
 use Sulu\Mcp\Application\Metadata\FieldNormalizer;
 use Sulu\Mcp\Application\Metadata\FieldValueExampleProvider;
 use Sulu\Mcp\Application\Metadata\MetadataLocaleResolver;
+use Sulu\Mcp\Application\Search\ContentSearch;
+use Sulu\Mcp\Application\Search\WebsiteSearch;
 use Sulu\Mcp\Application\Security\AccessControlFilterFactory;
 use Sulu\Mcp\Application\Security\ContentSecurityContextResolver;
 use Sulu\Mcp\Application\Security\PageDescendantPermissionChecker;
@@ -45,6 +48,9 @@ use Sulu\Mcp\Infrastructure\Sulu\AdminLink\MediaAdminLinkProvider;
 use Sulu\Mcp\Infrastructure\Sulu\AdminLink\PageAdminLinkProvider;
 use Sulu\Mcp\Infrastructure\Sulu\AdminLink\SnippetAdminLinkProvider;
 use Sulu\Mcp\Infrastructure\Sulu\AdminLink\TagAdminLinkProvider;
+use Sulu\Mcp\Infrastructure\Sulu\Content\ArticleContentTypeExtension;
+use Sulu\Mcp\Infrastructure\Sulu\Content\PageContentTypeExtension;
+use Sulu\Mcp\Infrastructure\Sulu\Content\SnippetContentTypeExtension;
 use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
 use Sulu\Mcp\Infrastructure\Sulu\Security\ContactSecurityContextResolver;
 use Sulu\Mcp\Infrastructure\Sulu\Security\EntryPoint\OAuthAuthorizeEntryPoint;
@@ -114,9 +120,7 @@ return static function(ContainerConfigurator $container): void {
     $services = $container->services()
         ->defaults()
             ->autowire()
-            ->autoconfigure()
-        ->instanceof(AdminLinkProviderInterface::class)
-            ->tag('sulu_mcp.admin_link_provider');
+            ->autoconfigure();
 
     // Providers need sulu_admin.view_registry, which only exists in the admin
     // container, hence the sulu.context tag. The generator itself is
@@ -144,11 +148,19 @@ return static function(ContainerConfigurator $container): void {
         ->decorate('mcp.server.sulu.registry')
         ->arg('$inner', new Reference('.inner'))
         ->arg('$visibilityResolver', new Reference(ToolVisibilityResolver::class))
+        ->arg('$schemaExpander', new Reference(ContentTypeSchemaExpander::class))
         ->arg('$disabledToolNames', '%sulu_mcp.disabled_tool_names%');
 
     $services->set(ToolPermissionChecker::class);
     $services->alias(ToolPermissionCheckerInterface::class, ToolPermissionChecker::class);
     $services->set(WebspacePermissionResolver::class);
+
+    $services->set(PageContentTypeExtension::class);
+    $services->set(ArticleContentTypeExtension::class);
+    $services->set(SnippetContentTypeExtension::class);
+
+    $services->set(ContentTypeExtensionRegistry::class)
+        ->arg('$extensions', tagged_iterator('sulu_mcp.content_type_extension'));
 
     $services->set(AccessControlFilterFactory::class)
         ->arg('$security', new Reference('security.helper'))
@@ -157,6 +169,7 @@ return static function(ContainerConfigurator $container): void {
     // $contextResolvers is keyed the same way as PermissionAwareCallToolHandler's.
     $services->set(ToolVisibilityResolver::class)
         ->arg('$permissionMap', '%sulu_mcp.tool_permissions%')
+        ->arg('$extensionRegistry', new Reference(ContentTypeExtensionRegistry::class))
         ->arg('$contextResolvers', [
             'sulu_mcp.contact_context_resolver' => new Reference('sulu_mcp.contact_context_resolver'),
             'sulu_mcp.article_context_resolver' => new Reference('sulu_mcp.article_context_resolver'),
@@ -190,6 +203,7 @@ return static function(ContainerConfigurator $container): void {
         ->arg('$registry', new Reference('mcp.server.sulu.registry'))
         ->arg('$referenceHandler', new Reference('sulu_mcp.reference_handler'))
         ->arg('$webspacePermissionResolver', new Reference(WebspacePermissionResolver::class))
+        ->arg('$extensionRegistry', new Reference(ContentTypeExtensionRegistry::class))
         ->arg('$permissionMap', '%sulu_mcp.tool_permissions%')
         ->arg('$contextResolvers', [
             'sulu_mcp.contact_context_resolver' => new Reference('sulu_mcp.contact_context_resolver'),
@@ -202,8 +216,10 @@ return static function(ContainerConfigurator $container): void {
     $services->set(PingTool::class)
         ->arg('$version', '%sulu_mcp.version%');
     $services->set(GetContextTool::class);
-    $services->set(ContentSearchTool::class)
+    $services->set(WebsiteSearch::class)
         ->arg('$engine', new Reference('cmsig_seal.engine.default'));
+    $services->set(ContentSearch::class);
+    $services->set(ContentSearchTool::class);
 
     // MCP resources
     $services->set(FieldValueExampleProvider::class);
@@ -290,17 +306,17 @@ return static function(ContainerConfigurator $container): void {
     // Page write tools
     $services->set(PageCreateTool::class);
     $services->set(PageUpdateTool::class);
-    $services->set(PageMoveTool::class); // gated by dangerous_tools.publish
-    $services->set(PageReorderTool::class); // gated by dangerous_tools.publish
+    $services->set(PageMoveTool::class);
+    $services->set(PageReorderTool::class);
 
-    // Unified content tools (page | article | snippet via `type`)
-    $services->set(ContentDeleteTool::class); // gated by dangerous_tools.delete
-    $services->set(ContentPublishTool::class); // gated by dangerous_tools.publish
-    $services->set(ContentUnpublishTool::class); // gated by dangerous_tools.publish
+    // Unified content tools
+    $services->set(ContentDeleteTool::class);
+    $services->set(ContentPublishTool::class);
+    $services->set(ContentUnpublishTool::class);
 
     // Block management tools
-    $services->set(ContentTypeResolver::class)
-        ->arg('$productRepository', null); // overridden in services_product.php
+    $services->set(ContentTypeResolver::class);
+    $services->set(ContentTypeSchemaExpander::class);
     $services->set(ContentMetadataMapper::class)
         ->arg('$formMetadataProvider', new Reference('sulu_admin.form_metadata_provider'));
     $services->set(BlockDataValidator::class)
@@ -308,7 +324,7 @@ return static function(ContainerConfigurator $container): void {
     $services->set(BlockListTool::class);
     $services->set(BlockAddTool::class);
     $services->set(BlockUpdateTool::class);
-    $services->set(BlockRemoveTool::class); // gated by dangerous_tools.block_remove
+    $services->set(BlockRemoveTool::class);
     $services->set(BlockReorderTool::class);
 
     $services->alias(NavigationRepositoryInterface::class, 'sulu_page.navigation_repository');
@@ -328,10 +344,10 @@ return static function(ContainerConfigurator $container): void {
     // Taxonomy tools
     $services->set(TagCreateTool::class);
     $services->set(TagListTool::class);
-    $services->set(TagDeleteTool::class); // gated by dangerous_tools.delete
+    $services->set(TagDeleteTool::class);
     $services->set(CategoryCreateTool::class);
     $services->set(CategoryListTool::class);
-    $services->set(CategoryDeleteTool::class); // gated by dangerous_tools.delete
+    $services->set(CategoryDeleteTool::class);
 
     // Media tools
     $services->set(MediaListTool::class);
@@ -360,7 +376,7 @@ return static function(ContainerConfigurator $container): void {
         ->arg('$maxFilesizeInMegabytes', '%sulu_media.upload.max_filesize%')
         ->arg('$allowedHosts', '%sulu_mcp.media_upload.allowed_hosts%');
 
-    $services->set(MediaUploadTool::class) // gated by dangerous_tools.media_upload
+    $services->set(MediaUploadTool::class)
         ->arg('$collectionRepository', new Reference('sulu_media.collection_repository'))
         // UploadFileSubscriber only inspects files that arrive on a request, so the same
         // inspectors are handed to the tool for the files it assembles itself.
@@ -380,5 +396,5 @@ return static function(ContainerConfigurator $container): void {
 
     // Preview link tools
     $services->set(PreviewLinkGenerateTool::class);
-    $services->set(PreviewLinkRevokeTool::class); // gated by dangerous_tools.publish
+    $services->set(PreviewLinkRevokeTool::class);
 };

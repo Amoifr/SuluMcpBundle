@@ -16,6 +16,7 @@ namespace Sulu\Mcp\UserInterface\Mcp\Tool\Article;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
+use Mcp\Schema\ToolAnnotations;
 use Sulu\Article\Application\Message\ModifyArticleMessage;
 use Sulu\Article\Domain\Model\ArticleInterface;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
@@ -32,6 +33,7 @@ use Sulu\Mcp\Application\Content\BlockDataValidator;
 use Sulu\Mcp\Application\Content\ContentLocaleTrait;
 use Sulu\Mcp\Application\Content\ContentMetadataMapper;
 use Sulu\Mcp\Application\Content\ContentNormalizerTrait;
+use Sulu\Mcp\Application\Content\ShadowTrait;
 use Sulu\Mcp\Application\Security\ContentSecurityContextResolver;
 use Sulu\Mcp\Application\Security\ToolPermissionCheckerInterface;
 use Sulu\Mcp\Domain\Exception\PermissionDeniedException;
@@ -52,6 +54,7 @@ class ArticleUpdateTool
     use BlockDataNormalizerTrait;
     use ContentLocaleTrait;
     use ContentNormalizerTrait;
+    use ShadowTrait;
 
     public function __construct(
         MessageBusInterface $messageBus,
@@ -80,7 +83,8 @@ class ArticleUpdateTool
     #[McpTool(
         name: 'sulu_article_update',
         title: 'Update Article',
-        description: 'Update an existing article. Reads the current article state, merges your changes, and writes back -- so you only need to pass the fields you want to change. Pass template-specific field values in "content" as a flat object: content={"article": "<p>Updated HTML</p>"}. Content may also include a full "blocks" tree (nested blocks allowed) to replace the block content in one call — block _ids are assigned automatically and unknown block fields are rejected before saving. To change routing, pass either content={"url": "/path"} (simple route templates) or content={"page": {"path": "/blog", "uuid": "<parent-uuid>", "suffix": "slug"}} (page_tree_route templates) -- the wrong form is rejected here instead of failing inside Sulu. You can update title and template as separate parameters. Calling this with a locale the article has no content in yet creates that translation -- pass title, template and routing data in content in that case, and the result carries "created_locale": true. The article stays in draft state after updating -- call sulu_content_publish (type: article) to make changes live.',
+        description: 'Update an existing article. Reads the current article state, merges your changes, and writes back -- so you only need to pass the fields you want to change. Pass template-specific field values in "content" as a flat object: content={"article": "<p>Updated HTML</p>"}. Content may also include a full "blocks" tree (nested blocks allowed) to replace the block content in one call — block _ids are assigned automatically and unknown block fields are rejected before saving. To change routing, pass either content={"url": "/path"} (simple route templates) or content={"page": {"path": "/blog", "uuid": "<parent-uuid>", "suffix": "slug"}} (page_tree_route templates) -- the wrong form is rejected here instead of failing inside Sulu. You can update title and template as separate parameters. Calling this with a locale the article has no content in yet creates that translation -- pass title, template and routing data in content in that case, and the result carries "created_locale": true. The article stays in draft state after updating -- call sulu_content_publish (resourceKey: articles) to make changes live.',
+        annotations: new ToolAnnotations(readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false),
     )]
     #[RequiresPermission(
         requirements: [new PermissionRequirement('sulu.article.articles', PermissionTypes::EDIT)],
@@ -98,6 +102,10 @@ class ArticleUpdateTool
         ?array $excerpt = null,
         #[Schema(type: 'object', description: 'Optional SEO fields keyed by the project\'s SEO field names (e.g. title, description, keywords, canonicalUrl, seoNoIndex, seoNoFollow, seoHideInSitemap). Call sulu_get_context for the exact field list.', additionalProperties: true)]
         ?array $seo = null,
+        #[Schema(type: 'boolean', description: 'Optional "Shadow" setting: when true this locale serves the content of "shadowLocale" instead of its own. Omit to leave it unchanged, pass false to remove the shadow. Cannot be combined with a link.')]
+        ?bool $shadowOn = null,
+        #[Schema(type: 'string', description: 'The locale mirrored when shadowOn is true, e.g. "en". The eligible locales are returned as "shadowLocales" by the matching get tool.')]
+        ?string $shadowLocale = null,
     ): array {
         try {
             // Read current article state to get template and existing content.
@@ -123,14 +131,9 @@ class ArticleUpdateTool
 
             // Gate the source group before anything leaks the article's locales: a ghost has
             // no template key of its own, so the group comes from the locale it is a ghost of.
-            $sourceContext = $this->contentSecurityContextResolver->forEntityInLocale(
-                'article',
-                $article,
-                $currentDimensionContent,
-                $locale,
-            );
+            $sourceSecurity = $this->contentSecurityContextResolver->forEntity('articles', $article, $locale);
             $this->permissionChecker->check(
-                $sourceContext,
+                $sourceSecurity->context,
                 PermissionTypes::EDIT,
                 $locale,
             );
@@ -156,7 +159,7 @@ class ArticleUpdateTool
             }
 
             $targetContext = $this->articleContextResolver->forTemplateKey($effectiveTemplate);
-            if ($targetContext !== $sourceContext) {
+            if ($targetContext !== $sourceSecurity->context) {
                 $this->permissionChecker->check(
                     $targetContext,
                     PermissionTypes::EDIT,
@@ -216,6 +219,12 @@ class ArticleUpdateTool
             // a different locale or template past the checks above.
             $data['locale'] = $locale;
             $data['template'] = $effectiveTemplate;
+
+            if ($validationError = $this->validateShadow($shadowOn, $shadowLocale, $locale, $currentData)) {
+                return $validationError;
+            }
+
+            $data = $this->applyShadow($data, $shadowOn, $shadowLocale);
 
             $message = new ModifyArticleMessage(['uuid' => $uuid], $data);
 

@@ -16,6 +16,7 @@ namespace Sulu\Mcp\UserInterface\Mcp\Tool\Page;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
+use Mcp\Schema\ToolAnnotations;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
@@ -27,7 +28,9 @@ use Sulu\Mcp\Application\Content\BlockDataValidator;
 use Sulu\Mcp\Application\Content\ContentLocaleTrait;
 use Sulu\Mcp\Application\Content\ContentMetadataMapper;
 use Sulu\Mcp\Application\Content\ContentNormalizerTrait;
+use Sulu\Mcp\Application\Content\LinkDataTrait;
 use Sulu\Mcp\Application\Content\NavigationContextTrait;
+use Sulu\Mcp\Application\Content\ShadowTrait;
 use Sulu\Mcp\Application\Security\ToolPermissionCheckerInterface;
 use Sulu\Mcp\Application\Security\WebspacePermissionResolver;
 use Sulu\Mcp\Domain\Exception\PermissionDeniedException;
@@ -48,6 +51,8 @@ use Symfony\Component\Messenger\MessageBusInterface;
 class PageUpdateTool
 {
     use BlockDataNormalizerTrait;
+    use LinkDataTrait;
+    use ShadowTrait;
     use ContentLocaleTrait;
     use ContentNormalizerTrait;
     use HandleTrait;
@@ -72,13 +77,15 @@ class PageUpdateTool
      * @param array<string, mixed>|null $excerpt
      * @param array<string, mixed>|null $seo
      * @param list<string>|null $navigationContexts
+     * @param array<string, mixed>|null $linkData
      *
      * @return array<string, mixed>
      */
     #[McpTool(
         name: 'sulu_page_update',
         title: 'Update Page',
-        description: 'Update an existing page. Reads the current page state, merges your changes, and writes back — so you only need to pass the fields you want to change. Pass template-specific field values in "content" as a flat object: content={"article": "<p>Updated HTML</p>"}. Content may also include a full "blocks" tree (nested blocks allowed) to replace the block content in one call — block _ids are assigned automatically and unknown block fields are rejected before saving. You can update title, url, and template as separate parameters. Calling this with a locale the page has no content in yet creates that translation — pass title, url and template in that case, and the result carries "created_locale": true. The page stays in draft state after updating — call sulu_content_publish (type: page) to make changes live.',
+        description: 'Update an existing page. Reads the current page state, merges your changes, and writes back — so you only need to pass the fields you want to change. Pass template-specific field values in "content" as a flat object: content={"article": "<p>Updated HTML</p>"}. Content may also include a full "blocks" tree (nested blocks allowed) to replace the block content in one call — block _ids are assigned automatically and unknown block fields are rejected before saving. You can update title, url, and template as separate parameters. Calling this with a locale the page has no content in yet creates that translation — pass title, url and template in that case, and the result carries "created_locale": true. The page stays in draft state after updating — call sulu_content_publish (resourceKey: pages) to make changes live.',
+        annotations: new ToolAnnotations(readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false),
     )]
     #[RequiresPermission(
         requirements: [new PermissionRequirement('sulu.webspaces.#context#', PermissionTypes::EDIT)],
@@ -99,6 +106,12 @@ class PageUpdateTool
         ?array $seo = null,
         #[Schema(type: 'array', description: 'Optional navigation context keys to assign the page to, e.g. ["main", "footer"]. Replaces the current assignment; omit to leave it unchanged, pass [] to clear it. Call sulu_get_context for the keys declared by the webspace. Navigation contexts exist on pages only.', items: ['type' => 'string'])]
         ?array $navigationContexts = null,
+        #[Schema(type: 'object', description: 'Optional "Link" setting, which turns the page into a redirect instead of showing its own content. Needs a "provider" key naming the kind of target, e.g. {"provider": "page", "page": "<uuid>"} for internal content or {"provider": "external", "href": "https://example.com"}. Omit to leave it unchanged, pass {} to remove the redirect. Cannot be combined with a shadow locale. Links exist on pages only.', additionalProperties: true)]
+        ?array $linkData = null,
+        #[Schema(type: 'boolean', description: 'Optional "Shadow" setting: when true this locale serves the content of "shadowLocale" instead of its own. Omit to leave it unchanged, pass false to remove the shadow. Cannot be combined with a link.')]
+        ?bool $shadowOn = null,
+        #[Schema(type: 'string', description: 'The locale mirrored when shadowOn is true, e.g. "en". The eligible locales are returned as "shadowLocales" by the matching get tool.')]
+        ?string $shadowLocale = null,
     ): array {
         try {
             // Read current page state to get template and existing content.
@@ -176,6 +189,12 @@ class PageUpdateTool
                 }
             }
 
+            if (null !== $linkData) {
+                if ($validationError = $this->validateLinkData($linkData, $currentData)) {
+                    return $validationError;
+                }
+            }
+
             $data = $this->contentMetadataMapper->applyExcerpt($data, $excerpt, $locale);
             if (isset($data['error'])) {
                 return $data;
@@ -200,6 +219,13 @@ class PageUpdateTool
             } else {
                 unset($data['navigationContexts']);
             }
+            $data = $this->applyLinkData($data, $linkData);
+
+            if ($validationError = $this->validateShadow($shadowOn, $shadowLocale, $locale, $currentData)) {
+                return $validationError;
+            }
+
+            $data = $this->applyShadow($data, $shadowOn, $shadowLocale);
 
             $message = new ModifyPageMessage(['uuid' => $uuid], $data);
 

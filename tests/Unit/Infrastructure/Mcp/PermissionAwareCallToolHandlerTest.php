@@ -32,12 +32,15 @@ use Sulu\Component\Security\Authorization\SecurityCheckerInterface;
 use Sulu\Component\Webspace\Manager\WebspaceCollection;
 use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
 use Sulu\Component\Webspace\Webspace;
+use Sulu\Mcp\Application\Content\ContentTypeExtensionRegistry;
 use Sulu\Mcp\Application\Security\ToolPermissionChecker;
 use Sulu\Mcp\Application\Security\WebspacePermissionResolver;
 use Sulu\Mcp\Infrastructure\Mcp\PermissionAwareCallToolHandler;
 use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
 use Sulu\Mcp\Infrastructure\Sulu\Security\SnippetSecurityContextResolver;
 use Sulu\Mcp\Tests\Application\TestBundle\Metadata\TestGroupProvider;
+use Sulu\Mcp\Tests\Unit\Fixture\FakeContentTypeExtension;
+use Sulu\Mcp\Tests\Unit\Fixture\FakeNotSearchableContentTypeExtension;
 use Sulu\Mcp\Tests\Unit\Fixture\FakeToolPermissionChecker;
 use Sulu\Mcp\Tests\Unit\Fixture\TestUser;
 
@@ -107,6 +110,7 @@ final class PermissionAwareCallToolHandlerTest extends TestCase
         array $map,
         ?WebspacePermissionResolver $webspacePermissionResolver = null,
         ?SnippetSecurityContextResolver $snippetContextResolver = null,
+        ?ContentTypeExtensionRegistry $extensionRegistry = null,
     ): PermissionAwareCallToolHandler {
         return new PermissionAwareCallToolHandler(
             $this->registry->reveal(),
@@ -115,6 +119,7 @@ final class PermissionAwareCallToolHandlerTest extends TestCase
             $webspacePermissionResolver ?? $this->webspacePermissionResolver,
             new ArticleSecurityContextResolver(TestGroupProvider::singleGroup()),
             $snippetContextResolver ?? new SnippetSecurityContextResolver(TestGroupProvider::singleGroup()),
+            $extensionRegistry ?? new ContentTypeExtensionRegistry([]),
             $map,
             [],
             ['sulu_ping', 'sulu_get_context'],
@@ -349,6 +354,76 @@ final class PermissionAwareCallToolHandlerTest extends TestCase
         $handler = $this->handler($this->snippetGetMap(), null, $this->twoSnippetGroups());
 
         $response = $handler->handle($this->request('sulu_snippet_get', ['uuid' => 'x', 'locale' => 'en']), $this->session());
+
+        self::assertInstanceOf(Response::class, $response);
+        $result = $response->result;
+        self::assertInstanceOf(CallToolResult::class, $result);
+        self::assertTrue($result->isError);
+    }
+
+    public function testAnyExtensionSentinelDelegatesWhenAnExtensionIsGranted(): void
+    {
+        $this->checker->grantingNoneExcept()->grant('sulu.widget.widgets', PermissionTypes::VIEW);
+        $this->registry->getTool(Argument::any())->willThrow(new ToolNotFoundException('sulu_content_delete'));
+
+        $handler = $this->handler(
+            [
+                'sulu_content_delete' => [
+                    'name' => 'sulu_content_delete',
+                    'requirements' => [['context' => '#context#', 'permission' => PermissionTypes::VIEW]],
+                    'contextArgument' => null, 'contextResolver' => null,
+                    'objectResolved' => true, 'discoveryContexts' => [ContentTypeExtensionRegistry::ANY_EXTENSION_CONTEXT],
+                ],
+            ],
+            extensionRegistry: new ContentTypeExtensionRegistry([new FakeContentTypeExtension()]),
+        );
+
+        $request = $this->request('sulu_content_delete', ['uuid' => 'x']);
+        $result = $handler->handle($request, $this->session());
+
+        self::assertInstanceOf(Error::class, $result);
+    }
+
+    public function testAnyExtensionSentinelDelegatesForANotSearchableExtension(): void
+    {
+        $this->checker->grantingNoneExcept()->grant('sulu.widget.widgets', PermissionTypes::VIEW);
+        $this->registry->getTool(Argument::any())->willThrow(new ToolNotFoundException('sulu_content_delete'));
+
+        $handler = $this->handler(
+            [
+                'sulu_content_delete' => [
+                    'name' => 'sulu_content_delete',
+                    'requirements' => [['context' => '#context#', 'permission' => PermissionTypes::VIEW]],
+                    'contextArgument' => null, 'contextResolver' => null,
+                    'objectResolved' => true, 'discoveryContexts' => [ContentTypeExtensionRegistry::ANY_EXTENSION_CONTEXT],
+                ],
+            ],
+            extensionRegistry: new ContentTypeExtensionRegistry([new FakeNotSearchableContentTypeExtension()]),
+        );
+
+        $result = $handler->handle($this->request('sulu_content_delete', ['uuid' => 'x']), $this->session());
+
+        self::assertInstanceOf(Error::class, $result);
+    }
+
+    public function testAnyExtensionSentinelDeniesWhenNoExtensionIsGranted(): void
+    {
+        $this->checker->denyAll();
+
+        $handler = $this->handler(
+            [
+                'sulu_content_delete' => [
+                    'name' => 'sulu_content_delete',
+                    'requirements' => [['context' => '#context#', 'permission' => PermissionTypes::VIEW]],
+                    'contextArgument' => null, 'contextResolver' => null,
+                    'objectResolved' => true, 'discoveryContexts' => [ContentTypeExtensionRegistry::ANY_EXTENSION_CONTEXT],
+                ],
+            ],
+            extensionRegistry: new ContentTypeExtensionRegistry([new FakeContentTypeExtension()]),
+        );
+
+        $request = $this->request('sulu_content_delete', ['uuid' => 'x']);
+        $response = $handler->handle($request, $this->session());
 
         self::assertInstanceOf(Response::class, $response);
         $result = $response->result;

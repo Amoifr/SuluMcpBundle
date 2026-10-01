@@ -16,6 +16,7 @@ namespace Sulu\Mcp\UserInterface\Mcp\Tool\Block;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
+use Mcp\Schema\ToolAnnotations;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
@@ -24,7 +25,9 @@ use Sulu\Mcp\Application\Content\BlockDataNormalizerTrait;
 use Sulu\Mcp\Application\Content\BlockDataValidator;
 use Sulu\Mcp\Application\Content\ContentLocaleTrait;
 use Sulu\Mcp\Application\Content\ContentNormalizerTrait;
+use Sulu\Mcp\Application\Content\ContentTypeExtensionRegistry;
 use Sulu\Mcp\Application\Content\ContentTypeResolver;
+use Sulu\Mcp\Application\Content\ContentTypeSchemaExpander;
 use Sulu\Mcp\Application\Security\ContentSecurityContextResolver;
 use Sulu\Mcp\Application\Security\ToolPermissionCheckerInterface;
 use Sulu\Mcp\Application\Security\WebspacePermissionResolver;
@@ -32,9 +35,7 @@ use Sulu\Mcp\Domain\Exception\PermissionDeniedException;
 use Sulu\Mcp\Domain\Security\PermissionRequirement;
 use Sulu\Mcp\Domain\Security\RequiresPermission;
 use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
-use Sulu\Mcp\Infrastructure\Sulu\Security\SnippetSecurityContextResolver;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
-use Sulu\Page\Domain\Model\Page;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\HandleTrait;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -70,14 +71,16 @@ class BlockUpdateTool
         name: 'sulu_block_update',
         title: 'Update Block',
         description: 'Update a single block, addressed by its _id (blockId) or by its 0-based index at the top level of a block property (blockIndex plus blockProperty, which may be left out when the entity has a single block property). Prefer blockId — ids do not shift as blocks are added or removed, and only blockId reaches nested blocks. Content that was not created through these tools carries no _id, and blockIndex is the way in. Pass blockData as a flat object mapping the block-type\'s template field names to new values, e.g. blockData={"title": "New heading"}. Only the keys you pass are changed; other fields are preserved. Unknown keys are rejected against the block type\'s schema; the internal {name, value} storage shape is rejected too. Use sulu_page_get, sulu_article_get, or sulu_snippet_get to find block _id values (returned in block summaries), and sulu_block_list to read full content before updating. The entity must be re-published after updating blocks.',
+        annotations: new ToolAnnotations(readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false),
     )]
     #[RequiresPermission(
         requirements: [new PermissionRequirement('#context#', PermissionTypes::EDIT)],
         objectResolved: true,
-        discoveryContexts: [SnippetSecurityContextResolver::ANY_SNIPPET_GROUP_CONTEXT, 'sulu.product.products', ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
+        discoveryContexts: [ContentTypeExtensionRegistry::ANY_EXTENSION_CONTEXT, ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
     )]
     public function updateBlock(
-        string $type,
+        #[Schema(description: 'The resourceKey of the content type: {resourceKeys}.', enum: [ContentTypeSchemaExpander::RESOURCE_KEYS])]
+        string $resourceKey,
         string $uuid,
         string $locale,
         #[Schema(type: 'object', description: 'Changed block field values as a flat object, e.g. {"content": "<p>Updated</p>"}', additionalProperties: true)]
@@ -89,8 +92,8 @@ class BlockUpdateTool
         #[Schema(type: 'string', description: 'Template property holding the blocks, e.g. "blocks". Only used with blockIndex, and only needed when the entity has more than one block property.')]
         ?string $blockProperty = null,
     ): array {
-        if (!$this->contentTypeResolver->supports($type)) {
-            return ['error' => \sprintf('Unsupported content type "%s". Supported: %s.', $type, \implode(', ', $this->contentTypeResolver->supportedTypes()))];
+        if (!$this->contentTypeResolver->supports($resourceKey)) {
+            return ['error' => \sprintf('Unsupported content type "%s". Supported: %s.', $resourceKey, \implode(', ', $this->contentTypeResolver->supportedResourceKeys()))];
         }
 
         if (null === $blockId && null === $blockIndex) {
@@ -105,32 +108,28 @@ class BlockUpdateTool
         }
 
         try {
-            $entity = $this->contentTypeResolver->loadDraft($type, $uuid, $locale, loadGhost: true);
+            $entity = $this->contentTypeResolver->loadDraft($resourceKey, $uuid, $locale, loadGhost: true);
 
             if (null === $entity) {
-                return ['error' => \sprintf('%s not found: %s', \ucfirst($type), $uuid)];
+                return ['error' => \sprintf('%s not found: %s', \ucfirst($resourceKey), $uuid)];
             }
 
+            $extension = $this->contentTypeResolver->get($resourceKey);
             $dimensionContent = $this->contentManager->resolve($entity, [ // @phpstan-ignore argument.type, argument.templateType (upstream generic is invariant; loadDraft() returns a bare object)
                 'locale' => $locale,
                 'stage' => DimensionContentInterface::STAGE_DRAFT,
             ]);
 
-            $context = $this->contentSecurityContextResolver->forEntityInLocale(
-                $type,
-                $entity,
-                $dimensionContent,
-                $locale,
-            );
+            $security = $this->contentSecurityContextResolver->forEntity($resourceKey, $entity, $locale);
             $this->permissionChecker->check(
-                $context,
+                $security->context,
                 PermissionTypes::EDIT,
                 $locale,
-                'page' === $type ? Page::class : null,
-                'page' === $type ? $uuid : null,
+                $security->aclObjectType,
+                null !== $security->aclObjectType ? $uuid : null,
             );
 
-            if ($missingTranslation = self::missingBlockTranslationError($dimensionContent, $type, $uuid, $locale)) {
+            if ($missingTranslation = self::missingBlockTranslationError($dimensionContent, $resourceKey, $uuid, $locale)) {
                 return $missingTranslation;
             }
 
@@ -142,7 +141,7 @@ class BlockUpdateTool
 
                 if (null === $found) {
                     return [
-                        'error' => \sprintf('Block with _id "%s" not found in %s %s.', $blockId, $type, $uuid),
+                        'error' => \sprintf('Block with _id "%s" not found in %s %s.', $blockId, $resourceKey, $uuid),
                         'hint' => 'Use sulu_page_get, sulu_article_get, or sulu_snippet_get to see block summaries with _id values.',
                     ];
                 }
@@ -170,7 +169,7 @@ class BlockUpdateTool
                 ? $currentData['template']
                 : null;
             $blockPath = $this->blockTypePath($currentData, $foundProperty, $foundIndices);
-            if (null !== $blockType && $validationError = $this->blockDataValidator->validate($type, $templateKey, $blockType, $blockPath, $blockData)) {
+            if (null !== $blockType && $validationError = $this->blockDataValidator->validate($extension->getTemplateType(), $templateKey, $blockType, $blockPath, $blockData)) {
                 return $validationError;
             }
 
@@ -189,7 +188,7 @@ class BlockUpdateTool
 
             $data = $this->stringifyKeys($data);
 
-            $message = $this->contentTypeResolver->createModifyMessage($type, $uuid, $data);
+            $message = $this->contentTypeResolver->createModifyMessage($resourceKey, $uuid, $data);
 
             $this->handle(new Envelope($message, [new EnableFlushStamp()]));
 
@@ -209,7 +208,7 @@ class BlockUpdateTool
             throw new ToolCallException($e->getMessage(), 0, $e);
         } catch (\Throwable $e) {
             return [
-                'error' => \sprintf('Failed to update block "%s" in %s %s: %s', $blockId ?? '#' . $blockIndex, $type, $uuid, $e->getMessage()),
+                'error' => \sprintf('Failed to update block "%s" in %s %s: %s', $blockId ?? '#' . $blockIndex, $resourceKey, $uuid, $e->getMessage()),
                 'hint' => 'Verify the UUID exists and the block _id or index is correct (use sulu_block_list to check).',
             ];
         }

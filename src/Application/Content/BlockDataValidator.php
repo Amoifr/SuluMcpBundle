@@ -31,8 +31,6 @@ use Sulu\Mcp\Application\Metadata\MetadataLocaleResolver;
  * `item` is used by nearly every card list, so every lookup here walks the chain of
  * (block property, block type) steps down from the template form instead of
  * searching the metadata for a matching name.
- *
- * @internal
  */
 final readonly class BlockDataValidator
 {
@@ -56,7 +54,7 @@ final readonly class BlockDataValidator
      * @return array<string, mixed>|null Error payload, or null when valid
      */
     public function validate(
-        string $contentType,
+        string $templateType,
         ?string $templateKey,
         string $blockType,
         array $blockPath,
@@ -70,7 +68,7 @@ final readonly class BlockDataValidator
             return null;
         }
 
-        $form = $this->resolveBlockPath($contentType, $templateKey, $blockPath);
+        $form = $this->resolveBlockPath($templateType, $templateKey, $blockPath);
 
         if (!$form instanceof FormMetadata) {
             // Block type not discoverable in metadata: skip strict validation rather
@@ -85,6 +83,24 @@ final readonly class BlockDataValidator
     }
 
     /**
+     * Whether the template declares $property as a block list.
+     *
+     * Content omits a list that has no blocks yet, so the content alone cannot tell
+     * an empty list from a property the template does not have.
+     */
+    public function declaresBlockProperty(string $contentType, ?string $templateKey, string $property): bool
+    {
+        foreach ($this->templateForms($contentType, $templateKey) as $form) {
+            $field = $form->getFlatFieldMetadata()[$property] ?? null;
+            if ($field instanceof FieldMetadata && [] !== $field->getTypes()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Return the block property of the form at $parentPath that offers $blockType.
      *
      * Answers "where does a block of this type belong inside this parent", which the
@@ -96,7 +112,7 @@ final readonly class BlockDataValidator
      * @param list<array{property: string, type: string}> $parentPath
      */
     public function resolveBlockProperty(
-        string $contentType,
+        string $templateType,
         ?string $templateKey,
         array $parentPath,
         string $blockType,
@@ -105,7 +121,7 @@ final readonly class BlockDataValidator
             return null;
         }
 
-        $parentForm = $this->resolveBlockPath($contentType, $templateKey, $parentPath);
+        $parentForm = $this->resolveBlockPath($templateType, $templateKey, $parentPath);
         if (!$parentForm instanceof FormMetadata) {
             return null;
         }
@@ -130,9 +146,9 @@ final readonly class BlockDataValidator
      *
      * @return array<string, mixed>|null
      */
-    public function validateContentTree(array $content, string $contentType, ?string $templateKey): ?array
+    public function validateContentTree(array $content, string $templateType, ?string $templateKey): ?array
     {
-        return $this->validateBlockLists($content, $this->templateForms($contentType, $templateKey));
+        return $this->validateBlockLists($content, $this->templateForms($templateType, $templateKey));
     }
 
     /**
@@ -288,9 +304,9 @@ final readonly class BlockDataValidator
      *
      * @param list<array{property: string, type: string}> $blockPath
      */
-    private function resolveBlockPath(string $contentType, ?string $templateKey, array $blockPath): ?FormMetadata
+    private function resolveBlockPath(string $templateType, ?string $templateKey, array $blockPath): ?FormMetadata
     {
-        foreach ($this->templateForms($contentType, $templateKey) as $templateForm) {
+        foreach ($this->templateForms($templateType, $templateKey) as $templateForm) {
             $form = $templateForm;
 
             foreach ($blockPath as $step) {
@@ -368,10 +384,10 @@ final readonly class BlockDataValidator
      *
      * @return list<FormMetadata>
      */
-    private function templateForms(string $contentType, ?string $templateKey): array
+    private function templateForms(string $templateType, ?string $templateKey): array
     {
         try {
-            $typed = $this->formMetadataProvider->getMetadata($contentType, $this->localeResolver->resolve(), []);
+            $typed = $this->formMetadataProvider->getMetadata($templateType, $this->localeResolver->resolve(), []);
         } catch (\Throwable) {
             return [];
         }

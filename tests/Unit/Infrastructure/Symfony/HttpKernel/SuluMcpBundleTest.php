@@ -77,7 +77,7 @@ final class SuluMcpBundleTest extends TestCase
         );
     }
 
-    public function testLoadSetsDisabledToolNamesFromDangerousToolsConfig(): void
+    public function testLoadKeepsTheDashesOfADangerousToolsCategory(): void
     {
         $container = $this->container();
 
@@ -89,16 +89,14 @@ final class SuluMcpBundleTest extends TestCase
                 'server_url' => 'https://sulu.example.com',
                 'dangerous_tools' => [
                     'delete' => true,
-                    'publish' => false,
-                    'block_remove' => true,
-                    'media_upload' => false,
+                    'ai-generate' => true,
                 ],
             ],
         ], $container);
 
         self::assertSame(
-            ['sulu_content_publish', 'sulu_content_unpublish', 'sulu_preview_link_revoke', 'sulu_page_move', 'sulu_page_reorder', 'sulu_media_upload'],
-            $container->getParameter('sulu_mcp.disabled_tool_names'),
+            ['delete' => true, 'ai-generate' => true],
+            $container->getParameter('sulu_mcp.dangerous_tools'),
         );
     }
 
@@ -113,8 +111,7 @@ final class SuluMcpBundleTest extends TestCase
 
         self::assertSame('/admin/mcp', $container->getParameter('sulu_mcp.mcp_path'));
         self::assertSame(['mcp:tools', 'mcp:resources'], $container->getParameter('sulu_mcp.oauth.scopes'));
-        self::assertFalse($container->getParameter('sulu_mcp.dangerous_tools.delete'));
-        self::assertFalse($container->getParameter('sulu_mcp.dangerous_tools.media_upload'));
+        self::assertSame([], $container->getParameter('sulu_mcp.dangerous_tools'));
         self::assertSame([], $container->getParameter('sulu_mcp.media_upload.allowed_hosts'));
     }
 

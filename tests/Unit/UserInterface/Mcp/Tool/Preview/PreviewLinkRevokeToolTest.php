@@ -22,18 +22,16 @@ use Prophecy\Argument;
 use Prophecy\PhpUnit\ProphecyTrait;
 use Prophecy\Prophecy\ObjectProphecy;
 use Sulu\Article\Domain\Model\Article;
+use Sulu\Article\Domain\Model\ArticleDimensionContent;
 use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
 use Sulu\Bundle\PreviewBundle\Application\Manager\PreviewLinkManagerInterface;
-use Sulu\Content\Application\ContentManager\ContentManagerInterface;
-use Sulu\Mcp\Application\Content\ContentTypeResolver;
-use Sulu\Mcp\Application\Security\ContentSecurityContextResolver;
-use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
-use Sulu\Mcp\Infrastructure\Sulu\Security\SnippetSecurityContextResolver;
+use Sulu\Mcp\Application\Content\ContentTypeSchemaExpander;
 use Sulu\Mcp\Tests\Application\TestBundle\Metadata\TestGroupProvider;
+use Sulu\Mcp\Tests\Unit\Fixture\ContentTypes;
+use Sulu\Mcp\Tests\Unit\Fixture\FakeContentTypeExtension;
 use Sulu\Mcp\Tests\Unit\Fixture\FakeToolPermissionChecker;
 use Sulu\Mcp\UserInterface\Mcp\Tool\Preview\PreviewLinkRevokeTool;
 use Sulu\Page\Domain\Model\Page;
-use Sulu\Page\Domain\Model\PageDimensionContent;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Sulu\Snippet\Domain\Repository\SnippetRepositoryInterface;
 
@@ -51,9 +49,6 @@ final class PreviewLinkRevokeToolTest extends TestCase
     /** @var ObjectProphecy<ArticleRepositoryInterface> */
     private ObjectProphecy $articleRepository;
 
-    /** @var ObjectProphecy<ContentManagerInterface> */
-    private ObjectProphecy $contentManager;
-
     private FakeToolPermissionChecker $permissionChecker;
     private PreviewLinkRevokeTool $tool;
 
@@ -62,7 +57,6 @@ final class PreviewLinkRevokeToolTest extends TestCase
         $this->previewLinkManager = $this->prophesize(PreviewLinkManagerInterface::class);
         $this->pageRepository = $this->prophesize(PageRepositoryInterface::class);
         $this->articleRepository = $this->prophesize(ArticleRepositoryInterface::class);
-        $this->contentManager = $this->prophesize(ContentManagerInterface::class);
         $this->permissionChecker = FakeToolPermissionChecker::grantingAll();
         $groupProvider = new TestGroupProvider([]);
 
@@ -70,37 +64,66 @@ final class PreviewLinkRevokeToolTest extends TestCase
 
         $this->tool = new PreviewLinkRevokeTool(
             $this->previewLinkManager->reveal(),
-            new ContentTypeResolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $snippetRepository->reveal()),
-            $this->contentManager->reveal(),
+            ContentTypes::resolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $snippetRepository->reveal(), $groupProvider),
             $this->permissionChecker,
-            new ContentSecurityContextResolver(new ArticleSecurityContextResolver($groupProvider), new SnippetSecurityContextResolver($groupProvider), $this->contentManager->reveal()),
+            ContentTypes::securityResolver($groupProvider),
         );
     }
 
     private function setupEntity(string $type): void
     {
-        if ('page' === $type) {
+        if ('pages' === $type) {
             $page = new Page('page-uuid');
             $page->setWebspaceKey('example');
             $this->pageRepository->getOneBy(Argument::cetera())->willReturn($page);
         } else {
             $article = new Article('article-uuid');
             $this->articleRepository->getOneBy(Argument::cetera())->willReturn($article);
-            $dimensionContent = new PageDimensionContent(new Page());
+            $dimensionContent = new ArticleDimensionContent($article);
             $dimensionContent->setTemplateKey('default');
-            $this->contentManager->resolve(Argument::cetera())->willReturn($dimensionContent);
+            $article->addDimensionContent($dimensionContent);
         }
+    }
+
+    public function testRevokeRejectsATypeMarkedNotSearchable(): void
+    {
+        $this->previewLinkManager->revoke(Argument::cetera())->shouldNotBeCalled();
+
+        $result = $this->tool->revokePreviewLink('snippets', 'snippet-uuid', 'en');
+
+        $this->assertStringContainsString('cannot be previewed', $result['error']);
+    }
+
+    public function testRevokeRejectsAnUnknownType(): void
+    {
+        $this->previewLinkManager->revoke(Argument::cetera())->shouldNotBeCalled();
+
+        $this->assertStringContainsString('cannot be previewed', $this->tool->revokePreviewLink('nope', 'snippet-uuid', 'en')['error']);
+    }
+
+    public function testRevokeResolvesTheResourceKeyFromAnExtension(): void
+    {
+        $this->previewLinkManager->revoke('widgets', 'w-1', 'en')->shouldBeCalledOnce();
+
+        $tool = new PreviewLinkRevokeTool(
+            $this->previewLinkManager->reveal(),
+            ContentTypes::inertResolver([new FakeContentTypeExtension(draft: new \stdClass())]),
+            $this->permissionChecker,
+            ContentTypes::securityResolver(null, [new FakeContentTypeExtension(draft: new \stdClass())]),
+        );
+
+        $this->assertSame('widgets', $tool->revokePreviewLink('widgets', 'w-1', 'en')['resourceKey']);
     }
 
     public function testRevokePreviewLinkSuccess(): void
     {
-        $this->setupEntity('page');
+        $this->setupEntity('pages');
 
         $this->previewLinkManager
             ->revoke('pages', 'page-uuid-1', 'en')
             ->shouldBeCalledOnce();
 
-        $result = $this->tool->revokePreviewLink('page', 'page-uuid-1', 'en');
+        $result = $this->tool->revokePreviewLink('pages', 'page-uuid-1', 'en');
 
         $this->assertTrue($result['success']);
         $this->assertSame('revoked', $result['action']);
@@ -111,7 +134,7 @@ final class PreviewLinkRevokeToolTest extends TestCase
 
     public function testTypeIsMappedToResourceKeyForRevoke(): void
     {
-        $this->setupEntity('article');
+        $this->setupEntity('articles');
 
         $capturedResourceKey = null;
         $this->previewLinkManager
@@ -121,20 +144,20 @@ final class PreviewLinkRevokeToolTest extends TestCase
                 $capturedResourceKey = $args[0];
             });
 
-        $this->tool->revokePreviewLink('article', 'article-uuid-1', 'en');
+        $this->tool->revokePreviewLink('articles', 'article-uuid-1', 'en');
 
         $this->assertSame('articles', $capturedResourceKey, 'Singular "article" must be mapped to plural "articles" before calling the manager.');
     }
 
     public function testRevokePreviewLinkReturnsErrorOnException(): void
     {
-        $this->setupEntity('page');
+        $this->setupEntity('pages');
 
         $this->previewLinkManager
             ->revoke(Argument::cetera())
             ->willThrow(new \RuntimeException('No preview link found'));
 
-        $result = $this->tool->revokePreviewLink('page', 'bad-uuid', 'en');
+        $result = $this->tool->revokePreviewLink('pages', 'bad-uuid', 'en');
 
         $this->assertArrayHasKey('error', $result);
         $this->assertStringContainsString('No preview link found', $result['error']);
@@ -146,14 +169,14 @@ final class PreviewLinkRevokeToolTest extends TestCase
         $this->pageRepository->getOneBy(Argument::cetera())->willThrow(new \RuntimeException('not found'));
         $this->previewLinkManager->revoke(Argument::cetera())->shouldNotBeCalled();
 
-        $result = $this->tool->revokePreviewLink('page', 'missing-uuid', 'en');
+        $result = $this->tool->revokePreviewLink('pages', 'missing-uuid', 'en');
 
         $this->assertArrayHasKey('error', $result);
     }
 
     public function testRevokePreviewLinkThrowsToolCallExceptionWhenPermissionDenied(): void
     {
-        $this->setupEntity('page');
+        $this->setupEntity('pages');
 
         $this->permissionChecker->denyAll();
 
@@ -161,7 +184,7 @@ final class PreviewLinkRevokeToolTest extends TestCase
 
         $this->expectException(ToolCallException::class);
 
-        $this->tool->revokePreviewLink('page', 'page-uuid-1', 'en');
+        $this->tool->revokePreviewLink('pages', 'page-uuid-1', 'en');
     }
 
     public function testMethodHasMcpToolAttribute(): void
@@ -175,16 +198,16 @@ final class PreviewLinkRevokeToolTest extends TestCase
         $this->assertSame('sulu_preview_link_revoke', $instance->name);
     }
 
-    public function testTypeParameterHasSchemaAttributeWithSingularEnum(): void
+    public function testResourceKeyParameterHasSchemaAttributeWithResourceKeyPlaceholder(): void
     {
         $reflection = new \ReflectionMethod(PreviewLinkRevokeTool::class, 'revokePreviewLink');
         $parameter = $reflection->getParameters()[0];
-        $this->assertSame('type', $parameter->getName());
+        $this->assertSame('resourceKey', $parameter->getName());
 
         $attributes = $parameter->getAttributes(Schema::class);
         $this->assertCount(1, $attributes);
 
         $schema = $attributes[0]->newInstance();
-        $this->assertSame(['page', 'article'], $schema->enum);
+        $this->assertSame([ContentTypeSchemaExpander::SEARCHABLE_RESOURCE_KEYS], $schema->enum);
     }
 }

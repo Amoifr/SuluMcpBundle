@@ -27,6 +27,7 @@ use Sulu\Component\Security\Authorization\SecurityCheckerInterface;
 use Sulu\Component\Webspace\Manager\WebspaceCollection;
 use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
 use Sulu\Component\Webspace\Webspace;
+use Sulu\Mcp\Application\Content\ContentTypeExtensionRegistry;
 use Sulu\Mcp\Application\Metadata\ExtensionFieldsProvider;
 use Sulu\Mcp\Application\Metadata\FieldNormalizer;
 use Sulu\Mcp\Application\Metadata\FieldValueExampleProvider;
@@ -38,6 +39,7 @@ use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
 use Sulu\Mcp\Infrastructure\Sulu\Security\SnippetSecurityContextResolver;
 use Sulu\Mcp\Tests\Application\TestBundle\Metadata\TestGroupProvider;
 use Sulu\Mcp\Tests\Unit\Fixture\ArrayMetadataProvider;
+use Sulu\Mcp\Tests\Unit\Fixture\ContentTypes;
 use Sulu\Mcp\Tests\Unit\Fixture\FakeToolPermissionChecker;
 use Sulu\Mcp\Tests\Unit\Fixture\TestUser;
 use Sulu\Mcp\UserInterface\Mcp\Resource\GlobalBlocksResource;
@@ -62,7 +64,7 @@ final class GetContextToolTest extends TestCase
             $provider->set('page', $pageMetadata);
         }
 
-        return new TemplatesResource($provider, new FieldNormalizer(), new MetadataLocaleResolver(new TokenStorage(), 'en'));
+        return new TemplatesResource($provider, new FieldNormalizer(), new MetadataLocaleResolver(new TokenStorage(), 'en'), ContentTypes::inertResolver());
     }
 
     /**
@@ -144,6 +146,7 @@ final class GetContextToolTest extends TestCase
             $webspacePermissionResolver,
             new ArticleSecurityContextResolver(TestGroupProvider::singleGroup()),
             new SnippetSecurityContextResolver(TestGroupProvider::singleGroup()),
+            new ContentTypeExtensionRegistry([]),
             [],
             ['sulu_ping', 'sulu_get_context'],
         );
@@ -232,7 +235,7 @@ final class GetContextToolTest extends TestCase
         $this->assertArrayNotHasKey('block', $result['fieldTypes']);
 
         // Fields no longer carry inline examples (deduped into the legend)
-        $titleFieldResult = $result['templates']['page']['default']['fields'][0];
+        $titleFieldResult = $result['templates']['pages']['default']['fields'][0];
         $this->assertArrayNotHasKey('valueExample', $titleFieldResult);
         $this->assertArrayNotHasKey('valueHint', $titleFieldResult);
 
@@ -318,6 +321,7 @@ final class GetContextToolTest extends TestCase
             $this->webspacePermissionResolver(),
             new ArticleSecurityContextResolver(TestGroupProvider::singleGroup()),
             new SnippetSecurityContextResolver(TestGroupProvider::singleGroup()),
+            new ContentTypeExtensionRegistry([]),
             [],
             ['sulu_ping', 'sulu_get_context'],
         );

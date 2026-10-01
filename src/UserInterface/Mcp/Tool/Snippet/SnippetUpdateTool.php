@@ -16,6 +16,7 @@ namespace Sulu\Mcp\UserInterface\Mcp\Tool\Snippet;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
+use Mcp\Schema\ToolAnnotations;
 use Sulu\Bundle\AdminBundle\Application\BlockIdGenerator\BlockIdGeneratorInterface;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
@@ -71,7 +72,8 @@ class SnippetUpdateTool
     #[McpTool(
         name: 'sulu_snippet_update',
         title: 'Update Snippet',
-        description: 'Update an existing snippet. Reads the current snippet state, merges your changes, and writes back — so you only need to pass the fields you want to change. Pass template-specific field values in "content" as a flat object: content={"body": "<p>Updated HTML</p>"}. Content may also include a full "blocks" tree (nested blocks allowed) to replace the block content in one call — block _ids are assigned automatically and unknown block fields are rejected before saving. You can update title and template as separate parameters. Calling this with a locale the snippet has no content in yet creates that translation — pass title and template in that case, and the result carries "created_locale": true. The snippet stays in draft state after updating — call sulu_content_publish (type: snippet) to make changes live.',
+        description: 'Update an existing snippet. Reads the current snippet state, merges your changes, and writes back — so you only need to pass the fields you want to change. Pass template-specific field values in "content" as a flat object: content={"body": "<p>Updated HTML</p>"}. Content may also include a full "blocks" tree (nested blocks allowed) to replace the block content in one call — block _ids are assigned automatically and unknown block fields are rejected before saving. You can update title and template as separate parameters. Calling this with a locale the snippet has no content in yet creates that translation — pass title and template in that case, and the result carries "created_locale": true. The snippet stays in draft state after updating — call sulu_content_publish (resourceKey: snippets) to make changes live.',
+        annotations: new ToolAnnotations(readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false),
     )]
     #[RequiresPermission(
         requirements: [new PermissionRequirement('sulu.snippet.snippets', PermissionTypes::EDIT)],
@@ -87,7 +89,7 @@ class SnippetUpdateTool
         ?array $content = null,
     ): array {
         try {
-            $snippet = $this->contentTypeResolver->loadDraft('snippet', $uuid, $locale, loadGhost: true);
+            $snippet = $this->contentTypeResolver->loadDraft('snippets', $uuid, $locale, loadGhost: true);
 
             if (null === $snippet) {
                 return ['error' => \sprintf('Snippet not found: %s', $uuid)];
@@ -99,12 +101,7 @@ class SnippetUpdateTool
                 'locale' => $locale,
                 'stage' => DimensionContentInterface::STAGE_DRAFT,
             ]);
-            $sourceContext = $this->contentSecurityContextResolver->forEntityInLocale(
-                'snippet',
-                $snippet,
-                $currentDimensionContent,
-                $locale,
-            );
+            $sourceContext = $this->contentSecurityContextResolver->forEntity('snippets', $snippet, $locale)->context;
             $this->permissionChecker->check(
                 $sourceContext,
                 PermissionTypes::EDIT,

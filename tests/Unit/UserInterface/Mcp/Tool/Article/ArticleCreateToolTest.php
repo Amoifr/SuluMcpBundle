@@ -204,6 +204,40 @@ final class ArticleCreateToolTest extends TestCase
         $this->assertSame('https://example.com/admin/#/en/default/article-uuid-123', $result['admin_url']);
     }
 
+    public function testCreateArticleSetsTheShadow(): void
+    {
+        $mockArticle = new Article('article-uuid-123');
+
+        $capturedMessage = null;
+        $this->messageBus->dispatch(Argument::cetera())
+            ->shouldBeCalledOnce()
+            ->will(function(array $args) use ($mockArticle, &$capturedMessage) {
+                $capturedMessage = $args[0]->getMessage();
+
+                return $args[0]->with(new HandledStamp($mockArticle, 'handler'));
+            });
+
+        $mockDimensionContent = new ArticleDimensionContent(new Article());
+        $this->contentManager->resolve(Argument::cetera())->willReturn($mockDimensionContent);
+        $this->contentManager->normalize(Argument::cetera())->willReturn(['title' => 'Test Article', 'url' => '/my-article']);
+
+        $this->tool->createArticle('en', 'blog', 'Test Article', null, ['url' => '/my-article'], shadowOn: true, shadowLocale: 'de');
+
+        $this->assertInstanceOf(CreateArticleMessage::class, $capturedMessage);
+        $this->assertTrue($capturedMessage->getData()['shadowOn']);
+        $this->assertSame('de', $capturedMessage->getData()['shadowLocale']);
+    }
+
+    public function testCreateArticleRejectsALocaleShadowingItselfWhenShadowOnIsOmitted(): void
+    {
+        $this->messageBus->dispatch(Argument::cetera())->shouldNotBeCalled();
+
+        $result = $this->tool->createArticle('en', 'blog', 'Test Article', null, ['url' => '/my-article'], shadowLocale: 'en');
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertStringContainsString('itself', $result['error']);
+    }
+
     public function testCreateArticleUsesResolvedCustomGroupInAdminUrl(): void
     {
         $mockArticle = new Article('custom-uuid');

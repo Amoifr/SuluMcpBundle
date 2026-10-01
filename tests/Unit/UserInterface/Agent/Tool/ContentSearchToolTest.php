@@ -1,0 +1,110 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * This file is part of Sulu.
+ *
+ * (c) Sulu GmbH
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this source code in the file LICENSE.
+ */
+
+namespace Sulu\Mcp\Tests\Unit\UserInterface\Agent\Tool;
+
+use CmsIg\Seal\Adapter\SearcherInterface;
+use CmsIg\Seal\EngineInterface;
+use CmsIg\Seal\Schema\Field\IdentifierField;
+use CmsIg\Seal\Schema\Index;
+use CmsIg\Seal\Schema\Schema;
+use CmsIg\Seal\Search\Result;
+use CmsIg\Seal\Search\SearchBuilder;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\TestCase;
+use Prophecy\Argument;
+use Prophecy\PhpUnit\ProphecyTrait;
+use Sulu\Article\Domain\Repository\ArticleRepositoryInterface;
+use Sulu\Component\Security\Authorization\SecurityCheckerInterface;
+use Sulu\Component\Webspace\Manager\WebspaceCollection;
+use Sulu\Component\Webspace\Manager\WebspaceManagerInterface;
+use Sulu\Component\Webspace\Webspace;
+use Sulu\Mcp\Application\Search\ContentSearch;
+use Sulu\Mcp\Application\Search\WebsiteSearch;
+use Sulu\Mcp\Application\Security\ToolPermissionChecker;
+use Sulu\Mcp\Application\Security\ToolPermissionCheckerInterface;
+use Sulu\Mcp\Application\Security\WebspacePermissionResolver;
+use Sulu\Mcp\Tests\Application\TestBundle\Metadata\TestGroupProvider;
+use Sulu\Mcp\Tests\Unit\Fixture\ContentTypes;
+use Sulu\Mcp\Tests\Unit\Fixture\TestUser;
+use Sulu\Mcp\UserInterface\Agent\Tool\ContentSearchTool;
+use Sulu\Page\Domain\Repository\PageRepositoryInterface;
+use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
+use Symfony\AI\Agent\Toolbox\Event\ToolCallArgumentsResolved;
+use Symfony\AI\Agent\Toolbox\EventListener\ValidateToolCallArgumentsListener;
+use Symfony\AI\Agent\Toolbox\ToolFactory\ReflectionToolFactory;
+
+/**
+ * ContentSearch (final, so Prophecy can't double it directly) is real here, built over a
+ * mocked SEAL engine; ContentSearchTest covers its actual search behavior in depth, this just
+ * proves the adapter threads every argument to it in the right order.
+ */
+#[CoversClass(ContentSearchTool::class)]
+#[Group('ai-agent')]
+final class ContentSearchToolTest extends TestCase
+{
+    use ProphecyTrait;
+
+    public function testInvokeDelegatesToContentSearch(): void
+    {
+        $engine = $this->prophesize(EngineInterface::class);
+        $searcher = $this->prophesize(SearcherInterface::class);
+
+        $webspace = new Webspace();
+        $webspace->setKey('example');
+        $webspaceManager = $this->prophesize(WebspaceManagerInterface::class);
+        $webspaceManager->getWebspaceCollection()->willReturn(new WebspaceCollection(['example' => $webspace]));
+        $securityChecker = $this->prophesize(SecurityCheckerInterface::class);
+        $securityChecker->hasPermission(Argument::cetera())->willReturn(true);
+        $webspaceResolver = new WebspacePermissionResolver($webspaceManager->reveal(), new ToolPermissionChecker($securityChecker->reveal(), (new TestUser())->inTokenStorage()));
+
+        $identifierField = new IdentifierField('id');
+        $schema = new Schema(['website' => new Index('website', ['id' => $identifierField])]);
+        $builder = (new SearchBuilder($schema, $searcher->reveal()))->index('website');
+        $engine->createSearchBuilder('website')->willReturn($builder);
+        $searcher->search(Argument::cetera())->willReturn(Result::createEmpty());
+
+        $permissionChecker = $this->prophesize(ToolPermissionCheckerInterface::class);
+        $permissionChecker->has(Argument::cetera())->willReturn(true);
+        $contentSearch = new ContentSearch(new WebsiteSearch($engine->reveal()), $webspaceResolver, $permissionChecker->reveal(), ContentTypes::registry($this->prophesize(PageRepositoryInterface::class)->reveal(), $this->prophesize(ArticleRepositoryInterface::class)->reveal(), TestGroupProvider::singleGroup()));
+        $tool = new ContentSearchTool($contentSearch);
+
+        $result = $tool('hello', 'en', 'example', 'pages', 2, 10);
+
+        $this->assertSame(2, $result['page']);
+        $this->assertSame(10, $result['limit']);
+        $this->assertArrayHasKey('results', $result);
+    }
+
+    public function testClassHasAsToolAttribute(): void
+    {
+        $attributes = (new \ReflectionClass(ContentSearchTool::class))->getAttributes(AsTool::class);
+
+        $this->assertCount(1, $attributes, 'ContentSearchTool must have exactly one #[AsTool] attribute');
+
+        $instance = $attributes[0]->newInstance();
+        $this->assertSame('sulu_content_search', $instance->name);
+    }
+
+    public function testResourceKeyPassesArgumentValidation(): void
+    {
+        $definition = [...(new ReflectionToolFactory())->getTool(ContentSearchTool::class)][0];
+        $tool = (new \ReflectionClass(ContentSearchTool::class))->newInstanceWithoutConstructor();
+        $arguments = ['query' => 'hello', 'locale' => 'en', 'resourceKey' => 'pages'];
+
+        (new ValidateToolCallArgumentsListener())(new ToolCallArgumentsResolved($tool, $definition, $arguments));
+
+        $this->addToAssertionCount(1);
+    }
+}

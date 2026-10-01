@@ -14,13 +14,18 @@ declare(strict_types=1);
 namespace Sulu\Mcp\UserInterface\Mcp\Tool\Block;
 
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
+use Mcp\Schema\ToolAnnotations;
 use Sulu\Component\Security\Authorization\PermissionTypes;
 use Sulu\Content\Application\ContentManager\ContentManagerInterface;
 use Sulu\Content\Domain\Model\DimensionContentInterface;
+use Sulu\Mcp\Application\Content\BlockDataValidator;
 use Sulu\Mcp\Application\Content\ContentLocaleTrait;
 use Sulu\Mcp\Application\Content\ContentNormalizerTrait;
+use Sulu\Mcp\Application\Content\ContentTypeExtensionRegistry;
 use Sulu\Mcp\Application\Content\ContentTypeResolver;
+use Sulu\Mcp\Application\Content\ContentTypeSchemaExpander;
 use Sulu\Mcp\Application\Security\ContentSecurityContextResolver;
 use Sulu\Mcp\Application\Security\ToolPermissionCheckerInterface;
 use Sulu\Mcp\Application\Security\WebspacePermissionResolver;
@@ -28,8 +33,6 @@ use Sulu\Mcp\Domain\Exception\PermissionDeniedException;
 use Sulu\Mcp\Domain\Security\PermissionRequirement;
 use Sulu\Mcp\Domain\Security\RequiresPermission;
 use Sulu\Mcp\Infrastructure\Sulu\Security\ArticleSecurityContextResolver;
-use Sulu\Mcp\Infrastructure\Sulu\Security\SnippetSecurityContextResolver;
-use Sulu\Page\Domain\Model\Page;
 
 /**
  * @internal
@@ -44,6 +47,7 @@ class BlockListTool
         private readonly ContentManagerInterface $contentManager,
         private readonly ToolPermissionCheckerInterface $permissionChecker,
         private readonly ContentSecurityContextResolver $contentSecurityContextResolver,
+        private readonly BlockDataValidator $blockDataValidator,
     ) {
     }
 
@@ -53,15 +57,17 @@ class BlockListTool
     #[McpTool(
         name: 'sulu_block_list',
         title: 'List Blocks',
-        description: 'Get paginated block content for a page, article, or snippet. Pass "type" ("page", "article", "snippet", or "product" when SuluProductBundle is installed) and the entity "uuid". Use this after sulu_page_get / sulu_article_get / sulu_snippet_get which return block summaries (index, _id, type, title). Pass the "blockProperty" name (e.g. "blocks", "homeBlocks") and paginate with "page" and "limit". To list blocks inside a parent block (nested blocks), pass parentBlockId with the _id of the parent block — blockProperty is still required to locate the top-level blocks. Returns full block content including HTML for the requested range.',
+        description: 'Get paginated block content for a content entity. Pass "resourceKey" (one of {resourceKeys}) and the entity "uuid". Use this after sulu_page_get / sulu_article_get / sulu_snippet_get which return block summaries (index, _id, type, title). Pass the "blockProperty" name (e.g. "blocks", "homeBlocks") and paginate with "page" and "limit". To list blocks inside a parent block (nested blocks), pass parentBlockId with the _id of the parent block — blockProperty is still required to locate the top-level blocks. Returns full block content including HTML for the requested range.',
+        annotations: new ToolAnnotations(readOnlyHint: true, openWorldHint: false),
     )]
     #[RequiresPermission(
         requirements: [new PermissionRequirement('#context#', PermissionTypes::VIEW)],
         objectResolved: true,
-        discoveryContexts: [SnippetSecurityContextResolver::ANY_SNIPPET_GROUP_CONTEXT, 'sulu.product.products', ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
+        discoveryContexts: [ContentTypeExtensionRegistry::ANY_EXTENSION_CONTEXT, ArticleSecurityContextResolver::ANY_ARTICLE_GROUP_CONTEXT, WebspacePermissionResolver::ANY_WEBSPACE_CONTEXT],
     )]
     public function listBlocks(
-        string $type,
+        #[Schema(description: 'The resourceKey of the content type: {resourceKeys}.', enum: [ContentTypeSchemaExpander::RESOURCE_KEYS])]
+        string $resourceKey,
         string $uuid,
         string $locale,
         string $blockProperty,
@@ -69,10 +75,10 @@ class BlockListTool
         int $limit = 3,
         ?string $parentBlockId = null,
     ): array {
-        $entity = $this->contentTypeResolver->loadDraft($type, $uuid, $locale, loadGhost: true);
+        $entity = $this->contentTypeResolver->loadDraft($resourceKey, $uuid, $locale, loadGhost: true);
 
         if (null === $entity) {
-            return ['error' => \sprintf('%s not found: %s', \ucfirst($type), $uuid)];
+            return ['error' => \sprintf('%s not found: %s', \ucfirst($resourceKey), $uuid)];
         }
 
         $dimensionContent = $this->contentManager->resolve($entity, [ // @phpstan-ignore argument.type, argument.templateType (upstream generic is invariant; loadDraft() returns a bare object)
@@ -81,21 +87,16 @@ class BlockListTool
         ]);
 
         try {
-            $context = $this->contentSecurityContextResolver->forEntityInLocale(
-                $type,
-                $entity,
-                $dimensionContent,
-                $locale,
-            );
+            $security = $this->contentSecurityContextResolver->forEntity($resourceKey, $entity, $locale);
             $this->permissionChecker->check(
-                $context,
+                $security->context,
                 PermissionTypes::VIEW,
                 $locale,
-                'page' === $type ? Page::class : null,
-                'page' === $type ? $uuid : null,
+                $security->aclObjectType,
+                null !== $security->aclObjectType ? $uuid : null,
             );
 
-            if ($missingTranslation = self::missingBlockTranslationError($dimensionContent, $type, $uuid, $locale)) {
+            if ($missingTranslation = self::missingBlockTranslationError($dimensionContent, $resourceKey, $uuid, $locale)) {
                 return $missingTranslation;
             }
         } catch (PermissionDeniedException $e) {
@@ -103,6 +104,14 @@ class BlockListTool
         }
 
         $normalized = $this->contentManager->normalize($dimensionContent);
+
+        if (!isset($normalized[$blockProperty]) && $this->blockDataValidator->declaresBlockProperty(
+            $this->contentTypeResolver->get($resourceKey)->getTemplateType(),
+            \is_string($normalized['template'] ?? null) ? $normalized['template'] : null,
+            $blockProperty,
+        )) {
+            $normalized[$blockProperty] = [];
+        }
 
         if (!isset($normalized[$blockProperty]) || !\is_array($normalized[$blockProperty])) {
             return ['error' => \sprintf('Block property "%s" not found. Available: %s', $blockProperty, \implode(', ', $this->detectBlockProperties($normalized)))];
