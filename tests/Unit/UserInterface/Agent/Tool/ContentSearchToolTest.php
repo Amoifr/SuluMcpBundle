@@ -41,6 +41,9 @@ use Sulu\Mcp\Tests\Unit\Fixture\TestUser;
 use Sulu\Mcp\UserInterface\Agent\Tool\ContentSearchTool;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
+use Symfony\AI\Agent\Toolbox\Event\ToolCallArgumentsResolved;
+use Symfony\AI\Agent\Toolbox\EventListener\ValidateToolCallArgumentsListener;
+use Symfony\AI\Agent\Toolbox\ToolFactory\ReflectionToolFactory;
 
 /**
  * ContentSearch (final, so Prophecy can't double it directly) is real here, built over a
@@ -77,7 +80,7 @@ final class ContentSearchToolTest extends TestCase
         $contentSearch = new ContentSearch(new WebsiteSearch($engine->reveal()), $webspaceResolver, $permissionChecker->reveal(), ContentTypes::registry($this->prophesize(PageRepositoryInterface::class)->reveal(), $this->prophesize(ArticleRepositoryInterface::class)->reveal(), TestGroupProvider::singleGroup()));
         $tool = new ContentSearchTool($contentSearch);
 
-        $result = $tool('hello', 'en', 'example', 'page', 2, 10);
+        $result = $tool('hello', 'en', 'example', 'pages', 2, 10);
 
         $this->assertSame(2, $result['page']);
         $this->assertSame(10, $result['limit']);
@@ -92,5 +95,16 @@ final class ContentSearchToolTest extends TestCase
 
         $instance = $attributes[0]->newInstance();
         $this->assertSame('sulu_content_search', $instance->name);
+    }
+
+    public function testResourceKeyPassesArgumentValidation(): void
+    {
+        $definition = [...(new ReflectionToolFactory())->getTool(ContentSearchTool::class)][0];
+        $tool = (new \ReflectionClass(ContentSearchTool::class))->newInstanceWithoutConstructor();
+        $arguments = ['query' => 'hello', 'locale' => 'en', 'resourceKey' => 'pages'];
+
+        (new ValidateToolCallArgumentsListener())(new ToolCallArgumentsResolved($tool, $definition, $arguments));
+
+        $this->addToAssertionCount(1);
     }
 }

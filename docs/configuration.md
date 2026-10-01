@@ -146,8 +146,8 @@ Booleans gating high-impact tools, keyed by category. Each flag is independent â
 
 | Flag | Tools enabled when `true` |
 |------|---------------------------|
-| `delete` | `sulu_content_delete` (page/article/snippet/product via `type`), `sulu_tag_delete`, `sulu_category_delete` |
-| `publish` | `sulu_content_publish` (page/article/snippet/product via `type`), `sulu_content_unpublish` (page/article/snippet/product via `type`), `sulu_preview_link_revoke`, `sulu_page_move`, `sulu_page_reorder` |
+| `delete` | `sulu_content_delete` (pages/articles/snippets/products via `resourceKey`), `sulu_tag_delete`, `sulu_category_delete` |
+| `publish` | `sulu_content_publish` (pages/articles/snippets/products via `resourceKey`), `sulu_content_unpublish` (pages/articles/snippets/products via `resourceKey`), `sulu_preview_link_revoke`, `sulu_page_move`, `sulu_page_reorder` |
 | `block_remove` | `sulu_block_remove` |
 | `media_upload` | `sulu_media_upload` |
 
@@ -187,6 +187,22 @@ mcp:
 Deriving the first entry from `SULU_MCP_SERVER_URL` keeps it correct per environment, and the loopback entries keep local development working. A request that carries an `Origin` header is checked against the same list and rejected with `Forbidden: Invalid Origin header.` instead.
 
 `allowed_hosts: false` switches the protection off entirely. Prefer naming the host: the protection is what stops a page in a developer's browser from steering that browser into a local MCP server.
+
+## The agent tool (`symfony/ai-agent`)
+
+With `symfony/ai-agent` installed, `sulu_content_search` is also available as an agent tool. Its description and its `resourceKey` parameter list the registered resource keys. A decorator of `ai.tool_factory` fills them in when the toolbox builds the tool.
+
+An agent in `config/packages/ai.yaml` that lists the tool with its own `name` and `description` bypasses that decorator. The AI bundle builds such a tool from the agent's own memory factory, ahead of `ai.tool_factory`, so the model sees the raw `{searchableResourceKeys}` placeholder. List the tool without them to get the expanded text:
+
+```yaml
+ai:
+    agent:
+        content:
+            tools:
+                - service: 'Sulu\Mcp\UserInterface\Agent\Tool\ContentSearchTool'
+```
+
+If you need your own description, write the resource keys into it by hand. The `resourceKey` parameter description is built from the tool's `#[Schema]` attribute on this path, so it keeps the raw `{searchableResourceKeys}` placeholder as well.
 
 ## Recommended profiles
 
