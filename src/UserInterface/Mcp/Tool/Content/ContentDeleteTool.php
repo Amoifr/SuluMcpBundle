@@ -96,8 +96,7 @@ class ContentDeleteTool
 
             $extension = $this->contentTypeResolver->get($resourceKey);
 
-            // the removal deletes every locale, and each locale may resolve to another security context (a snippet or
-            // article template group), so the permissions are required for all of them
+            // each locale of a snippet or article can sit in another template group, and the removal deletes all of them
             foreach (self::contentLocales($entity, $locale) as $contentLocale) {
                 $security = $this->contentSecurityContextResolver->forEntity($resourceKey, $entity, $contentLocale);
 
@@ -135,8 +134,6 @@ class ContentDeleteTool
     }
 
     /**
-     * The requested locale, followed by every locale the entity has content in.
-     *
      * @return list<string>
      */
     private static function contentLocales(object $entity, string $locale): array

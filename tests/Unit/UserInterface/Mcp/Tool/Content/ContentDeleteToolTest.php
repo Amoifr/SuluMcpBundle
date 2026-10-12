@@ -39,6 +39,7 @@ use Sulu\Mcp\UserInterface\Mcp\Tool\Content\ContentDeleteTool;
 use Sulu\Messenger\Infrastructure\Symfony\Messenger\FlushMiddleware\EnableFlushStamp;
 use Sulu\Page\Application\Message\RemovePageMessage;
 use Sulu\Page\Domain\Model\Page;
+use Sulu\Page\Domain\Model\PageDimensionContent;
 use Sulu\Page\Domain\Repository\PageRepositoryInterface;
 use Sulu\Snippet\Application\Message\RemoveSnippetMessage;
 use Sulu\Snippet\Domain\Model\Snippet;
@@ -306,7 +307,6 @@ final class ContentDeleteToolTest extends TestCase
 
     public function testDeleteSnippetIsDeniedWithoutTheGroupOfAnotherLocale(): void
     {
-        // the reported case: "de" is in the marketing group the role holds, "en" in the default group it does not
         $this->useTwoSnippetGroups();
         $this->setupSnippetWithLocales(['en' => 'default', 'de' => 'promo']);
         $this->permissionChecker->grantingNoneExcept()->grantContext('sulu.snippet.snippets_marketing');
@@ -340,6 +340,33 @@ final class ContentDeleteToolTest extends TestCase
         );
     }
 
+    public function testDeletePageIsDeniedWithoutThePermissionOfAnotherLocale(): void
+    {
+        $this->setupPageWithLocales(['en', 'de']);
+        $this->permissionChecker->grantWhen(static fn (string $context, string $permission, ?string $locale): bool => 'en' !== $locale);
+
+        $this->messageBus->dispatch(Argument::cetera())->shouldNotBeCalled();
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('security context "sulu.webspaces.example" in locale "en"');
+
+        $this->tool->deleteContent('pages', 'uuid-1', 'de');
+    }
+
+    public function testDeleteArticleIsDeniedWithoutTheGroupOfAnotherLocale(): void
+    {
+        $this->useTwoArticleGroups();
+        $this->setupArticleWithLocales(['en' => 'default', 'de' => 'blog_article']);
+        $this->permissionChecker->grantingNoneExcept()->grantContext('sulu.article.articles_blog');
+
+        $this->messageBus->dispatch(Argument::cetera())->shouldNotBeCalled();
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('security context "sulu.article.articles" in locale "en"');
+
+        $this->tool->deleteContent('articles', 'uuid-1', 'de');
+    }
+
     /**
      * Rebuilds the tool over a two-group install: `default` (template "default") and
      * `marketing` (template "promo").
@@ -356,6 +383,25 @@ final class ContentDeleteToolTest extends TestCase
             $contentTypeResolver,
             $this->permissionChecker,
             new ContentSecurityContextResolver($contentTypeResolver),
+        );
+    }
+
+    /**
+     * Rebuilds the tool over a two-group article install: `default` (template "default") and
+     * `blog` (template "blog_article").
+     */
+    private function useTwoArticleGroups(): void
+    {
+        $groupProvider = new TestGroupProvider([
+            (new FormGroup('default', 'Default'))->withTemplate('default'),
+            (new FormGroup('blog', 'Blog'))->withTemplate('blog_article'),
+        ]);
+
+        $this->tool = new ContentDeleteTool(
+            $this->messageBus->reveal(),
+            ContentTypes::resolver($this->pageRepository->reveal(), $this->articleRepository->reveal(), $this->snippetRepository->reveal(), $groupProvider),
+            $this->permissionChecker,
+            ContentTypes::securityResolver($groupProvider),
         );
     }
 
@@ -388,6 +434,42 @@ final class ContentDeleteToolTest extends TestCase
         }
 
         $this->snippetRepository->getOneBy(Argument::cetera())->willReturn($snippet);
+    }
+
+    /**
+     * @param list<string> $locales
+     */
+    private function setupPageWithLocales(array $locales): void
+    {
+        $page = (new Page('uuid-1'))->setWebspaceKey('example');
+        $unlocalized = new PageDimensionContent($page);
+        $page->addDimensionContent($unlocalized);
+
+        foreach ($locales as $locale) {
+            $unlocalized->addAvailableLocale($locale);
+        }
+
+        $this->pageRepository->getOneBy(Argument::cetera())->willReturn($page);
+    }
+
+    /**
+     * @param array<string, string> $templateKeys template key per locale
+     */
+    private function setupArticleWithLocales(array $templateKeys): void
+    {
+        $article = new Article('uuid-1');
+        $unlocalized = new ArticleDimensionContent($article);
+        $article->addDimensionContent($unlocalized);
+
+        foreach ($templateKeys as $locale => $templateKey) {
+            $unlocalized->addAvailableLocale($locale);
+            $dimensionContent = new ArticleDimensionContent($article);
+            $dimensionContent->setLocale($locale);
+            $dimensionContent->setTemplateKey($templateKey);
+            $article->addDimensionContent($dimensionContent);
+        }
+
+        $this->articleRepository->getOneBy(Argument::cetera())->willReturn($article);
     }
 
     private function setupEntity(string $type): void
